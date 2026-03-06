@@ -6,10 +6,11 @@ import (
 	"path/filepath"
 	"seanime/internal/database/models"
 	"seanime/internal/events"
+	"seanime/internal/mediastream/cassette"
 	"seanime/internal/mediastream/optimizer"
-	"seanime/internal/mediastream/transcoder"
 	"seanime/internal/mediastream/videofile"
 	"seanime/internal/util/filecache"
+	"seanime/internal/videocore"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -18,13 +19,14 @@ import (
 
 type (
 	Repository struct {
-		transcoder         mo.Option[*transcoder.Transcoder]
+		transcoder         mo.Option[*cassette.Cassette]
 		optimizer          *optimizer.Optimizer
 		settings           mo.Option[*models.MediastreamSettings]
 		playbackManager    *PlaybackManager
 		mediaInfoExtractor *videofile.MediaInfoExtractor
 		logger             *zerolog.Logger
 		wsEventManager     events.WSEventManagerInterface
+		videoCore          *videocore.VideoCore
 		fileCacher         *filecache.Cacher
 		reqMu              sync.Mutex
 		cacheDir           string // where attachments are stored
@@ -34,6 +36,7 @@ type (
 	NewRepositoryOptions struct {
 		Logger         *zerolog.Logger
 		WSEventManager events.WSEventManagerInterface
+		VideoCore      *videocore.VideoCore
 		FileCacher     *filecache.Cacher
 	}
 )
@@ -46,12 +49,26 @@ func NewRepository(opts *NewRepositoryOptions) *Repository {
 			WSEventManager: opts.WSEventManager,
 		}),
 		settings:           mo.None[*models.MediastreamSettings](),
-		transcoder:         mo.None[*transcoder.Transcoder](),
+		transcoder:         mo.None[*cassette.Cassette](),
 		wsEventManager:     opts.WSEventManager,
+		videoCore:          opts.VideoCore,
 		fileCacher:         opts.FileCacher,
 		mediaInfoExtractor: videofile.NewMediaInfoExtractor(opts.FileCacher, opts.Logger),
 	}
 	ret.playbackManager = NewPlaybackManager(ret)
+
+	if opts.VideoCore != nil {
+		opts.VideoCore.RegisterEventCallback(func(event videocore.VideoEvent) bool {
+			switch e := event.(type) {
+			case *videocore.VideoTerminatedEvent:
+				if ret.TranscoderIsInitialized() {
+					opts.Logger.Debug().Str("clientId", e.GetClientId()).Msg("mediastream: Received VideoTerminatedEvent, killing transcoder")
+					ret.ShutdownTranscodeStream(e.GetClientId())
+				}
+			}
+			return true
+		})
+	}
 
 	return ret
 }
@@ -249,7 +266,7 @@ func (r *Repository) initializeTranscoder(settings mo.Option[*models.Mediastream
 		tc.Destroy()
 	}
 
-	r.transcoder = mo.None[*transcoder.Transcoder]()
+	r.transcoder = mo.None[*cassette.Cassette]()
 
 	// If the transcoder is not enabled, don't initialize the transcoder
 	if !settings.MustGet().TranscodeEnabled {
@@ -262,7 +279,7 @@ func (r *Repository) initializeTranscoder(settings mo.Option[*models.Mediastream
 		return false
 	}
 
-	opts := &transcoder.NewTranscoderOptions{
+	opts := &cassette.NewCassetteOptions{
 		Logger:                r.logger,
 		HwAccelKind:           settings.MustGet().TranscodeHwAccel,
 		Preset:                settings.MustGet().TranscodePreset,
@@ -272,16 +289,16 @@ func (r *Repository) initializeTranscoder(settings mo.Option[*models.Mediastream
 		TempOutDir:            r.transcodeDir,
 	}
 
-	tc, err := transcoder.NewTranscoder(opts)
+	tc, err := cassette.New(opts)
 	if err != nil {
-		r.logger.Error().Err(err).Msg("mediastream: Failed to initialize transcoder")
+		r.logger.Error().Err(err).Msg("mediastream: Failed to initialize cassette")
 		return false
 	}
 
 	r.playbackManager.mediaContainers.Clear()
 
-	r.logger.Info().Msg("mediastream: Transcoder module initialized")
-	r.transcoder = mo.Some[*transcoder.Transcoder](tc)
+	r.logger.Info().Msg("mediastream: Cassette module initialized")
+	r.transcoder = mo.Some[*cassette.Cassette](tc)
 
 	return true
 }

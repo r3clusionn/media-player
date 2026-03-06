@@ -9,6 +9,7 @@ import (
 	"seanime/internal/util/filecache"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -18,8 +19,6 @@ import (
 )
 
 type MediaInfo struct {
-	// closed if the mediainfo is ready for read. open otherwise
-	ready <-chan struct{}
 	// The sha1 of the video file
 	Sha string `json:"sha"`
 	// The internal path of the video file
@@ -62,6 +61,14 @@ type Video struct {
 	Height uint32 `json:"height"`
 	// The average bitrate of the video in bytes/s
 	Bitrate uint32 `json:"bitrate"`
+	// The pixel format
+	PixFmt string `json:"pixFmt"`
+	// The color space
+	ColorSpace string `json:"colorSpace"`
+	// The color transfer
+	ColorTransfer string `json:"colorTransfer"`
+	// The color primaries
+	ColorPrimaries string `json:"colorPrimaries"`
 }
 
 type Audio struct {
@@ -165,10 +172,17 @@ func (e *MediaInfoExtractor) GetInfo(ffprobePath, path string) (mi *MediaInfo, e
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+// ffprobeOnce ensures the binary path is set exactly once. The go-ffprobe
+// library uses a package-global variable for the path, which is racy under
+// concurrent use. Setting it via sync.Once eliminates the race.
+var ffprobeOnce sync.Once
+
 func FfprobeGetInfo(ffprobePath, path, hash string) (*MediaInfo, error) {
 
 	if ffprobePath != "" {
-		ffprobe.SetFFProbeBinPath(ffprobePath)
+		ffprobeOnce.Do(func() {
+			ffprobe.SetFFProbeBinPath(ffprobePath)
+		})
 	}
 
 	ffprobeCtx, cancel := context.WithTimeout(context.Background(), 40*time.Second)
@@ -205,13 +219,37 @@ func FfprobeGetInfo(ffprobePath, path, hash string) (*MediaInfo, error) {
 			Height:    uint32(stream.Height),
 			// ffmpeg does not report bitrate in mkv files, fallback to bitrate of the whole container
 			// (bigger than the result since it contains audio and other videos but better than nothing).
-			Bitrate: uint32(bitrate),
+			Bitrate:        uint32(bitrate),
+			PixFmt:         stream.PixFmt,
+			ColorSpace:     stream.ColorSpace,
+			ColorTransfer:  stream.ColorTransfer,
+			ColorPrimaries: stream.ColorPrimaries,
 		}
 	})
 
 	// Get the audio streams
 	mi.Audios = streamToMap(data.Streams, ffprobe.StreamAudio, func(stream *ffprobe.Stream, i uint32) Audio {
 		lang, _ := language.Parse(stream.Tags.Language)
+		// Parse channel count from the stream. This is critical for the
+		// cassette package's surround audio passthrough and for advertising
+		// the correct channel count in the HLS master playlist.
+		channels := uint32(stream.Channels)
+		if channels == 0 {
+			// Fallback: parse ChannelLayout for channel count estimation.
+			// Common layouts: "stereo" (2), "5.1" (6), "5.1(side)" (6), "7.1" (8)
+			switch {
+			case strings.Contains(stream.ChannelLayout, "7.1"):
+				channels = 8
+			case strings.Contains(stream.ChannelLayout, "5.1"):
+				channels = 6
+			case strings.Contains(stream.ChannelLayout, "stereo"):
+				channels = 2
+			case strings.Contains(stream.ChannelLayout, "mono"):
+				channels = 1
+			default:
+				channels = 2 // Safe default
+			}
+		}
 		return Audio{
 			Index:     i,
 			Title:     nullIfZero(stream.Tags.Title),
@@ -220,6 +258,7 @@ func FfprobeGetInfo(ffprobePath, path, hash string) (*MediaInfo, error) {
 			MimeCodec: streamToMimeCodec(stream),
 			IsDefault: stream.Disposition.Default != 0,
 			IsForced:  stream.Disposition.Forced != 0,
+			Channels:  channels,
 		}
 	})
 
@@ -419,7 +458,6 @@ func streamToMimeCodec(stream *ffprobe.Stream) *string {
 	case "alac":
 		ret := "alac"
 		return &ret
-
 	default:
 		return nil
 	}

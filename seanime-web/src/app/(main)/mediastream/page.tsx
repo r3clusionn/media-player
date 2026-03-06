@@ -105,11 +105,13 @@ function MediastreamPage() {
     const [subsToken, setSubsToken] = React.useState("")
     const [attToken, setAttToken] = React.useState("")
     const [directToken, setDirectToken] = React.useState("")
+    const [transcodeToken, setTranscodeToken] = React.useState("")
     React.useEffect(() => {
         (async () => {
             setSubsToken(await getHMACTokenQueryParam("/api/v1/mediastream/subs", "?"))
             setAttToken(await getHMACTokenQueryParam("/api/v1/mediastream/att", "?"))
             setDirectToken(await getHMACTokenQueryParam("/api/v1/mediastream/direct", "?"))
+            setTranscodeToken(await getHMACTokenQueryParam("/api/v1/mediastream/transcode", "?"))
         })()
     }, [getHMACTokenQueryParam])
 
@@ -188,6 +190,8 @@ function MediastreamPage() {
             // Append HMAC token for direct play URLs
             if (mediaContainer.streamType === "direct" && directToken) {
                 _newUrl += directToken
+            } else if (mediaContainer.streamType === "transcode" && transcodeToken) {
+                _newUrl += transcodeToken
             }
             log.info("Setting stream URL", _newUrl)
             changeUrl(_newUrl)
