@@ -69,6 +69,7 @@ func (h *Handler) FeaturesMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			{"/api/v1/torrent-client", h.App.FeatureManager.IsDisabled(core.ManageAutoDownloader), UpdateMethods, Empty},
 			{"/api/v1/download-torrent-file", h.App.FeatureManager.IsDisabled(core.ManageAutoDownloader), UpdateMethods, Empty},
 			{"/api/v1/auto-downloader", h.App.FeatureManager.IsDisabled(core.ManageAutoDownloader), UpdateMethods, Empty},
+			{"/api/v1/auto-select/profile", h.App.FeatureManager.IsDisabled(core.ManageAutoDownloader), UpdateMethods, Empty},
 			// onlinestream
 			{"/api/v1/onlinestream", h.App.FeatureManager.IsDisabled(core.OnlineStreaming), UpdateMethods, []string{"/api/v1/onlinestream/search", "/api/v1/onlinestream/manual-mapping", "/api/v1/onlinestream/get-mapping", "/api/v1/onlinestream/remove-mapping"}},
 			{"/api/v1/onlinestream/search", h.App.FeatureManager.IsDisabled(core.ManageMangaSource), UpdateMethods, Empty},
@@ -76,7 +77,7 @@ func (h *Handler) FeaturesMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			{"/api/v1/onlinestream/get-mapping", h.App.FeatureManager.IsDisabled(core.ManageMangaSource), UpdateMethods, Empty},
 			{"/api/v1/onlinestream/remove-mapping", h.App.FeatureManager.IsDisabled(core.ManageMangaSource), UpdateMethods, Empty},
 			// custom source
-			//{"/api/v1/custom-source", h.App.FeatureManager.IsDisabled(core.ManageMangaSource), UpdateMethods, Empty},
+			{"/api/v1/custom-source", h.App.FeatureManager.IsDisabled(core.ManageExtensions), UpdateMethods, Empty},
 			// nakama
 			{"/api/v1/nakama", h.App.FeatureManager.IsDisabled(core.ManageNakama), UpdateMethods, Empty},
 			// open in explorer
@@ -90,6 +91,8 @@ func (h *Handler) FeaturesMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			// extensions
 			{"/api/v1/extensions", h.App.FeatureManager.IsDisabled(core.ManageExtensions), UpdateMethods, []string{"/api/v1/extensions/all"}},
 			{"/api/v1/extensions/updates", h.App.FeatureManager.IsDisabled(core.ManageExtensions), Empty, Empty},
+			{"/api/v1/extensions/plugin-settings", h.App.FeatureManager.IsDisabled(core.PluginTray), UpdateMethods, Empty},
+			{"/api/v1/extensions/plugin-permissions", h.App.FeatureManager.IsDisabled(core.PluginTray), UpdateMethods, Empty},
 			// proxy
 			{"/api/v1/proxy", h.App.FeatureManager.IsDisabled(core.Proxy), Empty, Empty},
 			{"/api/v1/image-proxy", h.App.FeatureManager.IsDisabled(core.Proxy), Empty, Empty},
@@ -104,6 +107,8 @@ func (h *Handler) FeaturesMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			{"/api/v1/directstream", h.App.FeatureManager.IsDisabled(core.WatchingLocalAnime), UpdateMethods, Empty},
 			{"/api/v1/mediastream/file", h.App.FeatureManager.IsDisabled(core.WatchingLocalAnime), Empty, Empty},
 			{"/api/v1/mediastream", h.App.FeatureManager.IsDisabled(core.WatchingLocalAnime), Empty, Empty},
+			// continuity
+			{"/api/v1/continuity", h.App.FeatureManager.IsDisabled(core.WatchingLocalAnime), UpdateMethods, Empty},
 			// manga
 			{"/api/v1/manga", h.App.FeatureManager.IsDisabled(core.ManageMangaSource), UpdateMethods, []string{"/api/v1/manga/pages", "/api/v1/manga/chapters"}},
 			{"/api/v1/manga", h.App.FeatureManager.IsDisabled(core.Reading), UpdateMethods, Empty},
@@ -111,6 +116,7 @@ func (h *Handler) FeaturesMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 			{"/api/v1/manga/download", h.App.FeatureManager.IsDisabled(core.ManageMangaDownloads), UpdateMethods, Empty},
 			// local anime library
 			{"/api/v1/metadata-provider", h.App.FeatureManager.IsDisabled(core.ManageLocalAnimeLibrary), UpdateMethods, Empty},
+			{"/api/v1/metadata/parent", h.App.FeatureManager.IsDisabled(core.ManageLocalAnimeLibrary), UpdateMethods, Empty},
 			{"/api/v1/library", h.App.FeatureManager.IsDisabled(core.ManageLocalAnimeLibrary), UpdateMethods, []string{"/api/v1/library/anime-entry/update-progress", "/api/v1/library/anime-entry/update-repeat"}},
 			{"/api/v1/library/explorer", h.App.FeatureManager.IsDisabled(core.ManageLocalAnimeLibrary), UpdateMethods, Empty},
 		}
