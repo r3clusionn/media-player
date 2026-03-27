@@ -671,7 +671,9 @@ func (fh *FileHydrator) precompileRules() {
 	})
 
 	if fh.Config == nil || len(fh.Config.Hydration.Rules) == 0 {
-		fh.ScanLogger.LogMatcher(zerolog.DebugLevel).Msg("Zero config")
+		if fh.ScanLogger != nil {
+			fh.ScanLogger.LogMatcher(zerolog.DebugLevel).Msg("Zero config")
+		}
 		return
 	}
 
@@ -684,7 +686,7 @@ func (fh *FileHydrator) precompileRules() {
 		r := &compiledHydrationRule{
 			regex:        nil,
 			rule:         rule,
-			fileRulesRgx: map[string]*compiledHydrationFileRule{},
+			fileRulesRgx: make(map[string]*compiledHydrationFileRule),
 		}
 
 		if rule.Pattern != "" {
