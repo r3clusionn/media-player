@@ -43,6 +43,7 @@ import { vc_skipOpeningTime } from "@/app/(main)/_features/video-core/video-core
 import { vc_skipEndingTime } from "@/app/(main)/_features/video-core/video-core-atoms"
 import { VideoCoreAudioManager } from "@/app/(main)/_features/video-core/video-core-audio"
 import { VideoCoreAudioMenu } from "@/app/(main)/_features/video-core/video-core-audio-menu"
+import { CastPlaybackControls, useCastSubtitleRelay, vc_isCasting, VideoCoreCastButton } from "@/app/(main)/_features/video-core/video-core-cast"
 import {
     VideoCoreControlBar,
     VideoCoreFullscreenButton,
@@ -314,6 +315,10 @@ const PlayerContent = React.memo<PlayerContentProps>(({
     const [autoPlay] = useAtom(vc_autoPlayVideoAtom)
     const [muted] = useAtom(vc_storedMutedAtom)
     const showStats = useAtomValue(vc_showStatsForNerdsAtom)
+    const isCastingActive = useAtomValue(vc_isCasting)
+
+    // Relay subtitles to Chromecast when casting
+    useCastSubtitleRelay()
 
     return (
         <>
@@ -522,6 +527,15 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                             </div>
                         )}
 
+                        {isCastingActive && (
+                            <div
+                                data-vc-element="cast-overlay"
+                                className="absolute bottom-20 left-4 right-4 z-[60]"
+                            >
+                                <CastPlaybackControls />
+                            </div>
+                        )}
+
                         {!isMobile ? <VideoCoreControlBar
                             timeRange={<VideoCoreTimeRange chapterCues={chapterCues ?? []} />}
                         >
@@ -536,6 +550,7 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                             <VideoCoreResolutionMenu state={state} onVideoSourceChange={onVideoSourceChange} />
                             <VideoCoreSubtitleMenu inline={inline} />
                             <VideoCoreAudioMenu />
+                            <VideoCoreCastButton />
                             <VideoCorePipButton />
                             <VideoCoreFullscreenButton />
                         </VideoCoreControlBar> : <VideoCoreMobileControlBar
@@ -548,6 +563,7 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                                 <VideoCoreResolutionMenu state={state} onVideoSourceChange={onVideoSourceChange} />
                                 <VideoCoreSubtitleMenu inline={inline} />
                                 <VideoCoreAudioMenu />
+                                <VideoCoreCastButton />
                                 <VideoCorePipButton />
                                 <VideoCoreVolumeButton />
                             </>}
