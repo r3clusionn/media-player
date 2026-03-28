@@ -127,13 +127,8 @@ func (h *Handler) HandleTorrentClientGetFiles(c echo.Context) error {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Get the torrent's provider extension
-	providerExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(b.Provider)
-	if !ok {
-		return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-	}
 	// Get the magnet
-	magnet, err := providerExtension.GetProvider().GetTorrentMagnetLink(b.Torrent)
+	magnet, err := h.App.TorrentRepository.ResolveMagnetLink(b.Torrent)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -256,13 +251,8 @@ func (h *Handler) HandleTorrentClientDownload(c echo.Context) error {
 		// Get magnets
 		magnets := make([]string, 0)
 		for _, t := range b.Torrents {
-			// Get the torrent's provider extension
-			providerExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(t.Provider)
-			if !ok {
-				return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-			}
 			// Get the torrent magnet link
-			magnet, err := providerExtension.GetProvider().GetTorrentMagnetLink(&t)
+			magnet, err := h.App.TorrentRepository.ResolveMagnetLink(&t)
 			if err != nil {
 				return h.RespondWithError(c, err)
 			}

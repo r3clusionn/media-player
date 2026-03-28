@@ -18,8 +18,18 @@ export function SeaCommandList() {
             show: true,
         },
         {
+            command: "library",
+            description: "Find in your anime library",
+            show: true,
+        },
+        {
             command: "search",
             description: "Search on AniList",
+            show: true,
+        },
+        {
+            command: "magnet",
+            description: "Stream or download via magnet link",
             show: true,
         },
         {

@@ -25,7 +25,7 @@ export const CommandAnatomy = defineStyleAnatomy({
     ]),
     list: cva([
         "UI-Command__list",
-        "max-h-[300px] overflow-y-auto overflow-x-hidden",
+        "max-h-[300px] overflow-y-auto overflow-x-hidden outline-none",
     ]),
     empty: cva([
         "UI-Command__empty",

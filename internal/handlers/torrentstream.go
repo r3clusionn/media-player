@@ -88,12 +88,7 @@ func (h *Handler) HandleGetTorrentstreamTorrentFilePreviews(c echo.Context) erro
 		return h.RespondWithError(c, err)
 	}
 
-	providerExtension, ok := h.App.ExtensionRepository.GetAnimeTorrentProviderExtensionByID(b.Torrent.Provider)
-	if !ok {
-		return h.RespondWithError(c, errors.New("torrentstream: Torrent provider extension not found"))
-	}
-
-	magnet, err := providerExtension.GetProvider().GetTorrentMagnetLink(b.Torrent)
+	magnet, err := h.App.TorrentRepository.ResolveMagnetLink(b.Torrent)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
