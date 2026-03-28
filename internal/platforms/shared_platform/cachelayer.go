@@ -327,8 +327,9 @@ func (c *CacheLayer) checkAndUpdateWorkingState(err error) {
 			return
 		}
 
+		errStr := strings.ToLower(err.Error())
 		// handle invalid token
-		if strings.Contains(err.Error(), "Invalid token") {
+		if strings.Contains(errStr, "invalid token") || strings.Contains(errStr, "user not found") {
 			events.GlobalWSEventManager.SendEvent(events.ServerLoggedOutAnilist, "Your AniList session has expired. Please log in again.")
 			if c.logoutFunc != nil {
 				go c.logoutFunc()

@@ -179,9 +179,9 @@ var videoProxyClient = &http.Client{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
 		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 		ForceAttemptHTTP2:   false, // Fixes issues on Linux
 	},
-	Timeout: 60 * time.Second,
 }
 
 func (s *DebridStream) GetStreamHandler() http.Handler {
