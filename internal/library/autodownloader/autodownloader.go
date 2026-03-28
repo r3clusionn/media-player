@@ -323,11 +323,38 @@ func (ad *AutoDownloader) checkForNewEpisodes(ctx context.Context, isSimulation 
 
 // runData holds all data needed for checking new episodes
 type runData struct {
-	rules            []*anime.AutoDownloaderRule
-	profiles         []*anime.AutoDownloaderProfile
-	localFileWrapper *anime.LocalFileWrapper
-	torrents         []*NormalizedTorrent
-	existingTorrents []*torrent_client.Torrent
+	rules                 []*anime.AutoDownloaderRule
+	profiles              []*anime.AutoDownloaderProfile
+	localFileWrapper      *anime.LocalFileWrapper
+	torrents              []*NormalizedTorrent
+	existingTorrentHashes map[string]struct{}
+}
+
+func normalizeTorrentHash(hash string) string {
+	return strings.ToLower(strings.TrimSpace(hash))
+}
+
+func addTorrentHash(hashSet map[string]struct{}, hash string) {
+	normalizedHash := normalizeTorrentHash(hash)
+	if normalizedHash == "" {
+		return
+	}
+
+	hashSet[normalizedHash] = struct{}{}
+}
+
+func buildExistingTorrentHashes(existingTorrents []*torrent_client.Torrent, existingDebridTorrents []*debrid.TorrentItem) map[string]struct{} {
+	hashes := make(map[string]struct{}, len(existingTorrents)+len(existingDebridTorrents))
+
+	for _, item := range existingTorrents {
+		addTorrentHash(hashes, item.Hash)
+	}
+
+	for _, item := range existingDebridTorrents {
+		addTorrentHash(hashes, item.Hash)
+	}
+
+	return hashes
 }
 
 // fetchRunData fetches all data needed for checking new episodes
@@ -402,12 +429,23 @@ func (ad *AutoDownloader) fetchRunData(ctx context.Context, ruleIDs ...uint) (*r
 		existingTorrents, _ = ad.torrentClientRepository.GetList(&torrent_client.GetListOptions{})
 	}
 
+	var existingDebridTorrents []*debrid.TorrentItem
+	if ad.settings.UseDebrid && ad.debridClientRepository != nil && ad.debridClientRepository.HasProvider() {
+		provider, err := ad.debridClientRepository.GetProvider()
+		if err == nil {
+			existingDebridTorrents, err = provider.GetTorrents()
+			if err != nil {
+				ad.logger.Debug().Err(err).Msg("autodownloader: Failed to get debrid torrents for duplicate check")
+			}
+		}
+	}
+
 	return &runData{
-		rules:            rules,
-		profiles:         profiles,
-		localFileWrapper: lfWrapper,
-		torrents:         torrents,
-		existingTorrents: existingTorrents,
+		rules:                 rules,
+		profiles:              profiles,
+		localFileWrapper:      lfWrapper,
+		torrents:              torrents,
+		existingTorrentHashes: buildExistingTorrentHashes(existingTorrents, existingDebridTorrents),
 	}, nil
 }
 
@@ -444,7 +482,7 @@ func (ad *AutoDownloader) groupTorrentCandidates(data *runData) map[uint]map[int
 		// Process each torrent
 		for _, t := range data.torrents {
 			// Skip if already exists
-			if ad.isTorrentAlreadyDownloaded(t, data.existingTorrents) {
+			if ad.isTorrentAlreadyDownloaded(t, data.existingTorrentHashes) {
 				continue
 			}
 
@@ -495,14 +533,10 @@ func (ad *AutoDownloader) getRuleProfiles(rule *anime.AutoDownloaderRule, profil
 	return ruleProfiles
 }
 
-// isTorrentAlreadyDownloaded checks if a torrent already exists in the client
-func (ad *AutoDownloader) isTorrentAlreadyDownloaded(t *NormalizedTorrent, existingTorrents []*torrent_client.Torrent) bool {
-	for _, et := range existingTorrents {
-		if et.Hash == t.InfoHash {
-			return true
-		}
-	}
-	return false
+// isTorrentAlreadyDownloaded checks if a torrent already exists in the client or debrid service.
+func (ad *AutoDownloader) isTorrentAlreadyDownloaded(t *NormalizedTorrent, existingTorrentHashes map[string]struct{}) bool {
+	_, exists := existingTorrentHashes[normalizeTorrentHash(t.InfoHash)]
+	return exists
 }
 
 // isEpisodeAlreadyHandled checks if an episode is already in the library or queue but not delayed
@@ -1097,6 +1131,7 @@ downloadScope:
 			// Add the torrent to the debrid provider and queue it
 			_, err := ad.debridClientRepository.AddAndQueueTorrent(debrid.AddTorrentOptions{
 				MagnetLink:   magnet,
+				InfoHash:     t.InfoHash,
 				SelectFileId: "all", // RD-only, select all files
 			}, rule.Destination, rule.MediaId)
 			if err != nil {
@@ -1115,6 +1150,7 @@ downloadScope:
 			// Add the torrent to the debrid provider
 			_, err = debridProvider.AddTorrent(debrid.AddTorrentOptions{
 				MagnetLink:   magnet,
+				InfoHash:     t.InfoHash,
 				SelectFileId: "all", // RD-only, select all files
 			})
 			if err != nil {

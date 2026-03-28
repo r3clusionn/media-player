@@ -97,6 +97,7 @@ func (h *Handler) HandleDebridAddTorrents(c echo.Context) error {
 		// Add the torrent to the debrid service
 		_, err = h.App.DebridClientRepository.AddAndQueueTorrent(debrid.AddTorrentOptions{
 			MagnetLink:   magnet,
+			InfoHash:     torrent.InfoHash,
 			SelectFileId: "all",
 		}, b.Destination, b.Media.ID)
 		if err != nil {

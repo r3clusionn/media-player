@@ -102,6 +102,14 @@ func TestAutoSelect_Filter(t *testing.T) {
 			expected: []string{t8.Name}, // assuming habari detects Web-DL properly or fallback check works
 		},
 		{
+			name: "Source token should not match inside another word",
+			profile: &anime.AutoSelectProfile{
+				RequireSource:    true,
+				PreferredSources: []string{"CR"},
+			},
+			expected: []string{},
+		},
+		{
 			name: "Dual audio only",
 			profile: &anime.AutoSelectProfile{
 				MultipleAudioPreference: anime.AutoSelectPreferenceOnly,
@@ -241,6 +249,78 @@ func TestAutoSelect_Sort(t *testing.T) {
 			assert.Equal(t, tt.expected, sortedNames)
 		})
 	}
+}
+
+func TestAutoSelect_Filter_SourceTokenDoesNotMatchInsideWord(t *testing.T) {
+	s := newTestAutoSelect()
+
+	torrents := []*hibiketorrent.AnimeTorrent{
+		{Name: "Rooster Fighter - 01 A Rooster Among Cranes 1080p WEB-DL.mkv", Seeders: 50},
+	}
+
+	filtered := s.filter(torrents, &anime.AutoSelectProfile{
+		RequireSource:    true,
+		PreferredSources: []string{"CR"},
+	})
+
+	assert.Empty(t, filtered)
+}
+
+func TestAutoSelect_Sort_OrderedPreferencesBeatSoftBonuses(t *testing.T) {
+	s := newTestAutoSelect()
+
+	preferred := &hibiketorrent.AnimeTorrent{
+		Name:     "[ToonsHub] Show - 01 1080p CR WEB-DL AAC2.0 H.264 (Multi-Subs).mkv",
+		Seeders:  50,
+		Provider: "catnoise",
+	}
+	lowerPriorityButBonusHeavy := &hibiketorrent.AnimeTorrent{
+		Name:          "Show - 01 1080p DSNP WEB-DL DUAL AAC2.0 H.264-VARYG (Dual-Audio, Multi-Subs).mkv",
+		Seeders:       100,
+		Provider:      "catnoise",
+		IsBestRelease: true,
+	}
+
+	torrents := []*hibiketorrent.AnimeTorrent{lowerPriorityButBonusHeavy, preferred}
+	profile := &anime.AutoSelectProfile{
+		Providers:             []string{"catnoise"},
+		ReleaseGroups:         []string{"ToonsHub", "VARYG"},
+		Resolutions:           []string{"1080p"},
+		PreferredCodecs:       []string{"AVC, x264, H.264, H264, H 264"},
+		PreferredSources:      []string{"CR", "DSNP"},
+		BestReleasePreference: anime.AutoSelectPreferencePrefer,
+	}
+
+	s.sort(torrents, profile)
+
+	assert.Equal(t, []string{preferred.Name, lowerPriorityButBonusHeavy.Name}, []string{torrents[0].Name, torrents[1].Name})
+}
+
+func TestAutoSelect_Sort_StrongerPrimaryMatchCanBeatHigherReleaseGroup(t *testing.T) {
+	s := newTestAutoSelect()
+
+	higherReleaseGroupButLowerQuality := &hibiketorrent.AnimeTorrent{
+		Name:     "[ToonsHub] Show - 01 720p CR WEB-DL AAC2.0 H.264.mkv",
+		Seeders:  80,
+		Provider: "catnoise",
+	}
+	lowerReleaseGroupButHigherResolution := &hibiketorrent.AnimeTorrent{
+		Name:     "Show - 01 1080p DSNP WEB-DL AAC2.0 H.264-VARYG.mkv",
+		Seeders:  40,
+		Provider: "catnoise",
+	}
+
+	torrents := []*hibiketorrent.AnimeTorrent{higherReleaseGroupButLowerQuality, lowerReleaseGroupButHigherResolution}
+	profile := &anime.AutoSelectProfile{
+		ReleaseGroups:    []string{"ToonsHub", "VARYG"},
+		Resolutions:      []string{"1080p"},
+		PreferredCodecs:  []string{"AVC, x264, H.264, H264, H 264"},
+		PreferredSources: []string{"CR", "DSNP"},
+	}
+
+	s.sort(torrents, profile)
+
+	assert.Equal(t, []string{lowerReleaseGroupButHigherResolution.Name, higherReleaseGroupButLowerQuality.Name}, []string{torrents[0].Name, torrents[1].Name})
 }
 
 func TestAutoSelect_SmartCachedPrioritization(t *testing.T) {

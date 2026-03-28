@@ -2,13 +2,14 @@ package transmission
 
 import (
 	"context"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/hekmon/transmissionrpc/v3"
-	"github.com/stretchr/testify/assert"
 	"seanime/internal/test_utils"
 	"seanime/internal/util"
 	"testing"
 	"time"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/hekmon/transmissionrpc/v3"
+	"github.com/stretchr/testify/assert"
 )
 
 //func TestGetActiveTorrents(t *testing.T) {
@@ -44,14 +45,14 @@ func TestGetFiles(t *testing.T) {
 	}{
 		{
 			name:            "[EMBER] Demon Slayer (2023) (Season 3)",
-			url:             "https://animetosho.org/view/ember-demon-slayer-2023-season-3-bdrip-1080p.n1778316",
+			url:             "",
 			magnet:          "",
 			mediaId:         145139,
 			expectedNbFiles: 11,
 		},
 		{
 			name:            "[Tenrai-Sensei] Kakegurui (Season 1-2 + OVAs)",
-			url:             "https://nyaa.si/view/1553978",
+			url:             "",
 			magnet:          "",
 			mediaId:         98314,
 			expectedNbFiles: 27,

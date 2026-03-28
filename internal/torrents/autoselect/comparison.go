@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	scoreBestReleaseBase   = 200
 	scoreResolutionBase    = 100
 	scoreResolutionDecay   = 10
 	scoreProviderBase      = 5
@@ -35,6 +34,8 @@ type candidate struct {
 	torrent   *hibiketorrent.AnimeTorrent
 	parsed    *habari.Metadata
 	lowerName string
+	priority  int
+	bonus     int
 	score     int
 }
 
@@ -152,6 +153,36 @@ func checkPreference(condition bool, preference anime.AutoSelectPreference) bool
 	return true
 }
 
+func isTokenChar(char byte) bool {
+	return (char >= 'a' && char <= 'z') || (char >= '0' && char <= '9')
+}
+
+func containsBoundedTerm(lowerValue string, term string) bool {
+	lowerTerm := strings.ToLower(strings.TrimSpace(term))
+	if lowerTerm == "" {
+		return false
+	}
+
+	searchFrom := 0
+	for {
+		idx := strings.Index(lowerValue[searchFrom:], lowerTerm)
+		if idx == -1 {
+			return false
+		}
+
+		idx += searchFrom
+		end := idx + len(lowerTerm)
+
+		leftBoundary := idx == 0 || !isTokenChar(lowerValue[idx-1])
+		rightBoundary := end == len(lowerValue) || !isTokenChar(lowerValue[end])
+		if leftBoundary && rightBoundary {
+			return true
+		}
+
+		searchFrom = idx + 1
+	}
+}
+
 func (s *AutoSelect) filterCandidates(candidates []*candidate, profile *anime.AutoSelectProfile) []*candidate {
 	if profile == nil {
 		return candidates
@@ -224,7 +255,7 @@ func (s *AutoSelect) filterCandidates(candidates []*candidate, profile *anime.Au
 				}
 			} else { // Fallback to string matching
 				for _, lang := range preferredLanguages {
-					if len(lang) > 3 && strings.Contains(c.lowerName, strings.ToLower(lang)) {
+					if len(lang) > 3 && containsBoundedTerm(c.lowerName, lang) {
 						foundLang = true
 						break
 					}
@@ -258,7 +289,7 @@ func (s *AutoSelect) filterCandidates(candidates []*candidate, profile *anime.Au
 					foundCodec = true
 					break
 				}
-				if strings.Contains(c.lowerName, strings.ToLower(codec)) {
+				if containsBoundedTerm(c.lowerName, codec) {
 					foundCodec = true
 					break
 				}
@@ -278,7 +309,7 @@ func (s *AutoSelect) filterCandidates(candidates []*candidate, profile *anime.Au
 					foundSource = true
 					break
 				}
-				if strings.Contains(c.lowerName, strings.ToLower(source)) {
+				if containsBoundedTerm(c.lowerName, source) {
 					foundSource = true
 					break
 				}
@@ -306,12 +337,21 @@ func (s *AutoSelect) filterCandidates(candidates []*candidate, profile *anime.Au
 
 func (s *AutoSelect) sortCandidates(candidates []*candidate, profile *anime.AutoSelectProfile) {
 	for _, c := range candidates {
-		c.score = s.calculateScore(c, profile)
+		c.priority, c.bonus = s.calculateScoreBreakdown(c, profile)
+		c.score = c.priority + c.bonus
 	}
 
 	slices.SortStableFunc(candidates, func(a, b *candidate) int {
+		if a.priority != b.priority {
+			return cmp.Compare(b.priority, a.priority)
+		}
+
+		if a.bonus != b.bonus {
+			return cmp.Compare(b.bonus, a.bonus)
+		}
+
 		if a.score != b.score {
-			return cmp.Compare(b.score, a.score) // Higher score first
+			return cmp.Compare(b.score, a.score)
 		}
 
 		// If the scores are the same, sort by seeders
@@ -325,7 +365,7 @@ func (s *AutoSelect) sortCandidates(candidates []*candidate, profile *anime.Auto
 func (s *AutoSelect) smartCachedPrioritization(
 	torrents []*hibiketorrent.AnimeTorrent,
 	candidates []*candidate,
-	profile *anime.AutoSelectProfile,
+	_ *anime.AutoSelectProfile,
 	postSearchSort func([]*hibiketorrent.AnimeTorrent) []*TorrentWithCacheStatus,
 ) []*hibiketorrent.AnimeTorrent {
 
@@ -395,28 +435,23 @@ func (s *AutoSelect) smartCachedPrioritization(
 }
 
 func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfile) int {
-	score := 0
+	priority, bonus := s.calculateScoreBreakdown(c, profile)
+	return priority + bonus
+}
+
+func (s *AutoSelect) calculateScoreBreakdown(c *candidate, profile *anime.AutoSelectProfile) (priority int, bonus int) {
 	parsed := c.parsed
 	t := c.torrent
 
-	// Boost by provider order
-
 	if profile == nil {
-		return score
+		return 0, 0
 	}
-
-	//// Awlays best releases as a base line if user doesn't reject them
-	//if (profile.BestReleasePreference != anime.AutoSelectPreferenceAvoid && profile.BestReleasePreference != anime.AutoSelectPreferenceNever) &&
-	//	c.torrent.IsBestRelease && (t.Seeders == -1 || t.Seeders > 2) {
-	//	// boost only if user isn't looking for low resolutions
-	//	score += scoreBestReleaseBase
-	//}
 
 	// Resolution
 	if len(profile.Resolutions) > 0 {
 		for i, res := range profile.Resolutions {
 			if strings.EqualFold(parsed.VideoResolution, res) {
-				score += scoreResolutionBase - (i * scoreResolutionDecay)
+				priority += scoreResolutionBase - (i * scoreResolutionDecay)
 				break
 			}
 		}
@@ -426,7 +461,7 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	if len(profile.Providers) > 0 {
 		for i, provider := range profile.Providers {
 			if strings.EqualFold(t.Provider, provider) {
-				score += scoreProviderBase - (i * scoreProviderDecay)
+				priority += scoreProviderBase - (i * scoreProviderDecay)
 				break
 			}
 		}
@@ -436,7 +471,7 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	if len(profile.ReleaseGroups) > 0 {
 		for i, group := range profile.ReleaseGroups {
 			if strings.EqualFold(parsed.ReleaseGroup, group) {
-				score += scoreReleaseGroupBase - (i * scoreReleaseGroupDecay)
+				priority += scoreReleaseGroupBase - (i * scoreReleaseGroupDecay)
 				break
 			}
 		}
@@ -445,6 +480,7 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	// Codec
 	if len(profile.PreferredCodecs) > 0 {
 		for i, codecs := range profile.PreferredCodecs {
+			matched := false
 			for _, codec := range strings.Split(codecs, ",") {
 				codec = strings.TrimSpace(codec)
 				if slices.ContainsFunc(parsed.VideoTerm, func(vt string) bool {
@@ -452,14 +488,18 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 				}) || slices.ContainsFunc(parsed.AudioTerm, func(at string) bool {
 					return strings.EqualFold(at, codec)
 				}) {
-					score += scoreCodecBase - (i * scoreCodecDecay)
+					priority += scoreCodecBase - (i * scoreCodecDecay)
+					matched = true
 					break
 				}
-				// Fallback check
-				if strings.Contains(c.lowerName, strings.ToLower(codec)) {
-					score += scoreCodecBase - (i * scoreCodecDecay)
+				if containsBoundedTerm(c.lowerName, codec) {
+					priority += scoreCodecBase - (i * scoreCodecDecay)
+					matched = true
 					break
 				}
+			}
+			if matched {
+				break
 			}
 		}
 	}
@@ -467,18 +507,24 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	// Source
 	if len(profile.PreferredSources) > 0 {
 		for i, sources := range profile.PreferredSources {
+			matched := false
 			for _, source := range strings.Split(sources, ",") {
 				source = strings.TrimSpace(source)
 				if slices.ContainsFunc(parsed.Source, func(src string) bool {
 					return strings.EqualFold(src, source)
 				}) {
-					score += scoreSourceBase - (i * scoreSourceDecay)
+					priority += scoreSourceBase - (i * scoreSourceDecay)
+					matched = true
 					break
 				}
-				if strings.Contains(c.lowerName, strings.ToLower(source)) {
-					score += scoreSourceBase - (i * scoreSourceDecay)
+				if containsBoundedTerm(c.lowerName, source) {
+					priority += scoreSourceBase - (i * scoreSourceDecay)
+					matched = true
 					break
 				}
+			}
+			if matched {
+				break
 			}
 		}
 	}
@@ -486,14 +532,19 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	// Language
 	if len(profile.PreferredLanguages) > 0 {
 		for i, languages := range profile.PreferredLanguages {
+			matched := false
 			for _, lang := range strings.Split(languages, ",") {
 				lang = strings.TrimSpace(lang)
 				if slices.ContainsFunc(parsed.Language, func(pl string) bool {
 					return strings.EqualFold(pl, lang)
-				}) {
-					score += scoreLanguageBase - (i * scoreLanguageDecay)
+				}) || containsBoundedTerm(c.lowerName, lang) {
+					priority += scoreLanguageBase - (i * scoreLanguageDecay)
+					matched = true
 					break
 				}
+			}
+			if matched {
+				break
 			}
 		}
 	}
@@ -501,38 +552,38 @@ func (s *AutoSelect) calculateScore(c *candidate, profile *anime.AutoSelectProfi
 	// Multiple audio preference (prefer/avoid)
 	isMultiAudio := containsMultiOrDual(parsed.AudioTerm)
 	if profile.MultipleAudioPreference == anime.AutoSelectPreferencePrefer && isMultiAudio {
-		score += scoreMultiAudio
+		bonus += scoreMultiAudio
 	}
 	if profile.MultipleAudioPreference == anime.AutoSelectPreferenceAvoid && isMultiAudio {
-		score -= scoreMultiAudio
+		bonus -= scoreMultiAudio
 	}
 
 	// Multiple subs preference (prefer/avoid)
 	isMultiSubs := containsMultiOrDual(parsed.Subtitles)
 	if profile.MultipleSubsPreference == anime.AutoSelectPreferencePrefer && isMultiSubs {
-		score += scoreMultiSubs
+		bonus += scoreMultiSubs
 	}
 	if profile.MultipleSubsPreference == anime.AutoSelectPreferenceAvoid && isMultiSubs {
-		score -= scoreMultiSubs
+		bonus -= scoreMultiSubs
 	}
 
 	// Batch preference (prefer/avoid)
 	isBatch := t.IsBatch
 	if profile.BatchPreference == anime.AutoSelectPreferencePrefer && isBatch {
-		score += scoreBatch
+		bonus += scoreBatch
 	}
 	if profile.BatchPreference == anime.AutoSelectPreferenceAvoid && isBatch {
-		score -= scoreBatch
+		bonus -= scoreBatch
 	}
 
 	// Best release preference (prefer/avoid)
 	isBestRelease := t.IsBestRelease && (t.Seeders == -1 || t.Seeders > 2)
 	if profile.BestReleasePreference == anime.AutoSelectPreferencePrefer && isBestRelease {
-		score += scoreBestRelease
+		bonus += scoreBestRelease
 	}
 	if profile.BestReleasePreference == anime.AutoSelectPreferenceAvoid && isBestRelease {
-		score -= scoreBestRelease
+		bonus -= scoreBestRelease
 	}
 
-	return score
+	return priority, bonus
 }

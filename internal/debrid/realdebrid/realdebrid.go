@@ -289,7 +289,7 @@ func (t *RealDebrid) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
 		torrents, err := t.getTorrents(false)
 		if err == nil {
 			for _, torrent := range torrents {
-				if torrent.Hash == opts.InfoHash {
+				if strings.EqualFold(torrent.Hash, opts.InfoHash) {
 					t.logger.Debug().Str("torrentId", torrent.ID).Msg("realdebrid: Torrent already added")
 					torrentId = torrent.ID
 					break

@@ -5,6 +5,7 @@ import (
 	"seanime/internal/api/anilist"
 	"seanime/internal/database/db_bridge"
 	"seanime/internal/database/models"
+	"seanime/internal/debrid/debrid"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
 	"seanime/internal/test_utils"
@@ -233,14 +234,26 @@ func TestGetRuleProfiles(t *testing.T) {
 	}
 }
 
+func TestBuildExistingTorrentHashes(t *testing.T) {
+	hashes := buildExistingTorrentHashes(
+		[]*torrent_client.Torrent{{Hash: " hash1 "}, {Hash: "HASH2"}},
+		[]*debrid.TorrentItem{{Hash: "hash3"}, {Hash: "HaSh4"}, {Hash: ""}},
+	)
+
+	assert.Len(t, hashes, 4)
+	assert.Contains(t, hashes, "hash1")
+	assert.Contains(t, hashes, "hash2")
+	assert.Contains(t, hashes, "hash3")
+	assert.Contains(t, hashes, "hash4")
+}
+
 func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 	ad := &AutoDownloader{}
 
-	existingTorrents := []*torrent_client.Torrent{
-		{Hash: "hash1"},
-		{Hash: "hash2"},
-		{Hash: "hash3"},
-	}
+	existingTorrentHashes := buildExistingTorrentHashes(
+		[]*torrent_client.Torrent{{Hash: "hash1"}, {Hash: "hash2"}},
+		[]*debrid.TorrentItem{{Hash: "hash3"}},
+	)
 
 	tests := []struct {
 		name     string
@@ -250,7 +263,14 @@ func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 		{
 			name: "torrent exists",
 			torrent: &NormalizedTorrent{
-				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: "hash2"},
+				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: " HASH2 "},
+			},
+			expected: true,
+		},
+		{
+			name: "torrent exists in debrid hashes",
+			torrent: &NormalizedTorrent{
+				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: "hash3"},
 			},
 			expected: true,
 		},
@@ -265,7 +285,7 @@ func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ad.isTorrentAlreadyDownloaded(tt.torrent, existingTorrents)
+			result := ad.isTorrentAlreadyDownloaded(tt.torrent, existingTorrentHashes)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

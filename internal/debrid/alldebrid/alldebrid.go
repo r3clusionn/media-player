@@ -179,7 +179,7 @@ func (a *AllDebrid) doQuery(method, endpoint string, body io.Reader, contentType
 	if err != nil {
 		return nil, err
 	}
-	
+
 	a.logger.Debug().Str("method", method).Str("url", u.String()).Msg("alldebrid: doQuery")
 
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -234,22 +234,34 @@ func (a *AllDebrid) doQueryCtx(ctx context.Context, method, endpoint string, bod
 func (a *AllDebrid) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
 	a.logger.Debug().Msgf("alldebrid: AddTorrent called with: %s", opts.MagnetLink)
 
+	if opts.InfoHash != "" {
+		torrents, err := a.GetTorrents()
+		if err == nil {
+			for _, torrent := range torrents {
+				if strings.EqualFold(torrent.Hash, opts.InfoHash) {
+					a.logger.Debug().Str("torrentId", torrent.ID).Msg("alldebrid: Torrent already added")
+					return torrent.ID, nil
+				}
+			}
+		}
+	}
+
 	if strings.HasPrefix(opts.MagnetLink, "http") {
 		a.logger.Debug().Msg("alldebrid: detected http link, using addTorrentFile")
 		return a.addTorrentFile(opts.MagnetLink)
 	}
 
 	// Endpoint: /magnet/upload
-	
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	
+
 	err := writer.WriteField("magnets[]", opts.MagnetLink)
 	if err != nil {
 		return "", err
 	}
 	writer.Close()
-	
+
 	resp, err := a.doQuery("POST", "/magnet/upload", &body, writer.FormDataContentType())
 	if err != nil {
 		a.logger.Error().Err(err).Msgf("alldebrid: AddTorrent failed. URL: %s/magnet/upload", a.baseUrl)
@@ -261,7 +273,7 @@ func (a *AllDebrid) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
 	if err := json.Unmarshal(b, &data); err != nil {
 		return "", err
 	}
-	
+
 	if len(data.Magnets) == 0 {
 		return "", fmt.Errorf("no magnet added")
 	}
@@ -269,7 +281,7 @@ func (a *AllDebrid) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
 	if data.Magnets[0].Error != nil {
 		return "", fmt.Errorf("api error: %s", data.Magnets[0].Error.Message)
 	}
-	
+
 	return strconv.FormatInt(data.Magnets[0].ID, 10), nil
 }
 
@@ -319,7 +331,7 @@ func (a *AllDebrid) addTorrentFile(urlStr string) (string, error) {
 	// Prepare upload
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	
+
 	part, err := writer.CreateFormFile("files[]", "torrent.torrent")
 	if err != nil {
 		return "", err
@@ -353,12 +365,12 @@ func (a *AllDebrid) addTorrentFile(urlStr string) (string, error) {
 }
 
 func (a *AllDebrid) GetTorrentStreamUrl(ctx context.Context, opts debrid.StreamTorrentOptions, itemCh chan debrid.TorrentItem) (streamUrl string, err error) {
-	
+
 	doneCh := make(chan struct{})
-	
+
 	go func(ctx context.Context) {
 		defer close(doneCh)
-		
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -372,9 +384,9 @@ func (a *AllDebrid) GetTorrentStreamUrl(ctx context.Context, opts debrid.StreamT
 					a.logger.Error().Err(sErr).Msg("alldebrid: Failed to get torrent status")
 					continue // Retry
 				}
-				
+
 				itemCh <- *tInfo
-				
+
 				if tInfo.IsReady {
 					// Get download link
 					// We need to find the link that matches the file selected
@@ -382,24 +394,24 @@ func (a *AllDebrid) GetTorrentStreamUrl(ctx context.Context, opts debrid.StreamT
 					// AllDebrid links are usually just a list.
 					// We need 'GetTorrentInfo' which returns files list and match?
 					// Or 'GetTorrent' logic.
-					
+
 					// Let's call GetTorrentDownloadUrl
 					url, dErr := a.GetTorrentDownloadUrl(debrid.DownloadTorrentOptions{
-						ID: opts.ID,
+						ID:     opts.ID,
 						FileId: opts.FileId,
 					})
 					if dErr != nil {
 						a.logger.Error().Err(dErr).Msg("alldebrid: failed to get download url")
 						return
 					}
-					
+
 					streamUrl = url
 					return
 				}
 			}
 		}
 	}(ctx)
-	
+
 	<-doneCh
 	return
 }
@@ -455,11 +467,11 @@ func (a *AllDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (s
 	if err != nil {
 		return "", err
 	}
-	
+
 	if len(filesResp.Magnets) == 0 {
 		return "", fmt.Errorf("magnet not found")
 	}
-	
+
 	info := filesResp.Magnets[0]
 	if info.Error != nil {
 		return "", fmt.Errorf("api error: %s", info.Error.Message)
@@ -467,7 +479,7 @@ func (a *AllDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (s
 
 	// Flatten the hierarchical file tree
 	flatFiles := flattenFileTree(info.Files, "")
-	
+
 	if len(flatFiles) == 0 {
 		return "", fmt.Errorf("no files found in torrent")
 	}
@@ -478,11 +490,11 @@ func (a *AllDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (s
 		if err != nil {
 			return "", fmt.Errorf("invalid file id: %s", opts.FileId)
 		}
-		
+
 		if idx < 0 || idx >= len(flatFiles) {
 			return "", fmt.Errorf("file index out of range")
 		}
-		
+
 		// Unlock/Unrestrict the link
 		return a.unlockLink(flatFiles[idx].Link)
 	}
@@ -495,7 +507,7 @@ func (a *AllDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (s
 			a.logger.Error().Err(err).Str("fileName", file.Name).Msg("alldebrid: Failed to unlock link for file")
 			continue
 		}
-		
+
 		downloadUrls = append(downloadUrls, unlockedUrl)
 	}
 
@@ -505,8 +517,6 @@ func (a *AllDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (s
 
 	return strings.Join(downloadUrls, ","), nil
 }
-
-
 
 func (a *AllDebrid) GetInstantAvailability(hashes []string) map[string]debrid.TorrentItemInstantAvailability {
 	// AllDebrid does not have a dedicated instant availability endpoint that checks for cached torrents without adding them.
@@ -524,35 +534,35 @@ func (a *AllDebrid) GetTorrent(id string) (*debrid.TorrentItem, error) {
 
 func (a *AllDebrid) GetTorrentInfo(opts debrid.GetTorrentInfoOptions) (*debrid.TorrentInfo, error) {
 	// Similar to RealDebrid approach: Add -> Get Info -> Delete
-	
+
 	if opts.MagnetLink == "" {
 		return nil, fmt.Errorf("magnet link required")
 	}
-	
+
 	id, err := a.AddTorrent(debrid.AddTorrentOptions{MagnetLink: opts.MagnetLink})
 	if err != nil {
 		return nil, fmt.Errorf("failed to add torrent for info: %w", err)
 	}
-	
+
 	// Fetch info
 	status, err := a.getTorrent(id)
 	if err != nil {
 		a.DeleteTorrent(id)
 		return nil, err
 	}
-	
+
 	// Get files to list them
 	filesResp, err := a.getTorrentFiles(id)
 	if err != nil {
 		a.DeleteTorrent(id)
 		return nil, err
 	}
-	
+
 	if len(filesResp.Magnets) == 0 {
 		a.DeleteTorrent(id)
 		return nil, fmt.Errorf("magnet files not found")
 	}
-	
+
 	filesInfo := filesResp.Magnets[0]
 
 	// Create info
@@ -562,14 +572,14 @@ func (a *AllDebrid) GetTorrentInfo(opts debrid.GetTorrentInfoOptions) (*debrid.T
 		Hash: status.Hash,
 		Size: status.Size,
 	}
-	
+
 	if filesInfo.Files != nil {
 		for i, l := range filesInfo.Files {
 			ret.Files = append(ret.Files, &debrid.TorrentItemFile{
 				ID:    strconv.Itoa(i),
 				Index: i,
 				Name:  l.Name,
-				Path:  l.Name, 
+				Path:  l.Name,
 				Size:  l.Size,
 			})
 		}
@@ -577,19 +587,19 @@ func (a *AllDebrid) GetTorrentInfo(opts debrid.GetTorrentInfoOptions) (*debrid.T
 
 	// Delete
 	a.DeleteTorrent(id)
-	
+
 	return ret, nil
 }
 
 func (a *AllDebrid) GetTorrents() ([]*debrid.TorrentItem, error) {
 	endpoint := "/magnet/status"
-	
+
 	// v4.1 API requires POST, not GET
 	resp, err := a.doQuery("POST", endpoint, nil, "")
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var data GetTorrentsResponse
 	b, _ := json.Marshal(resp.Data)
 	json.Unmarshal(b, &data)
@@ -598,7 +608,7 @@ func (a *AllDebrid) GetTorrents() ([]*debrid.TorrentItem, error) {
 	for _, m := range data.Magnets {
 		ret = append(ret, toDebridTorrent(&m))
 	}
-	
+
 	// Sort by ID desc
 	slices.SortFunc(ret, func(i, j *debrid.TorrentItem) int {
 		return strings.Compare(j.ID, i.ID)
@@ -629,48 +639,48 @@ func (a *AllDebrid) DeleteTorrent(id string) error {
 
 func (a *AllDebrid) getTorrent(id string) (*Torrent, error) {
 	endpoint := "/magnet/status"
-	
+
 	var body io.Reader
 	var contentType string
-	
+
 	if id != "" {
 		// v4.1 API requires POST with form data, not GET with query params
 		var formBody bytes.Buffer
 		writer := multipart.NewWriter(&formBody)
 		writer.WriteField("id", id)
 		writer.Close()
-		
+
 		body = &formBody
 		contentType = writer.FormDataContentType()
 	}
-	
+
 	resp, err := a.doQuery("POST", endpoint, body, contentType)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if id != "" {
 		var data GetTorrentResponse
 		b, _ := json.Marshal(resp.Data)
 		json.Unmarshal(b, &data)
-		
+
 		if data.Magnets.ID == 0 {
 			a.logger.Error().Any("data", data).Msg("alldebrid: getTorrent - magnet not found in response")
 			return nil, fmt.Errorf("magnet not found")
 		}
 		return &data.Magnets, nil
 	}
-	
+
 	// This branch should mostly not be used by this helper as it's typically called with ID
 	// But if it is...
 	var data GetTorrentsResponse
 	b, _ := json.Marshal(resp.Data)
 	json.Unmarshal(b, &data)
-	
+
 	if len(data.Magnets) == 0 {
 		return nil, fmt.Errorf("magnet not found")
 	}
-	
+
 	return &data.Magnets[0], nil
 }
 
@@ -687,13 +697,13 @@ func (a *AllDebrid) getTorrentFiles(id string) (*GetTorrentFilesResponse, error)
 	if err != nil {
 		return nil, err
 	}
-	
+
 	var data GetTorrentFilesResponse
 	b, _ := json.Marshal(resp.Data)
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, err
 	}
-	
+
 	return &data, nil
 }
 
@@ -710,23 +720,23 @@ func (a *AllDebrid) unlockLink(link string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	
+
 	var data UnrestrictLinkResponse
 	b, _ := json.Marshal(resp.Data)
 	json.Unmarshal(b, &data)
-	
+
 	return data.Link, nil
 }
 
 func toDebridTorrent(t *Torrent) *debrid.TorrentItem {
 	status := toDebridTorrentStatus(t)
-	
+
 	// Convert Unix timestamp to RFC3339 format
 	addedAt := ""
 	if t.UploadDate > 0 {
 		addedAt = time.Unix(t.UploadDate, 0).Format(time.RFC3339)
 	}
-	
+
 	// Calculate completion percentage
 	completionPercentage := 0
 	if t.Size > 0 && t.Downloaded > 0 {
@@ -742,7 +752,7 @@ func toDebridTorrent(t *Torrent) *debrid.TorrentItem {
 		Size:                 t.Size,
 		FormattedSize:        util.Bytes(uint64(t.Size)),
 		CompletionPercentage: completionPercentage,
-		ETA: "",
+		ETA:                  "",
 		Status:               status,
 		AddedAt:              addedAt,
 		Speed:                util.ToHumanReadableSpeed(int(t.DownloadSpeed)),

@@ -238,7 +238,7 @@ func (t *TorBox) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
 		torrents, err := t.getTorrents()
 		if err == nil {
 			for _, torrent := range torrents {
-				if torrent.Hash == opts.InfoHash {
+				if strings.EqualFold(torrent.Hash, opts.InfoHash) {
 					return strconv.Itoa(torrent.ID), nil
 				}
 			}
