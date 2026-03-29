@@ -5,9 +5,7 @@ import { useGetAnimeEntry } from "@/api/hooks/anime_entries.hooks"
 import { useTorrentClientDownload } from "@/api/hooks/torrent_client.hooks"
 import { useAutoPlaySelectedTorrent, useDebridstreamAutoplay, useTorrentstreamAutoplay } from "@/app/(main)/_features/autoplay/autoplay"
 import { seaCommand_compareMediaTitles } from "@/app/(main)/_features/sea-command/utils.ts"
-import { useHasDebridService } from "@/app/(main)/_hooks/use-server-status"
-import { useHasTorrentStreaming } from "@/app/(main)/_hooks/use-server-status"
-import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
+import { useHasDebridService, useHasTorrentStreaming, useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { useHandleStartDebridStream } from "@/app/(main)/entry/_containers/debrid-stream/_lib/handle-debrid-stream"
 import { __debridStream_autoSelectFileAtom } from "@/app/(main)/entry/_containers/debrid-stream/debrid-stream-page"
 import { useTorrentSearchSelectedStreamEpisode } from "@/app/(main)/entry/_containers/torrent-search/_lib/handle-torrent-selection"
@@ -107,7 +105,7 @@ export function SeaCommandTorrentMagnet() {
     const [selectedMediaId, setSelectedMediaId] = useAtom(__seaCommand_torrentMagnetMediaIdAtom)
     const [selectedEpisodeNumber, setSelectedEpisodeNumber] = useAtom(__seaCommand_torrentMagnetEpisodeNumberAtom)
 
-    const { input, setInput, scrollToTop, command: { command, args } } = useSeaCommandContext()
+    const { setInput, command: { command, args } } = useSeaCommandContext()
 
     const { hasDebridService } = useHasDebridService()
     const { hasTorrentStreaming } = useHasTorrentStreaming()
@@ -116,6 +114,8 @@ export function SeaCommandTorrentMagnet() {
 
     const { data: entry, isLoading: isEntryLoading } = useGetAnimeEntry(selectedMediaId)
     const { data: episodeCollection, isLoading: isEpisodeLoading } = useGetAnimeEpisodeCollection(selectedMediaId)
+
+    const router = useRouter()
 
     const { setAutoPlayTorrent } = useAutoPlaySelectedTorrent()
     const { setTorrentstreamAutoplayInfo } = useTorrentstreamAutoplay()
@@ -131,8 +131,6 @@ export function SeaCommandTorrentMagnet() {
     const setTorrentSearchFileSelectionTorrent = useSetAtom(__torrentSearch_fileSelectionTorrentAtom)
     const { setTorrentSearchStreamEpisode } = useTorrentSearchSelectedStreamEpisode()
 
-
-    const router = useRouter()
 
     const searchInput = args.join(" ").trim()
     const debouncedSearch = useDebounce(searchInput, 500)
@@ -269,11 +267,6 @@ export function SeaCommandTorrentMagnet() {
             reset()
         }
     }, [open])
-
-    React.useEffect(() => {
-        const cl = scrollToTop()
-        return () => cl()
-    }, [input])
 
 
     return (
