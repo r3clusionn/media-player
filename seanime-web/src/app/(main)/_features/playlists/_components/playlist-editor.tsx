@@ -24,7 +24,9 @@ import { toast } from "sonner"
 
 export function playlist_isSameEpisode(a: Nullish<Anime_PlaylistEpisode>, b: Nullish<Anime_PlaylistEpisode>) {
     if (!a || !b) return false
-    return a.episode?.aniDBEpisode === b.episode?.aniDBEpisode && a.episode?.baseAnime?.id === b.episode?.baseAnime?.id
+    return a.episode?.aniDBEpisode === b.episode?.aniDBEpisode
+        && a.episode?.baseAnime?.id === b.episode?.baseAnime?.id
+        && a.episode?.episodeNumber === b.episode?.episodeNumber
 }
 
 export function playlist_getEpisodeKey(a: Anime_PlaylistEpisode) {
