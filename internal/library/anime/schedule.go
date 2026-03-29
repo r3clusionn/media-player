@@ -13,7 +13,8 @@ import (
 type ScheduleItem struct {
 	MediaId int    `json:"mediaId"`
 	Title   string `json:"title"`
-	// Time is in 15:04 format
+	// Time is in 15:04 format, UTC.
+	// The frontend should derive local time from DateTime instead.
 	Time string `json:"time"`
 	// DateTime is in UTC
 	DateTime       time.Time `json:"dateTime"`

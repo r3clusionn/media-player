@@ -72,7 +72,7 @@ export function ScheduleCalendar(props: ScheduleCalendarProps) {
         setCurrentDate(prevDate => addMonths(prevDate, 1))
     }
 
-    const isSameDayUtc = (dateLeft: Date, dateRight: Date) => {
+    const isSameLocalDay = (dateLeft: Date, dateRight: Date) => {
         return (
             dateLeft.getFullYear() === dateRight.getFullYear() &&
             dateLeft.getMonth() === dateRight.getMonth() &&
@@ -104,11 +104,11 @@ export function ScheduleCalendar(props: ScheduleCalendarProps) {
         let day = startOfCalendar
 
         while (day <= endOfCalendar) {
-            let events = schedule?.filter(item => isSameDayUtc(new Date(item.dateTime!), day) && isStatusIncluded(item.mediaId))?.map(item => {
+            let events = schedule?.filter(item => isSameLocalDay(new Date(item.dateTime!), day) && isStatusIncluded(item.mediaId))?.map(item => {
                 return {
                     id: String(item.mediaId) + "-" + String(item.episodeNumber) + "-" + String(item.dateTime),
                     name: item.title,
-                    time: item.time.replace(":00:00", ":00"),
+                    time: format(new Date(item.dateTime!), "HH:mm"),
                     datetime: item.dateTime!,
                     href: `/entry?id=${item.mediaId}`,
                     image: item.image,
