@@ -7,7 +7,7 @@ import (
 	"seanime/internal/extension"
 	"seanime/internal/library/anime"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -17,7 +17,7 @@ import (
 // TestNewAnimeEntry tests /library/entry endpoint.
 // /!\ MAKE SURE TO HAVE THE MEDIA ADDED TO YOUR LIST TEST ACCOUNT LISTS
 func TestNewAnimeEntry(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 	logger := util.NewLogger()
 
 	database, err := db.NewDatabase(t.TempDir(), "test", logger)

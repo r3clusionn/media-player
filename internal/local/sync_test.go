@@ -7,7 +7,7 @@ import (
 	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 	"time"
@@ -19,12 +19,12 @@ func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist
 
 	logger := util.NewLogger()
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
-	anilistClient := anilist.NewAnilistClient(test_utils.ConfigData.Provider.AnilistJwt, "")
+	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef[anilist.AnilistClient](anilistClient), extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(test_utils.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), true)
 	require.NoError(t, err)
 	mangaCollection, err := anilistPlatform.GetMangaCollection(t.Context(), true)
@@ -39,8 +39,8 @@ func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist
 }
 
 func TestSync2(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.SetTwoLevelDeep()
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	manager, animeCollection, _ := testSetupManager(t)
 
@@ -98,8 +98,8 @@ func TestSync2(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.SetTwoLevelDeep()
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	manager, _, _ := testSetupManager(t)
 

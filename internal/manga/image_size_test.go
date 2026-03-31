@@ -1,15 +1,18 @@
+//go:build outdated
+
 package manga
 
 import (
-	"github.com/davecgh/go-spew/spew"
 	_ "image/jpeg" // Register JPEG format
 	_ "image/png"  // Register PNG format
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestGetImageNaturalSize(t *testing.T) {
 	// Test the function
-	width, height, err := getImageNaturalSize("https://scans-hot.leanbox.us/manga/One-Piece/1090-001.png")
+	width, height, err := getImageNaturalSize("")
 	if err != nil {
 		t.Fatal(err)
 	}

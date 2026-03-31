@@ -4,7 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 
 	"github.com/goccy/go-json"
@@ -28,7 +28,7 @@ type MockAnilistClientImpl struct {
 
 func NewMockAnilistClient() *MockAnilistClientImpl {
 	return &MockAnilistClientImpl{
-		realAnilistClient: NewAnilistClient(test_utils.ConfigData.Provider.AnilistJwt, ""),
+		realAnilistClient: NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, ""),
 		logger:            util.NewLogger(),
 	}
 }
@@ -46,7 +46,7 @@ func (ac *MockAnilistClientImpl) CustomQuery(body []byte, logger *zerolog.Logger
 }
 
 func (ac *MockAnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByMalID, error) {
-	file, err := os.Open(test_utils.GetTestDataPath("BaseAnimeByMalID"))
+	file, err := os.Open(testutil.GetTestDataPath("BaseAnimeByMalID"))
 	defer file.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -59,7 +59,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, 
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = os.WriteFile(test_utils.GetTestDataPath("BaseAnimeByMalID"), data, 0644)
+			err = os.WriteFile(testutil.GetTestDataPath("BaseAnimeByMalID"), data, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -91,7 +91,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, 
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(test_utils.GetTestDataPath("BaseAnimeByMalID"), data, 0644)
+		err = os.WriteFile(testutil.GetTestDataPath("BaseAnimeByMalID"), data, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -103,7 +103,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, 
 }
 
 func (ac *MockAnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error) {
-	file, err := os.Open(test_utils.GetTestDataPath("BaseAnimeByID"))
+	file, err := os.Open(testutil.GetTestDataPath("BaseAnimeByID"))
 	defer file.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -116,7 +116,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, int
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = os.WriteFile(test_utils.GetTestDataPath("BaseAnimeByID"), data, 0644)
+			err = os.WriteFile(testutil.GetTestDataPath("BaseAnimeByID"), data, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -148,7 +148,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, int
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(test_utils.GetTestDataPath("BaseAnimeByID"), data, 0644)
+		err = os.WriteFile(testutil.GetTestDataPath("BaseAnimeByID"), data, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -165,7 +165,7 @@ func (ac *MockAnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, int
 func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollection, error) {
 
 	if userName == nil {
-		file, err := os.Open(test_utils.GetDataPath("BoilerplateAnimeCollection"))
+		file, err := os.Open(testutil.GetDataPath("BoilerplateAnimeCollection"))
 		defer file.Close()
 
 		var ret *AnimeCollection
@@ -178,7 +178,7 @@ func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *
 		return ret, nil
 	}
 
-	file, err := os.Open(test_utils.GetTestDataPath("AnimeCollection"))
+	file, err := os.Open(testutil.GetTestDataPath("AnimeCollection"))
 	defer file.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -191,7 +191,7 @@ func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = os.WriteFile(test_utils.GetTestDataPath("AnimeCollection"), data, 0644)
+			err = os.WriteFile(testutil.GetTestDataPath("AnimeCollection"), data, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -215,7 +215,7 @@ func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(test_utils.GetTestDataPath("AnimeCollection"), data, 0644)
+		err = os.WriteFile(testutil.GetTestDataPath("AnimeCollection"), data, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -230,7 +230,7 @@ func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *
 func (ac *MockAnilistClientImpl) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error) {
 
 	if userName == nil {
-		file, err := os.Open(test_utils.GetDataPath("BoilerplateAnimeCollectionWithRelations"))
+		file, err := os.Open(testutil.GetDataPath("BoilerplateAnimeCollectionWithRelations"))
 		defer file.Close()
 
 		var ret *AnimeCollectionWithRelations
@@ -243,7 +243,7 @@ func (ac *MockAnilistClientImpl) AnimeCollectionWithRelations(ctx context.Contex
 		return ret, nil
 	}
 
-	file, err := os.Open(test_utils.GetTestDataPath("AnimeCollectionWithRelations"))
+	file, err := os.Open(testutil.GetTestDataPath("AnimeCollectionWithRelations"))
 	defer file.Close()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -256,7 +256,7 @@ func (ac *MockAnilistClientImpl) AnimeCollectionWithRelations(ctx context.Contex
 			if err != nil {
 				log.Fatal(err)
 			}
-			err = os.WriteFile(test_utils.GetTestDataPath("AnimeCollectionWithRelations"), data, 0644)
+			err = os.WriteFile(testutil.GetTestDataPath("AnimeCollectionWithRelations"), data, 0644)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -280,7 +280,7 @@ func (ac *MockAnilistClientImpl) AnimeCollectionWithRelations(ctx context.Contex
 		if err != nil {
 			log.Fatal(err)
 		}
-		err = os.WriteFile(test_utils.GetTestDataPath("AnimeCollectionWithRelations"), data, 0644)
+		err = os.WriteFile(testutil.GetTestDataPath("AnimeCollectionWithRelations"), data, 0644)
 		if err != nil {
 			log.Fatal(err)
 		}

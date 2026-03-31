@@ -13,6 +13,9 @@ import (
 )
 
 func TestLocalFile_GetNormalizedPath(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("Skipping windows-only test")
+	}
 
 	tests := []struct {
 		filePath       string

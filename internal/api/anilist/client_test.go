@@ -2,7 +2,7 @@ package anilist
 
 import (
 	"context"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -137,7 +137,7 @@ import (
 //    }`
 
 func TestGetAnimeById(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := TestGetMockAnilistClient()
 
@@ -161,7 +161,7 @@ func TestGetAnimeById(t *testing.T) {
 }
 
 func TestListAnime(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	tests := []struct {
 		name                string

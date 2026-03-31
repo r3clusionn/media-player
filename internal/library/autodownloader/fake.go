@@ -8,7 +8,7 @@ import (
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/torrents/torrent"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
@@ -60,7 +60,7 @@ var _ hibiketorrent.AnimeProvider = (*FakeTorrentProvider)(nil)
 
 func (f *Fake) New(t *testing.T) *AutoDownloader {
 	logger := util.NewLogger()
-	database, err := db.NewDatabase("", test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase("", testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
 
 	f.Database = database

@@ -1,7 +1,7 @@
 package mpchc
 
 import (
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 	"time"
@@ -11,12 +11,12 @@ import (
 )
 
 func TestMpcHc_Start(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   test_utils.ConfigData.Provider.MpcHost,
-		Path:   test_utils.ConfigData.Provider.MpcPath,
-		Port:   test_utils.ConfigData.Provider.MpcPort,
+		Host:   testutil.ConfigData.Provider.MpcHost,
+		Path:   testutil.ConfigData.Provider.MpcPath,
+		Port:   testutil.ConfigData.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -26,12 +26,12 @@ func TestMpcHc_Start(t *testing.T) {
 }
 
 func TestMpcHc_Play(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   test_utils.ConfigData.Provider.MpcHost,
-		Path:   test_utils.ConfigData.Provider.MpcPath,
-		Port:   test_utils.ConfigData.Provider.MpcPort,
+		Host:   testutil.ConfigData.Provider.MpcHost,
+		Path:   testutil.ConfigData.Provider.MpcPath,
+		Port:   testutil.ConfigData.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -46,12 +46,12 @@ func TestMpcHc_Play(t *testing.T) {
 }
 
 func TestMpcHc_GetVariables(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   test_utils.ConfigData.Provider.MpcHost,
-		Path:   test_utils.ConfigData.Provider.MpcPath,
-		Port:   test_utils.ConfigData.Provider.MpcPort,
+		Host:   testutil.ConfigData.Provider.MpcHost,
+		Path:   testutil.ConfigData.Provider.MpcPath,
+		Port:   testutil.ConfigData.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -68,12 +68,12 @@ func TestMpcHc_GetVariables(t *testing.T) {
 }
 
 func TestMpcHc_Seek(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   test_utils.ConfigData.Provider.MpcHost,
-		Path:   test_utils.ConfigData.Provider.MpcPath,
-		Port:   test_utils.ConfigData.Provider.MpcPort,
+		Host:   testutil.ConfigData.Provider.MpcHost,
+		Path:   testutil.ConfigData.Provider.MpcPath,
+		Port:   testutil.ConfigData.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 

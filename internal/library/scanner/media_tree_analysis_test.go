@@ -5,7 +5,7 @@ import (
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/database/db"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
@@ -16,14 +16,14 @@ import (
 )
 
 func TestMediaTreeAnalysis(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 	tree := anilist.NewCompleteAnimeRelationTree()
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, util.NewLogger())
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, util.NewLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestMediaTreeAnalysis2(t *testing.T) {
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 	tree := anilist.NewCompleteAnimeRelationTree()
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, util.NewLogger())
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, util.NewLogger())
 	if err != nil {
 		t.Fatal(err)
 	}

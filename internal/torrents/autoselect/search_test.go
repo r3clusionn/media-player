@@ -7,7 +7,7 @@ import (
 	"seanime/internal/extension"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	itorrent "seanime/internal/torrents/torrent"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
@@ -136,7 +136,7 @@ func createTestMedia(t *testing.T) *anilist.CompleteAnime {
 }
 
 func TestSearchFromProvider_SingleResolution(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -170,7 +170,7 @@ func TestSearchFromProvider_SingleResolution(t *testing.T) {
 }
 
 func TestSearchFromProvider_MultipleResolutions_FirstSucceeds(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -204,7 +204,7 @@ func TestSearchFromProvider_MultipleResolutions_FirstSucceeds(t *testing.T) {
 }
 
 func TestSearchFromProvider_MultipleResolutions_Fallback(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -238,7 +238,7 @@ func TestSearchFromProvider_MultipleResolutions_Fallback(t *testing.T) {
 }
 
 func TestSearchFromProvider_AllResolutionsFail(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -269,7 +269,7 @@ func TestSearchFromProvider_AllResolutionsFail(t *testing.T) {
 }
 
 func TestSearchFromProvider_NoResolutionsInProfile(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -302,7 +302,7 @@ func TestSearchFromProvider_NoResolutionsInProfile(t *testing.T) {
 }
 
 func TestSearchFromProvider_BatchFallback(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1
@@ -335,7 +335,7 @@ func TestSearchFromProvider_BatchFallback(t *testing.T) {
 }
 
 func TestSearchFromProviders_MultipleProviders(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -367,7 +367,7 @@ func TestSearchFromProviders_MultipleProviders(t *testing.T) {
 }
 
 func TestSearchFromProviders_Deduplication(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000
@@ -400,7 +400,7 @@ func TestSearchFromProviders_Deduplication(t *testing.T) {
 }
 
 func TestSearch_Integration(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	media := createTestMedia(t)
 	episodeNumber := 1000

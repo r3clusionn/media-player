@@ -19,7 +19,7 @@ import (
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/plugin"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"testing"
@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TODO(Test): Replace with in-memory stubs
 var (
 	testDocumentsDir          = "/Users/rahim/Documents"
 	testDocumentCollectionDir = "/Users/rahim/Documents/collection"
@@ -63,9 +64,9 @@ func DefaultTestPluginOptions() TestPluginOptions {
 // InitTestPlugin initializes a test plugin with the given options
 func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog.Logger, *goja_runtime.Manager, *anilist_platform.AnilistPlatform, events.WSEventManagerInterface, error) {
 	if opts.SetupHooks {
-		test_utils.SetTwoLevelDeep()
+		testutil.SetTwoLevelDeep()
 		if tPtr, ok := t.(*testing.T); ok {
-			test_utils.InitTestProvider(tPtr, test_utils.Anilist())
+			testutil.InitTestProvider(tPtr, testutil.Anilist())
 		}
 	}
 
@@ -85,7 +86,7 @@ func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog
 	ext.Plugin.Permissions.Allow = opts.Permissions.Allow
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
 	wsEventManager := events.NewMockWSEventManager(logger)
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilist.NewMockAnilistClient())
@@ -152,7 +153,7 @@ func TestGojaPluginAnime(t *testing.T) {
 		},
 	}
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
 
 	metadataProvider := metadata_provider.NewProvider(&metadata_provider.NewProviderImplOptions{
@@ -806,7 +807,7 @@ func getPlaybackManager(t *testing.T) (*playbackmanager.PlaybackManager, *anilis
 
 	wsEventManager := events.NewMockWSEventManager(logger)
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 
 	if err != nil {
 		t.Fatalf("error while creating database, %v", err)

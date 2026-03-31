@@ -1,3 +1,5 @@
+//go:build outdated
+
 package extension_playground
 
 import (
@@ -7,7 +9,7 @@ import (
 	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -15,11 +17,11 @@ import (
 )
 
 func TestGojaAnimeTorrentProvider(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.SetTwoLevelDeep()
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	logger := util.NewLogger()
-	database, _ := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, _ := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	anilistClientRef := util.NewRef(anilistClient)

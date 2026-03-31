@@ -4,7 +4,7 @@ import (
 	"seanime/internal/database/db"
 	"seanime/internal/events"
 	hibikemanga "seanime/internal/extension/hibike/manga"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 	"time"
@@ -13,12 +13,12 @@ import (
 )
 
 func TestQueue(t *testing.T) {
-	test_utils.InitTestProvider(t)
+	testutil.InitTestProvider(t)
 
 	tempDir := t.TempDir()
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(tempDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(tempDir, testutil.ConfigData.Database.Name, logger)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}

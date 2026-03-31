@@ -8,7 +8,7 @@ import (
 	"seanime/internal/library/anime"
 	"seanime/internal/library/summary"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
@@ -18,20 +18,20 @@ import (
 )
 
 func TestFileHydrator_HydrateMetadata(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
 	metadataProvider := metadata_provider.GetFakeProvider(t, database)
-	anilistClient := anilist.NewAnilistClient(test_utils.ConfigData.Provider.AnilistJwt, "")
+	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	//wsEventManager := events.NewMockWSEventManager(logger)
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(test_utils.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
 	animeCollection, err := anilistPlatform.GetAnimeCollectionWithRelations(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, animeCollection)

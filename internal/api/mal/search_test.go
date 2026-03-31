@@ -1,12 +1,12 @@
 package mal
 
 import (
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"testing"
 )
 
 func TestSearchWithMAL(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MyAnimeList())
+	testutil.InitTestProvider(t, testutil.MyAnimeList())
 
 	res, err := SearchWithMAL("bungo stray dogs", 4)
 
@@ -21,7 +21,7 @@ func TestSearchWithMAL(t *testing.T) {
 }
 
 func TestAdvancedSearchWithMal(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MyAnimeList())
+	testutil.InitTestProvider(t, testutil.MyAnimeList())
 
 	res, err := AdvancedSearchWithMAL("sousou no frieren")
 

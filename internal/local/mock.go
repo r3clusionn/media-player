@@ -10,7 +10,7 @@ import (
 	"seanime/internal/manga"
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -30,8 +30,8 @@ func GetMockManager(t *testing.T, db *db.Database) Manager {
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, db)
 	anilistPlatformRef := util.NewRef[platform.Platform](anilistPlatform)
 
-	localDir := filepath.Join(test_utils.ConfigData.Path.DataDir, "offline")
-	assetsDir := filepath.Join(test_utils.ConfigData.Path.DataDir, "offline", "assets")
+	localDir := filepath.Join(testutil.ConfigData.Path.DataDir, "offline")
+	assetsDir := filepath.Join(testutil.ConfigData.Path.DataDir, "offline", "assets")
 
 	m, err := NewManager(&NewManagerOptions{
 		LocalDir:            localDir,

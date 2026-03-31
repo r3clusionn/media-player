@@ -1,25 +1,26 @@
 package continuity
 
 import (
-	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"seanime/internal/database/db"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestHistoryItems(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t)
+	testutil.SetTwoLevelDeep()
+	testutil.InitTestProvider(t)
 
 	logger := util.NewLogger()
 
 	tempDir := t.TempDir()
 	t.Log(tempDir)
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	require.NoError(t, err)
 
 	cacher, err := filecache.NewCacher(filepath.Join(tempDir, "cache"))

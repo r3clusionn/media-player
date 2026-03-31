@@ -1,3 +1,5 @@
+//go:build outdated
+
 package anime_test
 
 import (
@@ -6,7 +8,7 @@ import (
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/database/db"
 	"seanime/internal/library/anime"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -17,7 +19,7 @@ import (
 // DEPRECATED
 func TestNewMissingEpisodes(t *testing.T) {
 	t.Skip("Outdated test")
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 	logger := util.NewLogger()
 	database, _ := db.NewDatabase(t.TempDir(), "test", logger)
 

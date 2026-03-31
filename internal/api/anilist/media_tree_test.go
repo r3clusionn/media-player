@@ -2,15 +2,16 @@ package anilist
 
 import (
 	"context"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/stretchr/testify/assert"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util/limiter"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := TestGetMockAnilistClient()
 	lim := limiter.NewAnilistLimiter()

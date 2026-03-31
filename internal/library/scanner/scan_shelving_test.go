@@ -10,7 +10,7 @@ import (
 	"seanime/internal/extension"
 	"seanime/internal/library/anime"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 
@@ -18,11 +18,11 @@ import (
 )
 
 func TestScanner_Shelving(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestScanner_Shelving(t *testing.T) {
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(test_utils.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
 	metadataProvider := metadata_provider.GetFakeProvider(t, database)
 	wsEventManager := events.NewMockWSEventManager(util.NewLogger())
 

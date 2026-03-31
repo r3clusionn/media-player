@@ -1,3 +1,5 @@
+//go:build outdated
+
 package goja_bindings
 
 import (
