@@ -19,7 +19,6 @@ func newTestAutoSelect() *AutoSelect {
 func TestAutoSelect_Filter(t *testing.T) {
 	s := newTestAutoSelect()
 
-	// Mock Torrents
 	t1 := &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] One Piece - 1000 (1080p).mkv", Seeders: 100, Size: 1024 * 1024 * 1000}                             // 1GB
 	t2 := &hibiketorrent.AnimeTorrent{Name: "[Erai-raws] One Piece - 1000 [720p][Multiple Subtitle].mkv", Seeders: 50, Size: 1024 * 1024 * 500}              // 500MB
 	t3 := &hibiketorrent.AnimeTorrent{Name: "[EMBER] One Piece - 1000 [1080p] [Dual Audio] [HEVC].mkv", Seeders: 200, Size: 1024 * 1024 * 800}               // 800MB
