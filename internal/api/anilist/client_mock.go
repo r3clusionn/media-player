@@ -2,10 +2,15 @@ package anilist
 
 import (
 	"context"
-	"log"
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
 	"os"
+	"path/filepath"
 	"seanime/internal/testutil"
 	"seanime/internal/util"
+	"sort"
+	"strings"
 
 	"github.com/goccy/go-json"
 	"github.com/gqlgo/gqlgenc/clientv2"
@@ -14,566 +19,789 @@ import (
 
 // This file contains helper functions for testing the anilist package
 
-func TestGetMockAnilistClient() AnilistClient {
-	return NewMockAnilistClient()
+func NewTestAnilistClient() AnilistClient {
+	return NewFixtureAnilistClient()
 }
 
-// MockAnilistClientImpl is a mock implementation of the AnilistClient, used for tests.
-// It uses the real implementation of the AnilistClient to make requests then populates a cache with the results.
-// This is to avoid making repeated requests to the AniList API during tests but still have realistic data.
-type MockAnilistClientImpl struct {
+// FixtureAnilistClient is a fixture-backed test implementation of AnilistClient.
+// It reads committed fixtures first and can fall back to the live client when
+// a fixture is missing. Fixture writes are opt-in via SEANIME_TEST_RECORD_ANILIST_FIXTURES.
+type FixtureAnilistClient struct {
 	realAnilistClient AnilistClient
 	logger            *zerolog.Logger
 }
 
-func NewMockAnilistClient() *MockAnilistClientImpl {
-	cfg := testutil.MustLoadConfig()
+type fixtureCustomQueryRequest struct {
+	Query     string          `json:"query"`
+	Variables json.RawMessage `json:"variables"`
+}
 
-	return &MockAnilistClientImpl{
-		realAnilistClient: NewAnilistClient(cfg.Provider.AnilistJwt, ""),
+type fixtureListAnimeVariables struct {
+	Page                *int           `json:"page"`
+	Search              *string        `json:"search"`
+	PerPage             *int           `json:"perPage"`
+	Sort                []*MediaSort   `json:"sort"`
+	Status              []*MediaStatus `json:"status"`
+	Genres              []*string      `json:"genres"`
+	AverageScoreGreater *int           `json:"averageScore_greater"`
+	Season              *MediaSeason   `json:"season"`
+	SeasonYear          *int           `json:"seasonYear"`
+	Format              *MediaFormat   `json:"format"`
+	IsAdult             *bool          `json:"isAdult"`
+	CountryOfOrigin     *string        `json:"countryOfOrigin"`
+}
+
+type fixtureListRecentAnimeVariables struct {
+	Page            *int          `json:"page"`
+	PerPage         *int          `json:"perPage"`
+	AiringAtGreater *int          `json:"airingAt_greater"`
+	AiringAtLesser  *int          `json:"airingAt_lesser"`
+	NotYetAired     *bool         `json:"notYetAired"`
+	Sort            []*AiringSort `json:"sort"`
+}
+
+func NewFixtureAnilistClient() *FixtureAnilistClient {
+	return NewFixtureAnilistClientWithToken("")
+}
+
+func NewFixtureAnilistClientWithToken(token string) *FixtureAnilistClient {
+	return &FixtureAnilistClient{
+		realAnilistClient: NewAnilistClient(token, ""),
 		logger:            util.NewLogger(),
 	}
 }
 
-func (ac *MockAnilistClientImpl) IsAuthenticated() bool {
+func (ac *FixtureAnilistClient) IsAuthenticated() bool {
 	return ac.realAnilistClient.IsAuthenticated()
 }
 
-func (ac *MockAnilistClientImpl) GetCacheDir() string {
+func (ac *FixtureAnilistClient) GetCacheDir() string {
 	return ""
 }
 
-func (ac *MockAnilistClientImpl) CustomQuery(body []byte, logger *zerolog.Logger, token ...string) (data interface{}, err error) {
-	return customQuery(body, logger, token...)
-}
+func (ac *FixtureAnilistClient) CustomQuery(body []byte, logger *zerolog.Logger, token ...string) (data interface{}, err error) {
+	var req fixtureCustomQueryRequest
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, err
+	}
 
-func (ac *MockAnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByMalID, error) {
-	file, err := os.Open(testutil.TestDataPath("BaseAnimeByMalID"))
-	defer file.Close()
-	if err != nil {
-		if os.IsNotExist(err) {
-			ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [BaseAnimeByMalID]: %d", *id)
-			ret, err := ac.realAnilistClient.BaseAnimeByMalID(context.Background(), id)
-			if err != nil {
+	switch strings.TrimSpace(req.Query) {
+	case strings.TrimSpace(ListAnimeDocument):
+		var vars fixtureListAnimeVariables
+		if len(req.Variables) > 0 && string(req.Variables) != "null" {
+			if err := json.Unmarshal(req.Variables, &vars); err != nil {
 				return nil, err
 			}
-			data, err := json.Marshal([]*BaseAnimeByMalID{ret})
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = os.WriteFile(testutil.TestDataPath("BaseAnimeByMalID"), data, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			return ret, nil
 		}
+
+		return ac.ListAnime(
+			context.Background(),
+			vars.Page,
+			vars.Search,
+			vars.PerPage,
+			vars.Sort,
+			vars.Status,
+			vars.Genres,
+			vars.AverageScoreGreater,
+			vars.Season,
+			vars.SeasonYear,
+			vars.Format,
+			vars.IsAdult,
+		)
+	case strings.TrimSpace(ListRecentAiringAnimeQuery):
+		var vars fixtureListRecentAnimeVariables
+		if len(req.Variables) > 0 && string(req.Variables) != "null" {
+			if err := json.Unmarshal(req.Variables, &vars); err != nil {
+				return nil, err
+			}
+		}
+
+		return ac.ListRecentAnime(
+			context.Background(),
+			vars.Page,
+			vars.PerPage,
+			vars.AiringAtGreater,
+			vars.AiringAtLesser,
+			vars.NotYetAired,
+		)
 	}
 
-	var media []*BaseAnimeByMalID
-	err = json.NewDecoder(file).Decode(&media)
+	fixturePath := customQueryFixturePath(body)
+	var cached interface{}
+	loaded, err := loadJSONFixture(fixturePath, &cached)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	var ret *BaseAnimeByMalID
-	for _, m := range media {
-		if m.GetMedia().ID == *id {
-			ret = m
-			break
-		}
+	if loaded {
+		ac.logger.Trace().Str("path", fixturePath).Msg("FixtureAnilistClient: CACHE HIT [CustomQuery]")
+		return cached, nil
 	}
 
-	if ret == nil {
-		ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [BaseAnimeByMalID]: %d", *id)
-		ret, err := ac.realAnilistClient.BaseAnimeByMalID(context.Background(), id)
+	if ac.canUseLiveFallback() {
+		ac.logger.Warn().Str("path", fixturePath).Msg("FixtureAnilistClient: CACHE MISS [CustomQuery]")
+		data, err := customQuery(body, logger, token...)
 		if err != nil {
 			return nil, err
 		}
-		media = append(media, ret)
-		data, err := json.Marshal(media)
-		if err != nil {
-			log.Fatal(err)
+		if err := maybeWriteJSONFixture(fixturePath, data, ac.logger); err != nil {
+			return nil, err
 		}
-		err = os.WriteFile(testutil.TestDataPath("BaseAnimeByMalID"), data, 0644)
+		return data, nil
+	}
+
+	return nil, ac.missingFixtureError("CustomQuery", req.Query)
+}
+
+func loadJSONFixture(path string, out interface{}) (bool, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	defer file.Close()
+
+	if err := json.NewDecoder(file).Decode(out); err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
+func requireJSONFixture(path string, out interface{}) error {
+	loaded, err := loadJSONFixture(path, out)
+	if err != nil {
+		return err
+	}
+	if !loaded {
+		return fmt.Errorf("missing required AniList fixture: %s", path)
+	}
+
+	return nil
+}
+
+func maybeWriteJSONFixture(path string, value interface{}, logger *zerolog.Logger) error {
+	if !testutil.ShouldRecordAnilistFixtures() {
+		if logger != nil {
+			logger.Debug().Str("path", path).Msg("anilist: skipped fixture write; record mode disabled")
+		}
+		return nil
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+
+	return os.WriteFile(path, data, 0644)
+}
+
+func customQueryFixturePath(body []byte) string {
+	sum := sha256.Sum256(body)
+	return filepath.Join(testutil.ProjectRoot(), "test", "testdata", "anilist-custom-query", hex.EncodeToString(sum[:])+".json")
+}
+
+func (ac *FixtureAnilistClient) canUseLiveFallback() bool {
+	return ac.realAnilistClient.IsAuthenticated() && testutil.ShouldRecordAnilistFixtures()
+}
+
+func (ac *FixtureAnilistClient) missingFixtureError(name string, key interface{}) error {
+	return fmt.Errorf(
+		"missing AniList fixture for %s (%v); use an authenticated client and set %s=true to refresh fixtures",
+		name,
+		key,
+		testutil.RecordAnilistFixturesEnvName,
+	)
+}
+
+func fixtureCollectionKey(userName *string) string {
+	if userName == nil || *userName == "" {
+		return "default"
+	}
+
+	return *userName
+}
+
+func loadAnimeCollectionFixtures() ([]*AnimeCollection, error) {
+	paths := []string{
+		testutil.TestDataPath("AnimeCollection"),
+	}
+
+	collections := make([]*AnimeCollection, 0, len(paths))
+	for _, path := range paths {
+		var collection *AnimeCollection
+		loaded, err := loadJSONFixture(path, &collection)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
+		}
+		if loaded && collection != nil {
+			collections = append(collections, collection)
+		}
+	}
+
+	return collections, nil
+}
+
+func loadAnimeCollectionWithRelationsFixtures() ([]*AnimeCollectionWithRelations, error) {
+	paths := []string{
+		testutil.TestDataPath("AnimeCollectionWithRelations"),
+	}
+
+	collections := make([]*AnimeCollectionWithRelations, 0, len(paths))
+	for _, path := range paths {
+		var collection *AnimeCollectionWithRelations
+		loaded, err := loadJSONFixture(path, &collection)
+		if err != nil {
+			return nil, err
+		}
+		if loaded && collection != nil {
+			collections = append(collections, collection)
+		}
+	}
+
+	return collections, nil
+}
+
+func findBaseAnimeInFixtureCollections(match func(*BaseAnime) bool) (*BaseAnime, bool, error) {
+	collections, err := loadAnimeCollectionFixtures()
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, collection := range collections {
+		for _, media := range collection.GetAllAnime() {
+			if match(media) {
+				return media, true, nil
+			}
+		}
+	}
+
+	return nil, false, nil
+}
+
+func findCompleteAnimeInFixtureCollections(id int) (*CompleteAnime, bool, error) {
+	collections, err := loadAnimeCollectionWithRelationsFixtures()
+	if err != nil {
+		return nil, false, err
+	}
+
+	for _, collection := range collections {
+		for _, media := range collection.GetAllAnime() {
+			if media.ID == id {
+				return media, true, nil
+			}
+		}
+	}
+
+	return nil, false, nil
+}
+
+func baseAnimeFixtureSlice(page *int, perPage *int) ([]*BaseAnime, *ListAnime_Page_PageInfo, error) {
+	collections, err := loadAnimeCollectionFixtures()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	allMedia := make([]*BaseAnime, 0)
+	seen := make(map[int]struct{})
+	for _, collection := range collections {
+		for _, media := range collection.GetAllAnime() {
+			if media == nil {
+				continue
+			}
+			if _, ok := seen[media.ID]; ok {
+				continue
+			}
+			seen[media.ID] = struct{}{}
+			allMedia = append(allMedia, media)
+		}
+	}
+
+	currentPage := 1
+	if page != nil && *page > 0 {
+		currentPage = *page
+	}
+	perPageValue := 20
+	if perPage != nil && *perPage > 0 {
+		perPageValue = *perPage
+	}
+
+	total := len(allMedia)
+	lastPage := 1
+	if total > 0 {
+		lastPage = (total + perPageValue - 1) / perPageValue
+	}
+
+	start := (currentPage - 1) * perPageValue
+	if start > total {
+		start = total
+	}
+	end := start + perPageValue
+	if end > total {
+		end = total
+	}
+
+	hasNextPage := end < total
+	pageInfo := &ListAnime_Page_PageInfo{
+		CurrentPage: &currentPage,
+		HasNextPage: &hasNextPage,
+		LastPage:    &lastPage,
+		PerPage:     &perPageValue,
+		Total:       &total,
+	}
+
+	return allMedia[start:end], pageInfo, nil
+}
+
+func (ac *FixtureAnilistClient) BaseAnimeByMalID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByMalID, error) {
+	fixturePath := testutil.TestDataPath("BaseAnimeByMalID")
+	var media []*BaseAnimeByMalID
+	loaded, err := loadJSONFixture(fixturePath, &media)
+	if err != nil {
+		return nil, err
+	}
+	if loaded {
+		for _, entry := range media {
+			malID := entry.GetMedia().GetIDMal()
+			if malID != nil && *malID == *id {
+				ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [BaseAnimeByMalID]: %d", *id)
+				return entry, nil
+			}
+		}
+	}
+
+	baseAnime, found, err := findBaseAnimeInFixtureCollections(func(media *BaseAnime) bool {
+		malID := media.GetIDMal()
+		return malID != nil && *malID == *id
+	})
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		ac.logger.Trace().Msgf("FixtureAnilistClient: FIXTURE HIT [BaseAnimeByMalID]: %d", *id)
+		return &BaseAnimeByMalID{Media: baseAnime}, nil
+	}
+
+	if ac.canUseLiveFallback() {
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [BaseAnimeByMalID]: %d", *id)
+		ret, err := ac.realAnilistClient.BaseAnimeByMalID(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		writeTarget := media
+		writeTarget = append(writeTarget, ret)
+		if err := maybeWriteJSONFixture(fixturePath, writeTarget, ac.logger); err != nil {
+			return nil, err
 		}
 		return ret, nil
 	}
 
-	ac.logger.Trace().Msgf("MockAnilistClientImpl: CACHE HIT [BaseAnimeByMalID]: %d", *id)
-	return ret, nil
+	return nil, ac.missingFixtureError("BaseAnimeByMalID", *id)
 }
 
-func (ac *MockAnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error) {
-	file, err := os.Open(testutil.TestDataPath("BaseAnimeByID"))
-	defer file.Close()
-	if err != nil {
-		if os.IsNotExist(err) {
-			ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [BaseAnimeByID]: %d", *id)
-			baseAnime, err := ac.realAnilistClient.BaseAnimeByID(context.Background(), id)
-			if err != nil {
-				return nil, err
-			}
-			data, err := json.Marshal([]*BaseAnimeByID{baseAnime})
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = os.WriteFile(testutil.TestDataPath("BaseAnimeByID"), data, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			return baseAnime, nil
-		}
-	}
-
+func (ac *FixtureAnilistClient) BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error) {
+	fixturePath := testutil.TestDataPath("BaseAnimeByID")
 	var media []*BaseAnimeByID
-	err = json.NewDecoder(file).Decode(&media)
+	loaded, err := loadJSONFixture(fixturePath, &media)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	var baseAnime *BaseAnimeByID
-	for _, m := range media {
-		if m.GetMedia().ID == *id {
-			baseAnime = m
-			break
+	if loaded {
+		for _, entry := range media {
+			if entry.GetMedia().ID == *id {
+				ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [BaseAnimeByID]: %d", *id)
+				return entry, nil
+			}
 		}
 	}
 
-	if baseAnime == nil {
-		ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [BaseAnimeByID]: %d", *id)
-		baseAnime, err := ac.realAnilistClient.BaseAnimeByID(context.Background(), id)
+	baseAnime, found, err := findBaseAnimeInFixtureCollections(func(media *BaseAnime) bool {
+		return media.ID == *id
+	})
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		ac.logger.Trace().Msgf("FixtureAnilistClient: FIXTURE HIT [BaseAnimeByID]: %d", *id)
+		return &BaseAnimeByID{Media: baseAnime}, nil
+	}
+
+	if ac.canUseLiveFallback() {
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [BaseAnimeByID]: %d", *id)
+		ret, err := ac.realAnilistClient.BaseAnimeByID(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		media = append(media, baseAnime)
-		data, err := json.Marshal(media)
-		if err != nil {
-			log.Fatal(err)
+		writeTarget := media
+		writeTarget = append(writeTarget, ret)
+		if err := maybeWriteJSONFixture(fixturePath, writeTarget, ac.logger); err != nil {
+			return nil, err
 		}
-		err = os.WriteFile(testutil.TestDataPath("BaseAnimeByID"), data, 0644)
-		if err != nil {
-			log.Fatal(err)
-		}
-		return baseAnime, nil
+		return ret, nil
 	}
 
-	ac.logger.Trace().Msgf("MockAnilistClientImpl: CACHE HIT [BaseAnimeByID]: %d", *id)
-	return baseAnime, nil
+	return nil, ac.missingFixtureError("BaseAnimeByID", *id)
 }
 
 // AnimeCollection
-//   - Set userName to nil to use the boilerplate AnimeCollection
-//   - Set userName to a specific username to fetch and cache
-func (ac *MockAnilistClientImpl) AnimeCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollection, error) {
-
-	if userName == nil {
-		file, err := os.Open(testutil.DataPath("BoilerplateAnimeCollection"))
-		defer file.Close()
-
-		var ret *AnimeCollection
-		err = json.NewDecoder(file).Decode(&ret)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		ac.logger.Trace().Msgf("MockAnilistClientImpl: Using [BoilerplateAnimeCollection]")
-		return ret, nil
-	}
-
-	file, err := os.Open(testutil.TestDataPath("AnimeCollection"))
-	defer file.Close()
-	if err != nil {
-		if os.IsNotExist(err) {
-			ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [AnimeCollection]: %s", *userName)
-			ret, err := ac.realAnilistClient.AnimeCollection(context.Background(), userName)
-			if err != nil {
-				return nil, err
-			}
-			data, err := json.Marshal(ret)
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = os.WriteFile(testutil.TestDataPath("AnimeCollection"), data, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			return ret, nil
-		}
-	}
-
+//   - Uses the committed AnimeCollection fixture during normal test runs.
+//   - In record mode, cache misses are refreshed from the live client.
+func (ac *FixtureAnilistClient) AnimeCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollection, error) {
+	key := fixtureCollectionKey(userName)
+	fixturePath := testutil.TestDataPath("AnimeCollection")
 	var ret *AnimeCollection
-	err = json.NewDecoder(file).Decode(&ret)
+	loaded, err := loadJSONFixture(fixturePath, &ret)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-
-	if ret == nil {
-		ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [AnimeCollection]: %s", *userName)
-		ret, err := ac.realAnilistClient.AnimeCollection(context.Background(), userName)
+	if !loaded {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("AnimeCollection", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [AnimeCollection]: %s", key)
+		ret, err := ac.realAnilistClient.AnimeCollection(ctx, userName)
 		if err != nil {
 			return nil, err
 		}
-		data, err := json.Marshal(ret)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = os.WriteFile(testutil.TestDataPath("AnimeCollection"), data, 0644)
-		if err != nil {
-			log.Fatal(err)
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
 		}
 		return ret, nil
 	}
 
-	ac.logger.Trace().Msgf("MockAnilistClientImpl: CACHE HIT [AnimeCollection]: %s", *userName)
+	if ret == nil {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("AnimeCollection", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [AnimeCollection]: %s", key)
+		ret, err := ac.realAnilistClient.AnimeCollection(ctx, userName)
+		if err != nil {
+			return nil, err
+		}
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [AnimeCollection]: %s", key)
 	return ret, nil
 
 }
 
-func (ac *MockAnilistClientImpl) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error) {
-
-	if userName == nil {
-		file, err := os.Open(testutil.DataPath("BoilerplateAnimeCollectionWithRelations"))
-		defer file.Close()
-
-		var ret *AnimeCollectionWithRelations
-		err = json.NewDecoder(file).Decode(&ret)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		ac.logger.Trace().Msgf("MockAnilistClientImpl: Using [BoilerplateAnimeCollectionWithRelations]")
-		return ret, nil
-	}
-
-	file, err := os.Open(testutil.TestDataPath("AnimeCollectionWithRelations"))
-	defer file.Close()
-	if err != nil {
-		if os.IsNotExist(err) {
-			ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [AnimeCollectionWithRelations]: %s", *userName)
-			ret, err := ac.realAnilistClient.AnimeCollectionWithRelations(context.Background(), userName)
-			if err != nil {
-				return nil, err
-			}
-			data, err := json.Marshal(ret)
-			if err != nil {
-				log.Fatal(err)
-			}
-			err = os.WriteFile(testutil.TestDataPath("AnimeCollectionWithRelations"), data, 0644)
-			if err != nil {
-				log.Fatal(err)
-			}
-			return ret, nil
-		}
-	}
-
+func (ac *FixtureAnilistClient) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error) {
+	key := fixtureCollectionKey(userName)
+	fixturePath := testutil.TestDataPath("AnimeCollectionWithRelations")
 	var ret *AnimeCollectionWithRelations
-	err = json.NewDecoder(file).Decode(&ret)
+	loaded, err := loadJSONFixture(fixturePath, &ret)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-
-	if ret == nil {
-		ac.logger.Warn().Msgf("MockAnilistClientImpl: CACHE MISS [AnimeCollectionWithRelations]: %s", *userName)
-		ret, err := ac.realAnilistClient.AnimeCollectionWithRelations(context.Background(), userName)
+	if !loaded {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("AnimeCollectionWithRelations", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [AnimeCollectionWithRelations]: %s", key)
+		ret, err := ac.realAnilistClient.AnimeCollectionWithRelations(ctx, userName)
 		if err != nil {
 			return nil, err
 		}
-		data, err := json.Marshal(ret)
-		if err != nil {
-			log.Fatal(err)
-		}
-		err = os.WriteFile(testutil.TestDataPath("AnimeCollectionWithRelations"), data, 0644)
-		if err != nil {
-			log.Fatal(err)
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
 		}
 		return ret, nil
 	}
 
-	ac.logger.Trace().Msgf("MockAnilistClientImpl: CACHE HIT [AnimeCollectionWithRelations]: %s", *userName)
+	if ret == nil {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("AnimeCollectionWithRelations", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [AnimeCollectionWithRelations]: %s", key)
+		ret, err := ac.realAnilistClient.AnimeCollectionWithRelations(ctx, userName)
+		if err != nil {
+			return nil, err
+		}
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [AnimeCollectionWithRelations]: %s", key)
 	return ret, nil
 
-}
-
-type TestModifyAnimeCollectionEntryInput struct {
-	Status            *MediaListStatus
-	Progress          *int
-	Score             *float64
-	AiredEpisodes     *int
-	NextAiringEpisode *BaseAnime_NextAiringEpisode
-}
-
-// TestModifyAnimeCollectionEntry will modify an entry in the fetched anime collection.
-// This is used to fine-tune the anime collection for testing purposes.
-//
-// Example: Setting a specific progress in case the origin anime collection has no progress
-func TestModifyAnimeCollectionEntry(ac *AnimeCollection, mId int, input TestModifyAnimeCollectionEntryInput) *AnimeCollection {
-	if ac == nil {
-		panic("AnimeCollection is nil")
-	}
-
-	lists := ac.GetMediaListCollection().GetLists()
-
-	removedFromList := false
-	var rEntry *AnimeCollection_MediaListCollection_Lists_Entries
-
-	// Move the entry to the correct list
-	if input.Status != nil {
-		for _, list := range lists {
-			if list.Status == nil || list.Entries == nil {
-				continue
-			}
-			entries := list.GetEntries()
-			for idx, entry := range entries {
-				if entry.GetMedia().ID == mId {
-					// Remove from current list if status differs
-					if *list.Status != *input.Status {
-						removedFromList = true
-						rEntry = entry
-						// Ensure we're not going out of bounds
-						if idx >= 0 && idx < len(entries) {
-							// Safely remove the entry by re-slicing
-							list.Entries = append(entries[:idx], entries[idx+1:]...)
-						}
-						break
-					}
-				}
-			}
-		}
-
-		// Add the entry to the correct list if it was removed
-		if removedFromList && rEntry != nil {
-			for _, list := range lists {
-				if list.Status == nil {
-					continue
-				}
-				if *list.Status == *input.Status {
-					if list.Entries == nil {
-						list.Entries = make([]*AnimeCollection_MediaListCollection_Lists_Entries, 0)
-					}
-					// Add the removed entry to the new list
-					list.Entries = append(list.Entries, rEntry)
-					break
-				}
-			}
-		}
-	}
-
-	// Update the entry details
-out:
-	for _, list := range lists {
-		entries := list.GetEntries()
-		for _, entry := range entries {
-			if entry.GetMedia().ID == mId {
-				if input.Status != nil {
-					entry.Status = input.Status
-				}
-				if input.Progress != nil {
-					entry.Progress = input.Progress
-				}
-				if input.Score != nil {
-					entry.Score = input.Score
-				}
-				if input.AiredEpisodes != nil {
-					entry.Media.Episodes = input.AiredEpisodes
-				}
-				if input.NextAiringEpisode != nil {
-					entry.Media.NextAiringEpisode = input.NextAiringEpisode
-				}
-				break out
-			}
-		}
-	}
-
-	return ac
-}
-
-func TestAddAnimeCollectionEntry(ac *AnimeCollection, mId int, input TestModifyAnimeCollectionEntryInput, realClient AnilistClient) *AnimeCollection {
-	if ac == nil {
-		panic("AnimeCollection is nil")
-	}
-
-	// Fetch the anime details
-	baseAnime, err := realClient.BaseAnimeByID(context.Background(), &mId)
-	if err != nil {
-		log.Fatal(err)
-	}
-	anime := baseAnime.GetMedia()
-
-	if input.NextAiringEpisode != nil {
-		anime.NextAiringEpisode = input.NextAiringEpisode
-	}
-
-	if input.AiredEpisodes != nil {
-		anime.Episodes = input.AiredEpisodes
-	}
-
-	lists := ac.GetMediaListCollection().GetLists()
-
-	// Add the entry to the correct list
-	if input.Status != nil {
-		for _, list := range lists {
-			if list.Status == nil {
-				continue
-			}
-			if *list.Status == *input.Status {
-				if list.Entries == nil {
-					list.Entries = make([]*AnimeCollection_MediaListCollection_Lists_Entries, 0)
-				}
-				list.Entries = append(list.Entries, &AnimeCollection_MediaListCollection_Lists_Entries{
-					Media:    baseAnime.GetMedia(),
-					Status:   input.Status,
-					Progress: input.Progress,
-					Score:    input.Score,
-				})
-				break
-			}
-		}
-	}
-
-	return ac
-}
-
-func TestAddAnimeCollectionWithRelationsEntry(ac *AnimeCollectionWithRelations, mId int, input TestModifyAnimeCollectionEntryInput, realClient AnilistClient) *AnimeCollectionWithRelations {
-	if ac == nil {
-		panic("AnimeCollection is nil")
-	}
-
-	// Fetch the anime details
-	baseAnime, err := realClient.CompleteAnimeByID(context.Background(), &mId)
-	if err != nil {
-		log.Fatal(err)
-	}
-	anime := baseAnime.GetMedia()
-
-	//if input.NextAiringEpisode != nil {
-	//	anime.NextAiringEpisode = input.NextAiringEpisode
-	//}
-
-	if input.AiredEpisodes != nil {
-		anime.Episodes = input.AiredEpisodes
-	}
-
-	lists := ac.GetMediaListCollection().GetLists()
-
-	// Add the entry to the correct list
-	if input.Status != nil {
-		for _, list := range lists {
-			if list.Status == nil {
-				continue
-			}
-			if *list.Status == *input.Status {
-				if list.Entries == nil {
-					list.Entries = make([]*AnimeCollectionWithRelations_MediaListCollection_Lists_Entries, 0)
-				}
-				list.Entries = append(list.Entries, &AnimeCollectionWithRelations_MediaListCollection_Lists_Entries{
-					Media:    baseAnime.GetMedia(),
-					Status:   input.Status,
-					Progress: input.Progress,
-					Score:    input.Score,
-				})
-				break
-			}
-		}
-	}
-
-	return ac
 }
 
 //
 // WILL NOT IMPLEMENT
 //
 
-func (ac *MockAnilistClientImpl) UpdateMediaListEntry(ctx context.Context, mediaID *int, status *MediaListStatus, scoreRaw *int, progress *int, startedAt *FuzzyDateInput, completedAt *FuzzyDateInput, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntry, error) {
+func (ac *FixtureAnilistClient) UpdateMediaListEntry(ctx context.Context, mediaID *int, status *MediaListStatus, scoreRaw *int, progress *int, startedAt *FuzzyDateInput, completedAt *FuzzyDateInput, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntry, error) {
 	ac.logger.Debug().Int("mediaId", *mediaID).Msg("anilist: Updating media list entry")
 	return &UpdateMediaListEntry{}, nil
 }
 
-func (ac *MockAnilistClientImpl) UpdateMediaListEntryProgress(ctx context.Context, mediaID *int, progress *int, status *MediaListStatus, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryProgress, error) {
+func (ac *FixtureAnilistClient) UpdateMediaListEntryProgress(ctx context.Context, mediaID *int, progress *int, status *MediaListStatus, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryProgress, error) {
 	ac.logger.Debug().Int("mediaId", *mediaID).Msg("anilist: Updating media list entry progress")
 	return &UpdateMediaListEntryProgress{}, nil
 }
 
-func (ac *MockAnilistClientImpl) UpdateMediaListEntryRepeat(ctx context.Context, mediaID *int, repeat *int, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryRepeat, error) {
+func (ac *FixtureAnilistClient) UpdateMediaListEntryRepeat(ctx context.Context, mediaID *int, repeat *int, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryRepeat, error) {
 	ac.logger.Debug().Int("mediaId", *mediaID).Msg("anilist: Updating media list entry repeat")
 	return &UpdateMediaListEntryRepeat{}, nil
 }
 
-func (ac *MockAnilistClientImpl) DeleteEntry(ctx context.Context, mediaListEntryID *int, interceptors ...clientv2.RequestInterceptor) (*DeleteEntry, error) {
+func (ac *FixtureAnilistClient) DeleteEntry(ctx context.Context, mediaListEntryID *int, interceptors ...clientv2.RequestInterceptor) (*DeleteEntry, error) {
 	ac.logger.Debug().Int("entryId", *mediaListEntryID).Msg("anilist: Deleting media list entry")
 	return &DeleteEntry{}, nil
 }
 
-func (ac *MockAnilistClientImpl) AnimeDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*AnimeDetailsByID, error) {
+func (ac *FixtureAnilistClient) AnimeDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*AnimeDetailsByID, error) {
 	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching anime details")
-	return ac.realAnilistClient.AnimeDetailsByID(ctx, id, interceptors...)
+	fixturePath := testutil.TestDataPath("AnimeDetailsByID")
+	var fixtures []*AnimeDetailsByID
+	loaded, err := loadJSONFixture(fixturePath, &fixtures)
+	if err != nil {
+		return nil, err
+	}
+	if loaded {
+		for _, entry := range fixtures {
+			if entry.GetMedia().ID == *id {
+				ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [AnimeDetailsByID]: %d", *id)
+				return entry, nil
+			}
+		}
+	}
+
+	if ac.canUseLiveFallback() {
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [AnimeDetailsByID]: %d", *id)
+		ret, err := ac.realAnilistClient.AnimeDetailsByID(ctx, id, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		fixtures = append(fixtures, ret)
+		if err := maybeWriteJSONFixture(fixturePath, fixtures, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	return nil, ac.missingFixtureError("AnimeDetailsByID", *id)
 }
 
-func (ac *MockAnilistClientImpl) CompleteAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*CompleteAnimeByID, error) {
+func (ac *FixtureAnilistClient) CompleteAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*CompleteAnimeByID, error) {
 	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching complete media")
-	return ac.realAnilistClient.CompleteAnimeByID(ctx, id, interceptors...)
+	fixturePath := testutil.TestDataPath("CompleteAnimeByID")
+	var fixtures []*CompleteAnimeByID
+	loaded, err := loadJSONFixture(fixturePath, &fixtures)
+	if err != nil {
+		return nil, err
+	}
+	if loaded {
+		for _, entry := range fixtures {
+			if entry.GetMedia().ID == *id {
+				ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [CompleteAnimeByID]: %d", *id)
+				return entry, nil
+			}
+		}
+	}
+
+	media, found, err := findCompleteAnimeInFixtureCollections(*id)
+	if err != nil {
+		return nil, err
+	}
+	if found {
+		ac.logger.Trace().Msgf("FixtureAnilistClient: FIXTURE HIT [CompleteAnimeByID]: %d", *id)
+		return &CompleteAnimeByID{Media: media}, nil
+	}
+	if ac.canUseLiveFallback() {
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [CompleteAnimeByID]: %d", *id)
+		ret, err := ac.realAnilistClient.CompleteAnimeByID(ctx, id, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		fixtures = append(fixtures, ret)
+		if err := maybeWriteJSONFixture(fixturePath, fixtures, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	return nil, ac.missingFixtureError("CompleteAnimeByID", *id)
 }
 
-func (ac *MockAnilistClientImpl) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
+func (ac *FixtureAnilistClient) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
 	ac.logger.Debug().Msg("anilist: Fetching media list")
-	return ac.realAnilistClient.ListAnime(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
+	media, pageInfo, err := baseAnimeFixtureSlice(page, perPage)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ListAnime{
+		Page: &ListAnime_Page{
+			Media:    media,
+			PageInfo: pageInfo,
+		},
+	}, nil
 }
 
-func (ac *MockAnilistClientImpl) ListRecentAnime(ctx context.Context, page *int, perPage *int, airingAtGreater *int, airingAtLesser *int, notYetAired *bool, interceptors ...clientv2.RequestInterceptor) (*ListRecentAnime, error) {
+func (ac *FixtureAnilistClient) ListRecentAnime(ctx context.Context, page *int, perPage *int, airingAtGreater *int, airingAtLesser *int, notYetAired *bool, interceptors ...clientv2.RequestInterceptor) (*ListRecentAnime, error) {
 	ac.logger.Debug().Msg("anilist: Fetching recent media list")
-	return ac.realAnilistClient.ListRecentAnime(ctx, page, perPage, airingAtGreater, airingAtLesser, notYetAired, interceptors...)
+	media, _, err := baseAnimeFixtureSlice(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	schedules := make([]*ListRecentAnime_Page_AiringSchedules, 0)
+	for _, anime := range media {
+		next := anime.GetNextAiringEpisode()
+		if next == nil {
+			continue
+		}
+		schedules = append(schedules, &ListRecentAnime_Page_AiringSchedules{
+			ID:              anime.ID,
+			AiringAt:        next.GetAiringAt(),
+			Episode:         next.GetEpisode(),
+			Media:           anime,
+			TimeUntilAiring: next.GetTimeUntilAiring(),
+		})
+	}
+
+	sort.Slice(schedules, func(i, j int) bool {
+		return schedules[i].AiringAt < schedules[j].AiringAt
+	})
+
+	currentPage := 1
+	if page != nil && *page > 0 {
+		currentPage = *page
+	}
+	perPageValue := 20
+	if perPage != nil && *perPage > 0 {
+		perPageValue = *perPage
+	}
+	total := len(schedules)
+	lastPage := 1
+	if total > 0 {
+		lastPage = (total + perPageValue - 1) / perPageValue
+	}
+	start := (currentPage - 1) * perPageValue
+	if start > total {
+		start = total
+	}
+	end := start + perPageValue
+	if end > total {
+		end = total
+	}
+	hasNextPage := end < total
+	pageInfo := &ListRecentAnime_Page_PageInfo{
+		CurrentPage: &currentPage,
+		HasNextPage: &hasNextPage,
+		LastPage:    &lastPage,
+		PerPage:     &perPageValue,
+		Total:       &total,
+	}
+
+	return &ListRecentAnime{
+		Page: &ListRecentAnime_Page{
+			AiringSchedules: schedules[start:end],
+			PageInfo:        pageInfo,
+		},
+	}, nil
 }
 
-func (ac *MockAnilistClientImpl) GetViewer(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetViewer, error) {
+func (ac *FixtureAnilistClient) GetViewer(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetViewer, error) {
 	ac.logger.Debug().Msg("anilist: Fetching viewer")
 	return ac.realAnilistClient.GetViewer(ctx, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) MangaCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollection, error) {
-	ac.logger.Debug().Msg("anilist: Fetching manga collection")
-	return ac.realAnilistClient.MangaCollection(ctx, userName, interceptors...)
+func (ac *FixtureAnilistClient) MangaCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollection, error) {
+	key := fixtureCollectionKey(userName)
+	fixturePath := testutil.TestDataPath("MangaCollection")
+	var ret *MangaCollection
+	loaded, err := loadJSONFixture(fixturePath, &ret)
+	if err != nil {
+		return nil, err
+	}
+	if !loaded {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("MangaCollection", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [MangaCollection]: %s", key)
+		ret, err = ac.realAnilistClient.MangaCollection(ctx, userName, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	if ret == nil {
+		if !ac.canUseLiveFallback() {
+			return nil, ac.missingFixtureError("MangaCollection", key)
+		}
+		ac.logger.Warn().Msgf("FixtureAnilistClient: CACHE MISS [MangaCollection]: %s", key)
+		ret, err = ac.realAnilistClient.MangaCollection(ctx, userName, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		if err := maybeWriteJSONFixture(fixturePath, ret, ac.logger); err != nil {
+			return nil, err
+		}
+		return ret, nil
+	}
+
+	ac.logger.Trace().Msgf("FixtureAnilistClient: CACHE HIT [MangaCollection]: %s", key)
+	return ret, nil
 }
 
-func (ac *MockAnilistClientImpl) SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*MediaSort, search *string, status []*MediaStatus, interceptors ...clientv2.RequestInterceptor) (*SearchBaseManga, error) {
+func (ac *FixtureAnilistClient) SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*MediaSort, search *string, status []*MediaStatus, interceptors ...clientv2.RequestInterceptor) (*SearchBaseManga, error) {
 	ac.logger.Debug().Msg("anilist: Searching manga")
 	return ac.realAnilistClient.SearchBaseManga(ctx, page, perPage, sort, search, status, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) BaseMangaByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseMangaByID, error) {
+func (ac *FixtureAnilistClient) BaseMangaByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseMangaByID, error) {
 	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching manga")
 	return ac.realAnilistClient.BaseMangaByID(ctx, id, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) MangaDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*MangaDetailsByID, error) {
+func (ac *FixtureAnilistClient) MangaDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*MangaDetailsByID, error) {
 	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching manga details")
 	return ac.realAnilistClient.MangaDetailsByID(ctx, id, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
+func (ac *FixtureAnilistClient) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
 	ac.logger.Debug().Msg("anilist: Fetching manga list")
 	return ac.realAnilistClient.ListManga(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) StudioDetails(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*StudioDetails, error) {
+func (ac *FixtureAnilistClient) StudioDetails(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*StudioDetails, error) {
 	ac.logger.Debug().Int("studioId", *id).Msg("anilist: Fetching studio details")
 	return ac.realAnilistClient.StudioDetails(ctx, id, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) ViewerStats(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*ViewerStats, error) {
+func (ac *FixtureAnilistClient) ViewerStats(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*ViewerStats, error) {
 	ac.logger.Debug().Msg("anilist: Fetching stats")
 	return ac.realAnilistClient.ViewerStats(ctx, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) SearchBaseAnimeByIds(ctx context.Context, ids []*int, page *int, perPage *int, status []*MediaStatus, inCollection *bool, sort []*MediaSort, season *MediaSeason, year *int, genre *string, format *MediaFormat, interceptors ...clientv2.RequestInterceptor) (*SearchBaseAnimeByIds, error) {
+func (ac *FixtureAnilistClient) SearchBaseAnimeByIds(ctx context.Context, ids []*int, page *int, perPage *int, status []*MediaStatus, inCollection *bool, sort []*MediaSort, season *MediaSeason, year *int, genre *string, format *MediaFormat, interceptors ...clientv2.RequestInterceptor) (*SearchBaseAnimeByIds, error) {
 	ac.logger.Debug().Msg("anilist: Searching anime by ids")
 	return ac.realAnilistClient.SearchBaseAnimeByIds(ctx, ids, page, perPage, status, inCollection, sort, season, year, genre, format, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) AnimeAiringSchedule(ctx context.Context, ids []*int, season *MediaSeason, seasonYear *int, previousSeason *MediaSeason, previousSeasonYear *int, nextSeason *MediaSeason, nextSeasonYear *int, interceptors ...clientv2.RequestInterceptor) (*AnimeAiringSchedule, error) {
+func (ac *FixtureAnilistClient) AnimeAiringSchedule(ctx context.Context, ids []*int, season *MediaSeason, seasonYear *int, previousSeason *MediaSeason, previousSeasonYear *int, nextSeason *MediaSeason, nextSeasonYear *int, interceptors ...clientv2.RequestInterceptor) (*AnimeAiringSchedule, error) {
 	ac.logger.Debug().Msg("anilist: Fetching schedule")
 	return ac.realAnilistClient.AnimeAiringSchedule(ctx, ids, season, seasonYear, previousSeason, previousSeasonYear, nextSeason, nextSeasonYear, interceptors...)
 }
 
-func (ac *MockAnilistClientImpl) AnimeAiringScheduleRaw(ctx context.Context, ids []*int, interceptors ...clientv2.RequestInterceptor) (*AnimeAiringScheduleRaw, error) {
+func (ac *FixtureAnilistClient) AnimeAiringScheduleRaw(ctx context.Context, ids []*int, interceptors ...clientv2.RequestInterceptor) (*AnimeAiringScheduleRaw, error) {
 	ac.logger.Debug().Msg("anilist: Fetching schedule")
 	return ac.realAnilistClient.AnimeAiringScheduleRaw(ctx, ids, interceptors...)
 }

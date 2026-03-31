@@ -1,10 +1,7 @@
 package continuity
 
 import (
-	"path/filepath"
-	"seanime/internal/database/db"
 	"seanime/internal/testutil"
-	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"testing"
 
@@ -12,18 +9,10 @@ import (
 )
 
 func TestHistoryItems(t *testing.T) {
-	cfg := testutil.InitTestProvider(t)
-
-	logger := util.NewLogger()
-
-	tempDir := t.TempDir()
-	t.Log(tempDir)
-
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	require.NoError(t, err)
-
-	cacher, err := filecache.NewCacher(filepath.Join(tempDir, "cache"))
-	require.NoError(t, err)
+	env := testutil.NewTestEnv(t)
+	logger := env.Logger()
+	database := env.NewDatabase("")
+	cacher := env.NewCacher("continuity")
 
 	manager := NewManager(&NewManagerOptions{
 		FileCacher: cacher,
@@ -31,6 +20,8 @@ func TestHistoryItems(t *testing.T) {
 		Database:   database,
 	})
 	require.NotNil(t, manager)
+
+	var err error
 
 	var mediaIds = make([]int, MaxWatchHistoryItems+1)
 	for i := 0; i < MaxWatchHistoryItems+1; i++ {

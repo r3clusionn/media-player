@@ -29,6 +29,7 @@ torbox_api_key = ""
 
 [path]
 dataDir = ''
+sampleVideoPath = ''
 
 [database]
 name = 'seanime-test'

@@ -5,7 +5,6 @@ import (
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata"
 	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
 	"seanime/internal/library/anime"
 	"seanime/internal/testutil"
 	"seanime/internal/util"
@@ -16,15 +15,14 @@ import (
 )
 
 func TestNewEntryDownloadInfo(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
+	env := testutil.NewTestEnv(t)
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	require.NoError(t, err)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	database := env.MustNewDatabase(logger)
+	metadataProvider := metadata_provider.NewTestProviderWithEnv(env, database)
 
-	anilistClient := anilist.TestGetMockAnilistClient()
-	animeCollection, err := anilistClient.AnimeCollection(context.Background(), &cfg.Provider.AnilistUsername)
+	anilistClient := anilist.NewTestAnilistClient()
+	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,16 +155,14 @@ func TestNewEntryDownloadInfo(t *testing.T) {
 }
 
 func TestNewEntryDownloadInfo2(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
 	mediaId := 21
+	env := testutil.NewTestEnv(t)
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	require.NoError(t, err)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	database := env.MustNewDatabase(logger)
+	metadataProvider := metadata_provider.NewTestProviderWithEnv(env, database)
 
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)

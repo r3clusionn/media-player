@@ -2,15 +2,10 @@ package scanner
 
 import (
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
-	"seanime/internal/extension"
 	"seanime/internal/library/anime"
 	"seanime/internal/library/summary"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/testutil"
+	"seanime/internal/platforms/platform"
 	"seanime/internal/util"
-	"seanime/internal/util/limiter"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,25 +13,11 @@ import (
 )
 
 func TestFileHydrator_HydrateMetadata(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	completeAnimeCache := anilist.NewCompleteAnimeCache()
-	anilistRateLimiter := limiter.NewAnilistLimiter()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	require.NoError(t, err)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
-	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
-	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	//wsEventManager := events.NewMockWSEventManager(logger)
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
-	animeCollection, err := anilistPlatform.GetAnimeCollectionWithRelations(t.Context())
+	harness := newScannerFixtureHarness(t)
+	logger := harness.Logger
+	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, animeCollection)
-
-	allMedia := animeCollection.GetAllAnime()
 
 	tests := []struct {
 		name            string
@@ -104,6 +85,14 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
+			currentStatus := anilist.MediaListStatusCurrent
+			anilist.EnsureAnimeCollectionWithRelationsEntry(
+				animeCollection,
+				tt.expectedMediaId,
+				anilist.AnimeCollectionEntryPatch{Status: &currentStatus},
+				harness.AnilistClient,
+			)
+			allMedia := animeCollection.GetAllAnime()
 
 			scanLogger, err := NewConsoleScanLogger()
 			if err != nil {
@@ -114,11 +103,7 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			var lfs []*anime.LocalFile
-			for _, path := range tt.paths {
-				lf := anime.NewLocalFile(path, "E:/Anime")
-				lfs = append(lfs, lf)
-			}
+			lfs := harness.LocalFiles(tt.paths...)
 
 			// +---------------------+
 			// |   MediaContainer    |
@@ -158,10 +143,10 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 			fh := &FileHydrator{
 				LocalFiles:          lfs,
 				AllMedia:            mc.NormalizedMedia,
-				CompleteAnimeCache:  completeAnimeCache,
-				PlatformRef:         util.NewRef(anilistPlatform),
-				AnilistRateLimiter:  anilistRateLimiter,
-				MetadataProviderRef: util.NewRef(metadataProvider),
+				CompleteAnimeCache:  harness.CompleteAnimeCache,
+				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
+				AnilistRateLimiter:  harness.AnilistRateLimiter,
+				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
 				Logger:              logger,
 				ScanLogger:          scanLogger,
 				Config:              config,

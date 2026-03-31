@@ -2,24 +2,19 @@ package filecache
 
 import (
 	"path/filepath"
-	"seanime/internal/testutil"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestCacherFunctions(t *testing.T) {
-	testutil.InitTestProvider(t)
-
-	tempDir := t.TempDir()
-	t.Log(tempDir)
-
-	cacher, err := NewCacher(filepath.Join(tempDir, "cache"))
-	require.NoError(t, err)
+	cacher, err := NewCacher(filepath.Join(t.TempDir(), "cache"))
+	if err != nil {
+		t.Fatalf("Failed to create cacher: %v", err)
+	}
 
 	bucket := Bucket{
 		name: "test",
@@ -64,12 +59,7 @@ func TestCacherFunctions(t *testing.T) {
 }
 
 func TestCacherSetAndGet(t *testing.T) {
-	cfg := testutil.InitTestProvider(t)
-
-	tempDir := t.TempDir()
-	t.Log(tempDir)
-
-	cacher, err := NewCacher(filepath.Join(cfg.Path.DataDir, "cache"))
+	cacher, err := NewCacher(filepath.Join(t.TempDir(), "cache"))
 
 	bucket := Bucket{
 		name: "test",

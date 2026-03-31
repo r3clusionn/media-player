@@ -1,25 +1,24 @@
 package manga
 
 import (
-	"path/filepath"
 	"seanime/internal/database/db"
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/testutil"
 	"seanime/internal/util"
-	"seanime/internal/util/filecache"
 	"testing"
 )
 
-func GetFakeRepository(t *testing.T, db *db.Database) *Repository {
-	cfg := testutil.LoadConfig(t)
+func NewTestRepository(t *testing.T, db *db.Database) *Repository {
+	t.Helper()
 
-	logger := util.NewLogger()
-	cacheDir := filepath.Join(cfg.Path.DataDir, "cache")
-	fileCacher, err := filecache.NewCacher(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	return NewTestRepositoryWithEnv(testutil.NewTestEnv(t), db)
+}
+
+func NewTestRepositoryWithEnv(env *testutil.TestEnv, db *db.Database) *Repository {
+	logger := env.Logger()
+	cacheDir := env.EnsureCacheDir()
+	fileCacher := env.NewCacher()
 
 	repository := NewRepository(&NewRepositoryOptions{
 		Logger:           logger,
@@ -27,7 +26,7 @@ func GetFakeRepository(t *testing.T, db *db.Database) *Repository {
 		CacheDir:         cacheDir,
 		ServerURI:        "",
 		WsEventManager:   events.NewMockWSEventManager(logger),
-		DownloadDir:      filepath.Join(cfg.Path.DataDir, "manga"),
+		DownloadDir:      env.MustMkdirData("manga"),
 		Database:         db,
 		ExtensionBankRef: util.NewRef(extension.NewUnifiedBank()),
 	})

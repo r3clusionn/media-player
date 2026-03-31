@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"seanime/internal/testutil"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,20 @@ func PrintPathStructure(path string, indent string) error {
 	return nil
 }
 
+func writeFixtureFile(t testing.TB, root string, fixturePath string) string {
+	t.Helper()
+
+	target := filepath.Join(root, testutil.FixtureRelPath(fixturePath))
+	if err := os.MkdirAll(filepath.Dir(target), 0755); err != nil {
+		t.Fatalf("failed to create directory: %v", err)
+	}
+	if err := os.WriteFile(target, []byte("dummy content"), 0644); err != nil {
+		t.Fatalf("failed to create file %s: %v", target, err)
+	}
+
+	return target
+}
+
 func TestCreateTempDir(t *testing.T) {
 
 	files := []string{
@@ -39,13 +54,7 @@ func TestCreateTempDir(t *testing.T) {
 
 	root := t.TempDir()
 	for _, file := range files {
-		path := filepath.Join(root, file)
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			t.Fatalf("failed to create directory: %v", err)
-		}
-		if err := os.WriteFile(path, []byte("dummy content"), 0644); err != nil {
-			t.Fatalf("failed to create file %s: %v", path, err)
-		}
+		writeFixtureFile(t, root, file)
 	}
 	defer os.RemoveAll(root)
 
@@ -172,13 +181,7 @@ func TestMoveContentsTo(t *testing.T) {
 			// Create the source directory structure
 			root := t.TempDir()
 			for _, file := range tt.files {
-				path := filepath.Join(root, file)
-				if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-					t.Fatalf("failed to create directory: %v", err)
-				}
-				if err := os.WriteFile(path, []byte("dummy content"), 0644); err != nil {
-					t.Fatalf("failed to create file %s: %v", path, err)
-				}
+				writeFixtureFile(t, root, file)
 			}
 
 			PrintPathStructure(root, "")

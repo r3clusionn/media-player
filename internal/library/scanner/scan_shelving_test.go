@@ -3,14 +3,9 @@ package scanner
 import (
 	"os"
 	"path/filepath"
-	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
 	"seanime/internal/events"
-	"seanime/internal/extension"
 	"seanime/internal/library/anime"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/testutil"
+	"seanime/internal/platforms/platform"
 	"seanime/internal/util"
 	"testing"
 
@@ -18,14 +13,8 @@ import (
 )
 
 func TestScanner_Shelving(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
+	harness := newScannerFixtureHarness(t)
+	logger := harness.Logger
 
 	// a temporary directory for the library
 	tempDir, err := os.MkdirTemp("", "seanime_test_library")
@@ -42,11 +31,6 @@ func TestScanner_Shelving(t *testing.T) {
 	filename := "[SubsPlease] 86 - Eighty Six - 20v2 (1080p) [30072859].mkv"
 	filePath := filepath.Join(tempDir, filename)
 
-	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
 	wsEventManager := events.NewMockWSEventManager(util.NewLogger())
 
 	t.Run("Shelve missing locked file", func(t *testing.T) {
@@ -60,8 +44,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef(anilistPlatform),
-			MetadataProviderRef:  util.NewRef(metadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
+			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -105,8 +89,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef(anilistPlatform),
-			MetadataProviderRef:  util.NewRef(metadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
+			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -147,8 +131,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef(anilistPlatform),
-			MetadataProviderRef:  util.NewRef(metadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
+			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -190,8 +174,8 @@ func TestScanner_Shelving(t *testing.T) {
 			DirPath:              tempDir,              // The main scan dir is tempDir
 			OtherDirPaths:        []string{missingDir}, // We include the missing dir as a library path
 			Enhanced:             false,
-			PlatformRef:          util.NewRef(anilistPlatform),
-			MetadataProviderRef:  util.NewRef(metadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
+			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,

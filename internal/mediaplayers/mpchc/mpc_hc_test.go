@@ -27,6 +27,7 @@ func TestMpcHc_Start(t *testing.T) {
 
 func TestMpcHc_Play(t *testing.T) {
 	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	mpc := &MpcHc{
 		Host:   cfg.Provider.MpcHost,
@@ -38,7 +39,7 @@ func TestMpcHc_Play(t *testing.T) {
 	err := mpc.Start()
 	assert.NoError(t, err)
 
-	res, err := mpc.OpenAndPlay("E:\\ANIME\\Violet.Evergarden.The.Movie.1080p.Dual.Audio.BDRip.10.bits.DD.x265-EMBER.mkv")
+	res, err := mpc.OpenAndPlay(sampleVideoPath)
 	assert.NoError(t, err)
 
 	t.Log(res)
@@ -69,6 +70,7 @@ func TestMpcHc_GetVariables(t *testing.T) {
 
 func TestMpcHc_Seek(t *testing.T) {
 	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	mpc := &MpcHc{
 		Host:   cfg.Provider.MpcHost,
@@ -80,7 +82,7 @@ func TestMpcHc_Seek(t *testing.T) {
 	err := mpc.Start()
 	assert.NoError(t, err)
 
-	_, err = mpc.OpenAndPlay("E:\\ANIME\\[SubsPlease] Bocchi the Rock! (01-12) (1080p) [Batch]\\[SubsPlease] Bocchi the Rock! - 01v2 (1080p) [ABDDAE16].mkv")
+	_, err = mpc.OpenAndPlay(sampleVideoPath)
 	assert.NoError(t, err)
 
 	err = mpc.Pause()

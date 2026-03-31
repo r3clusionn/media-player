@@ -8,7 +8,6 @@ import (
 	"seanime/internal/debrid/debrid"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
-	"seanime/internal/testutil"
 	"seanime/internal/torrent_clients/torrent_client"
 	"seanime/internal/util"
 	"testing"
@@ -973,9 +972,7 @@ func TestIsProfileValidChecks(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	require.NoError(t, err)
 
@@ -1159,15 +1156,15 @@ func TestIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new fake
-			fake := &Fake{
+			harness := &TestHarness{
 				GetLatestResults: tt.torrents,
 				SearchResults:    tt.torrents,
 			}
-			ad := fake.New(t)
+			ad := harness.New(t)
 			ad.SetAnimeCollection(animeCollection)
 
 			// Add local files to the database
-			_, err = fake.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+			_, err = harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 			require.NoError(t, err)
 
 			// Set user progress
@@ -1213,9 +1210,7 @@ func TestIntegration(t *testing.T) {
 }
 
 func TestDelayIntegration(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	require.NoError(t, err)
 
@@ -1345,7 +1340,7 @@ func TestDelayIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fake := &Fake{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
+			fake := &TestHarness{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
 			ad := fake.New(t)
 			ad.SetAnimeCollection(animeCollection)
 

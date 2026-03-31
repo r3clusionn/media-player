@@ -6,7 +6,6 @@ import (
 	"os"
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/testutil"
@@ -17,18 +16,18 @@ import (
 )
 
 func TestGojaAnimeTorrentProvider(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
+	env := testutil.NewTestEnv(t)
 
 	logger := util.NewLogger()
-	database, _ := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
+	database := env.MustNewDatabase(logger)
 
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	anilistClientRef := util.NewRef(anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	platform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
 	platformRef := util.NewRef(platform)
 
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	metadataProvider := metadata_provider.NewTestProvider(t, database)
 	metadataProviderRef := util.NewRef(metadataProvider)
 
 	repo := NewPlaygroundRepository(logger, platformRef, metadataProviderRef)

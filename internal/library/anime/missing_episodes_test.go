@@ -23,9 +23,9 @@ func TestNewMissingEpisodes(t *testing.T) {
 	logger := util.NewLogger()
 	database, _ := db.NewDatabase(t.TempDir(), "test", logger)
 
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	metadataProvider := metadata_provider.NewTestProvider(t, database)
 
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
@@ -45,14 +45,19 @@ func TestNewMissingEpisodes(t *testing.T) {
 			// So we should expect to see 5 missing episodes
 			name:    "Sousou no Frieren, missing 5 episodes",
 			mediaId: 154587,
-			localFiles: anime.MockHydratedLocalFiles(
-				anime.MockGenerateHydratedLocalFileGroupOptions("E:/Anime", "E:\\Anime\\Sousou no Frieren\\[SubsPlease] Sousou no Frieren - %ep (1080p) [F02B9CEE].mkv", 154587, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-					{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 3, MetadataAniDbEpisode: "3", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 4, MetadataAniDbEpisode: "4", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 5, MetadataAniDbEpisode: "5", MetadataType: anime.LocalFileTypeMain},
-				}),
+			localFiles: anime.NewTestLocalFiles(
+				anime.TestLocalFileGroup{
+					LibraryPath:      "E:/Anime",
+					FilePathTemplate: "E:\\Anime\\Sousou no Frieren\\[SubsPlease] Sousou no Frieren - %ep (1080p) [F02B9CEE].mkv",
+					MediaID:          154587,
+					Episodes: []anime.TestLocalFileEpisode{
+						{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+						{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+						{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+						{Episode: 4, AniDBEpisode: "4", Type: anime.LocalFileTypeMain},
+						{Episode: 5, AniDBEpisode: "5", Type: anime.LocalFileTypeMain},
+					},
+				},
 			),
 			mediaAiredEpisodes: 10,
 			currentProgress:    4,
@@ -66,7 +71,7 @@ func TestNewMissingEpisodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			// Mock Anilist collection
-			anilist.TestModifyAnimeCollectionEntry(animeCollection, tt.mediaId, anilist.TestModifyAnimeCollectionEntryInput{
+			anilist.PatchAnimeCollectionEntry(animeCollection, tt.mediaId, anilist.AnimeCollectionEntryPatch{
 				Progress:      new(tt.currentProgress), // Mock progress
 				AiredEpisodes: new(tt.mediaAiredEpisodes),
 				NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{

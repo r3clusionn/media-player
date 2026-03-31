@@ -369,7 +369,7 @@ func (m *ManagerImpl) TrackAnime(mId int) error {
 
 	err := m.localDb.gormdb.Create(s).Error
 	if err != nil {
-		m.logger.Error().Msgf("local manager: Failed to add anime %d to local database: %w", mId, err)
+		m.logger.Error().Err(err).Msgf("local manager: Failed to add anime %d to local database", mId)
 		return fmt.Errorf("failed to add anime %d to local database: %w", mId, err)
 	}
 
@@ -426,7 +426,7 @@ func (m *ManagerImpl) TrackManga(mId int) error {
 
 	err := m.localDb.gormdb.Create(s).Error
 	if err != nil {
-		m.logger.Error().Msgf("local manager: Failed to add manga %d to local database: %w", mId, err)
+		m.logger.Error().Err(err).Msgf("local manager: Failed to add manga %d to local database", mId)
 		return fmt.Errorf("failed to add manga %d to local database: %w", mId, err)
 	}
 

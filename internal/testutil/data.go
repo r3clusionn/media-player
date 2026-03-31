@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -57,11 +58,20 @@ type ProviderConfig struct {
 }
 
 type PathConfig struct {
-	DataDir string `mapstructure:"dataDir"`
+	DataDir         string `mapstructure:"dataDir"`
+	SampleVideoPath string `mapstructure:"sampleVideoPath"`
 }
 
 type DatabaseConfig struct {
 	Name string `mapstructure:"name"`
+}
+
+func defaultConfig() *Config {
+	return &Config{
+		Path:     PathConfig{},
+		Database: DatabaseConfig{Name: defaultTestDatabaseName},
+		Flags:    FlagsConfig{},
+	}
 }
 
 // SkipFunc conditionally skips a test based on configuration.
@@ -115,12 +125,20 @@ func TestDataPath(name string) string {
 	return filepath.Join(ProjectRoot(), "test", "testdata", name+".json")
 }
 
+const (
+	SampleVideoPathEnv           = "TEST_SAMPLE_VIDEO_PATH"
+	RecordAnilistFixturesEnvName = "SEANIME_TEST_RECORD_ANILIST_FIXTURES"
+)
+
 // InitTestProvider loads the test configuration and skips the test
 // if any of the provided skip functions decide it should not run.
 func InitTestProvider(t testing.TB, flags ...SkipFunc) *Config {
 	t.Helper()
 
-	cfg := LoadConfig(t)
+	cfg, err := readConfig()
+	if err != nil {
+		cfg = defaultConfig()
+	}
 
 	for _, fn := range flags {
 		fn(t, cfg)
@@ -164,6 +182,47 @@ func readConfig() (*Config, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+func cloneConfig(cfg *Config) *Config {
+	if cfg == nil {
+		return nil
+	}
+
+	return new(*cfg)
+}
+
+// RequireSampleVideoPath returns the configured sample media path for external
+// playback tests. It respects TEST_SAMPLE_VIDEO_PATH and skips if unset.
+func RequireSampleVideoPath(t testing.TB) string {
+	t.Helper()
+
+	if path := os.Getenv(SampleVideoPathEnv); path != "" {
+		return path
+	}
+
+	cfg := LoadConfig(t)
+	if cfg.Path.SampleVideoPath == "" {
+		t.Skip("media playback tests require path.sampleVideoPath or TEST_SAMPLE_VIDEO_PATH")
+	}
+
+	return cfg.Path.SampleVideoPath
+}
+
+// ShouldRecordAnilistFixtures reports whether AniList mock helpers may write
+// back into repository fixtures during a test run.
+func ShouldRecordAnilistFixtures() bool {
+	value := os.Getenv(RecordAnilistFixturesEnvName)
+	if value == "" {
+		return false
+	}
+
+	enabled, err := strconv.ParseBool(value)
+	if err != nil {
+		return false
+	}
+
+	return enabled
 }
 
 func Anilist() SkipFunc {

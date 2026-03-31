@@ -2,12 +2,7 @@ package scanner
 
 import (
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
-	"seanime/internal/extension"
-	"seanime/internal/library/anime"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/testutil"
+	"seanime/internal/platforms/platform"
 	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
@@ -17,23 +12,9 @@ import (
 )
 
 func TestNewMediaFetcher(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	anilistClientRef := util.NewRef(anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerFixtureHarness(t)
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
-
-	dir := "E:/Anime"
 
 	tests := []struct {
 		name                   string
@@ -78,11 +59,7 @@ func TestNewMediaFetcher(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			var lfs []*anime.LocalFile
-			for _, path := range tt.paths {
-				lf := anime.NewLocalFile(path, dir)
-				lfs = append(lfs, lf)
-			}
+			lfs := harness.LocalFiles(tt.paths...)
 
 			// +---------------------+
 			// |    MediaFetcher     |
@@ -90,10 +67,10 @@ func TestNewMediaFetcher(t *testing.T) {
 
 			mf, err := NewMediaFetcher(t.Context(), &MediaFetcherOptions{
 				Enhanced:               tt.enhanced,
-				PlatformRef:            util.NewRef(anilistPlatform),
+				PlatformRef:            util.NewRef[platform.Platform](harness.Platform),
 				LocalFiles:             lfs,
 				CompleteAnimeCache:     completeAnimeCache,
-				MetadataProviderRef:    util.NewRef(metadataProvider),
+				MetadataProviderRef:    util.NewRef(harness.MetadataProvider),
 				Logger:                 util.NewLogger(),
 				AnilistRateLimiter:     anilistRateLimiter,
 				ScanLogger:             scanLogger,
@@ -119,22 +96,9 @@ func TestNewMediaFetcher(t *testing.T) {
 }
 
 func TestNewEnhancedMediaFetcher(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	anilistClientRef := util.NewRef(anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	metaProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerFixtureHarness(t)
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
-
-	dir := "E:/Anime"
 
 	tests := []struct {
 		name     string
@@ -157,7 +121,7 @@ func TestNewEnhancedMediaFetcher(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			scanLogger, err := NewScanLogger("./logs")
+			scanLogger, err := NewScanLogger(harness.Env.RootPath("logs"))
 			if err != nil {
 				t.Fatal("expected result, got error:", err.Error())
 			}
@@ -166,11 +130,7 @@ func TestNewEnhancedMediaFetcher(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			var lfs []*anime.LocalFile
-			for _, path := range tt.paths {
-				lf := anime.NewLocalFile(path, dir)
-				lfs = append(lfs, lf)
-			}
+			lfs := harness.LocalFiles(tt.paths...)
 
 			// +---------------------+
 			// |    MediaFetcher     |
@@ -178,10 +138,10 @@ func TestNewEnhancedMediaFetcher(t *testing.T) {
 
 			mf, err := NewMediaFetcher(t.Context(), &MediaFetcherOptions{
 				Enhanced:            tt.enhanced,
-				PlatformRef:         util.NewRef(anilistPlatform),
+				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
 				LocalFiles:          lfs,
 				CompleteAnimeCache:  completeAnimeCache,
-				MetadataProviderRef: util.NewRef(metaProvider),
+				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
 				Logger:              util.NewLogger(),
 				AnilistRateLimiter:  anilistRateLimiter,
 				ScanLogger:          scanLogger,
@@ -206,18 +166,7 @@ func TestNewEnhancedMediaFetcher(t *testing.T) {
 }
 
 func TestFetchMediaFromLocalFiles(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	anilistClientRef := util.NewRef(anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	metaProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerFixtureHarness(t)
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 
@@ -238,13 +187,11 @@ func TestFetchMediaFromLocalFiles(t *testing.T) {
 		},
 	}
 
-	dir := "E:/Anime"
-
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			scanLogger, err := NewScanLogger("./logs")
+			scanLogger, err := NewScanLogger(harness.Env.RootPath("logs"))
 			if err != nil {
 				t.Fatal("expected result, got error:", err.Error())
 			}
@@ -253,11 +200,7 @@ func TestFetchMediaFromLocalFiles(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			var lfs []*anime.LocalFile
-			for _, path := range tt.paths {
-				lf := anime.NewLocalFile(path, dir)
-				lfs = append(lfs, lf)
-			}
+			lfs := harness.LocalFiles(tt.paths...)
 
 			// +--------------------------+
 			// | FetchMediaFromLocalFiles |
@@ -265,10 +208,10 @@ func TestFetchMediaFromLocalFiles(t *testing.T) {
 
 			media, ok := FetchMediaFromLocalFiles(
 				t.Context(),
-				anilistPlatform,
+				harness.Platform,
 				lfs,
 				completeAnimeCache,
-				metaProvider,
+				harness.MetadataProvider,
 				anilistRateLimiter,
 				scanLogger,
 			)

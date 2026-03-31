@@ -12,7 +12,7 @@ import (
 )
 
 func TestCompoundQuery(t *testing.T) {
-	testutil.InitTestProvider(t)
+	testutil.InitTestProvider(t, testutil.Anilist())
 
 	var ids = []int{171457, 21}
 

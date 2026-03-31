@@ -1,15 +1,16 @@
 package continuity
 
 import (
-	"github.com/stretchr/testify/require"
 	"path/filepath"
 	"seanime/internal/database/db"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-func GetMockManager(t *testing.T, db *db.Database) *Manager {
+func NewTestManager(t *testing.T, db *db.Database) *Manager {
 	logger := util.NewLogger()
 	cacher, err := filecache.NewCacher(filepath.Join(t.TempDir(), "cache"))
 	require.NoError(t, err)

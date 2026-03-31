@@ -3,14 +3,9 @@ package scanner
 import (
 	"context"
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
-	"seanime/internal/extension"
 	"seanime/internal/library/anime"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/testutil"
+	"seanime/internal/platforms/platform"
 	"seanime/internal/util"
-	"seanime/internal/util/limiter"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -18,7 +13,7 @@ import (
 
 func TestMatcher1(t *testing.T) {
 
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -103,15 +98,17 @@ func TestMatcher1(t *testing.T) {
 }
 
 func TestMatcher2(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
+	harness := newScannerLiveHarness(t)
+	anilistClient := harness.AnilistClient
+	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	if animeCollection == nil {
+		t.Fatal("expected anime collection, got nil")
+	}
 
-	dir := "E:/Anime"
+	dir := harness.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -156,34 +153,12 @@ func TestMatcher2(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-
-			// Add media to collection if it doesn't exist
-			allMedia := animeCollection.GetAllAnime()
-			hasExpectedMediaId := false
-			for _, media := range allMedia {
-				if media.ID == tt.expectedMediaId {
-					hasExpectedMediaId = true
-					break
-				}
-			}
-			if !hasExpectedMediaId {
-				anilist.TestAddAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.TestModifyAnimeCollectionEntryInput{Status: new(anilist.MediaListStatusCurrent)}, anilistClient)
-				allMedia = animeCollection.GetAllAnime()
-			}
-
+			currentStatus := anilist.MediaListStatusCurrent
+			anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
 			for _, otherMediaId := range tt.otherMediaIds {
-				hasOtherMediaId := false
-				for _, media := range allMedia {
-					if media.ID == otherMediaId {
-						hasOtherMediaId = true
-						break
-					}
-				}
-				if !hasOtherMediaId {
-					anilist.TestAddAnimeCollectionWithRelationsEntry(animeCollection, otherMediaId, anilist.TestModifyAnimeCollectionEntryInput{Status: new(anilist.MediaListStatusCurrent)}, anilistClient)
-					allMedia = animeCollection.GetAllAnime()
-				}
+				anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, otherMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
 			}
+			allMedia := animeCollection.GetAllAnime()
 
 			scanLogger, err := NewConsoleScanLogger()
 			if err != nil {
@@ -238,15 +213,17 @@ func TestMatcher2(t *testing.T) {
 }
 
 func TestMatcher3(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
+	harness := newScannerLiveHarness(t)
+	anilistClient := harness.AnilistClient
+	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	if animeCollection == nil {
+		t.Fatal("expected anime collection, got nil")
+	}
 
-	dir := "E:/Anime"
+	dir := harness.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -856,37 +833,12 @@ func TestMatcher3(t *testing.T) {
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
-
-			// Add media to collection if it doesn't exist
-			allMedia := animeCollection.GetAllAnime()
-
-			// Helper to ensure media exists in collection
-			hasMedia := false
-			for _, media := range allMedia {
-				if media.ID == tt.expectedMediaId {
-					hasMedia = true
-					break
-				}
-			}
-			if !hasMedia {
-				anilist.TestAddAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.TestModifyAnimeCollectionEntryInput{Status: new(anilist.MediaListStatusCurrent)}, anilistClient)
-				allMedia = animeCollection.GetAllAnime()
-			}
-
-			// Ensure other media exists
+			currentStatus := anilist.MediaListStatusCurrent
+			anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
 			for _, id := range tt.otherMediaIds {
-				hasMedia := false
-				for _, media := range allMedia {
-					if media.ID == id {
-						hasMedia = true
-						break
-					}
-				}
-				if !hasMedia {
-					anilist.TestAddAnimeCollectionWithRelationsEntry(animeCollection, id, anilist.TestModifyAnimeCollectionEntryInput{Status: new(anilist.MediaListStatusCurrent)}, anilistClient)
-					allMedia = animeCollection.GetAllAnime()
-				}
+				anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, id, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
 			}
+			allMedia := animeCollection.GetAllAnime()
 
 			scanLogger, err := NewConsoleScanLogger()
 			if err != nil {
@@ -948,41 +900,27 @@ func TestMatcherWithOfflineDB(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	anilistClientRef := util.NewRef(anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
-	completeAnimeCache := anilist.NewCompleteAnimeCache()
-	anilistRateLimiter := limiter.NewAnilistLimiter()
+	harness := newScannerFixtureHarness(t)
+	logger := harness.Logger
 
 	scanLogger, err := NewConsoleScanLogger()
 	if err != nil {
 		t.Fatal("expected result, got error:", err.Error())
 	}
 
-	dir := "E:/Anime"
+	dir := harness.LibraryDir
 
 	t.Log("Initializing MediaFetcher with anime-offline-database...")
 
 	mf, err := NewMediaFetcher(t.Context(), &MediaFetcherOptions{
 		Enhanced:                   true,
 		EnhanceWithOfflineDatabase: true, // Use offline database
-		PlatformRef:                util.NewRef(anilistPlatform),
+		PlatformRef:                util.NewRef[platform.Platform](harness.Platform),
 		LocalFiles:                 []*anime.LocalFile{}, // Empty, we don't need local files for fetching
-		CompleteAnimeCache:         completeAnimeCache,
-		MetadataProviderRef:        util.NewRef(metadataProvider),
+		CompleteAnimeCache:         harness.CompleteAnimeCache,
+		MetadataProviderRef:        util.NewRef(harness.MetadataProvider),
 		Logger:                     logger,
-		AnilistRateLimiter:         anilistRateLimiter,
+		AnilistRateLimiter:         harness.AnilistRateLimiter,
 		ScanLogger:                 scanLogger,
 		DisableAnimeCollection:     true, // Only use offline database
 	})
@@ -1395,15 +1333,17 @@ func TestGetFileFormatType(t *testing.T) {
 }
 
 func TestMatcher_applyMatchingRule(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
-
-	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
+	harness := newScannerLiveHarness(t)
+	anilistClient := harness.AnilistClient
+	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
+	if animeCollection == nil {
+		t.Fatal("expected anime collection, got nil")
+	}
 
-	dir := "E:/Anime"
+	dir := harness.LibraryDir
 
 	tests := []struct {
 		name             string
@@ -1530,34 +1470,17 @@ func TestMatcher_applyMatchingRule(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			// Add medias to collection if it doesn't exist
-			allMedia := animeCollection.GetAllAnime()
-			expectedIDs := make([]int, len(tt.expectedMediaIds))
-			copy(expectedIDs, tt.expectedMediaIds)
-
-			for _, media := range allMedia {
-				for i, expectedID := range expectedIDs {
-					if media.ID == expectedID {
-						last := len(expectedIDs) - 1
-						expectedIDs[i] = expectedIDs[last]
-						expectedIDs = expectedIDs[:last]
-						break
-					}
-				}
-			}
-
-			for _, missingID := range expectedIDs {
-				anilist.TestAddAnimeCollectionWithRelationsEntry(
+			currentStatus := anilist.MediaListStatusCurrent
+			for _, expectedID := range tt.expectedMediaIds {
+				anilist.EnsureAnimeCollectionWithRelationsEntry(
 					animeCollection,
-					missingID,
-					anilist.TestModifyAnimeCollectionEntryInput{
-						Status: new(anilist.MediaListStatusCurrent),
-					},
+					expectedID,
+					anilist.AnimeCollectionEntryPatch{Status: &currentStatus},
 					anilistClient,
 				)
 			}
 
-			allMedia = animeCollection.GetAllAnime()
+			allMedia := animeCollection.GetAllAnime()
 
 			scanLogger, err := NewConsoleScanLogger()
 			if err != nil {

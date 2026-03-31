@@ -10,7 +10,7 @@ import (
 
 func TestProvider(t *testing.T) {
 
-	metadataProvider := GetFakeProvider(t, nil)
+	metadataProvider := NewTestProvider(t, nil)
 
 	tests := []struct {
 		platform         metadata.Platform

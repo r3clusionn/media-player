@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"seanime/internal/api/anilist"
-	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/testutil"
@@ -16,22 +15,19 @@ import (
 )
 
 func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist.MangaCollection) {
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
+	env := testutil.NewTestEnv(t)
+	logger := env.Logger()
 
-	logger := util.NewLogger()
-
-	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
-	require.NoError(t, err)
-	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
+	database := env.MustNewDatabase(logger)
+	anilistClient := anilist.NewTestAnilistClient()
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef[anilist.AnilistClient](anilistClient), extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), true)
 	require.NoError(t, err)
 	mangaCollection, err := anilistPlatform.GetMangaCollection(t.Context(), true)
 	require.NoError(t, err)
 
-	manager := GetMockManager(t, database)
+	manager := NewTestManager(t, database)
 
 	manager.SetAnimeCollection(animeCollection)
 	manager.SetMangaCollection(mangaCollection)
@@ -72,7 +68,7 @@ func TestSync2(t *testing.T) {
 		break
 	}
 
-	anilist.TestModifyAnimeCollectionEntry(animeCollection, 130003, anilist.TestModifyAnimeCollectionEntryInput{
+	anilist.PatchAnimeCollectionEntry(animeCollection, 130003, anilist.AnimeCollectionEntryPatch{
 		Status:   new(anilist.MediaListStatusCompleted),
 		Progress: new(12), // Mock progress
 	})

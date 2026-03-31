@@ -11,43 +11,40 @@ import (
 	"seanime/internal/testutil"
 	"seanime/internal/torrents/torrent"
 	"seanime/internal/util"
-	"seanime/internal/util/filecache"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
-type Fake struct {
+type TestHarness struct {
 	SearchResults    []*hibiketorrent.AnimeTorrent
 	GetLatestResults []*hibiketorrent.AnimeTorrent
 	Database         *db.Database
 }
 
-type FakeTorrentProvider struct {
-	fake *Fake
+type TestTorrentProvider struct {
+	harness *TestHarness
 }
 
-func (f FakeTorrentProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.fake.SearchResults, nil
+func (f TestTorrentProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
+	return f.harness.SearchResults, nil
 }
 
-func (f FakeTorrentProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.fake.SearchResults, nil
+func (f TestTorrentProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
+	return f.harness.SearchResults, nil
 }
 
-func (f FakeTorrentProvider) GetTorrentInfoHash(torrent *hibiketorrent.AnimeTorrent) (string, error) {
+func (f TestTorrentProvider) GetTorrentInfoHash(torrent *hibiketorrent.AnimeTorrent) (string, error) {
 	return torrent.InfoHash, nil
 }
 
-func (f FakeTorrentProvider) GetTorrentMagnetLink(torrent *hibiketorrent.AnimeTorrent) (string, error) {
+func (f TestTorrentProvider) GetTorrentMagnetLink(torrent *hibiketorrent.AnimeTorrent) (string, error) {
 	return torrent.MagnetLink, nil
 }
 
-func (f FakeTorrentProvider) GetLatest() ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.fake.GetLatestResults, nil
+func (f TestTorrentProvider) GetLatest() ([]*hibiketorrent.AnimeTorrent, error) {
+	return f.harness.GetLatestResults, nil
 }
 
-func (f FakeTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
+func (f TestTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 	return hibiketorrent.AnimeProviderSettings{
 		CanSmartSearch:     false,
 		SmartSearchFilters: nil,
@@ -56,28 +53,27 @@ func (f FakeTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 	}
 }
 
-var _ hibiketorrent.AnimeProvider = (*FakeTorrentProvider)(nil)
+var _ hibiketorrent.AnimeProvider = (*TestTorrentProvider)(nil)
 
-func (f *Fake) New(t *testing.T) *AutoDownloader {
-	cfg := testutil.LoadConfig(t)
+func (f *TestHarness) New(t *testing.T) *AutoDownloader {
+	t.Helper()
+	env := testutil.NewTestEnv(t)
 
-	logger := util.NewLogger()
-	database, err := db.NewDatabase("", cfg.Database.Name, logger)
-	require.NoError(t, err)
+	logger := env.Logger()
+	database := env.NewDatabase("")
 
 	f.Database = database
 
-	filecacher, err := filecache.NewCacher(t.TempDir())
-	require.NoError(t, err)
+	filecacher := env.NewCacher("autodownloader")
 
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 
-	// Fake Extension
-	provider := FakeTorrentProvider{fake: f}
+	// Test extension
+	provider := TestTorrentProvider{harness: f}
 	ext := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
 		ID:   "fake",
 		Type: extension.TypeAnimeTorrentProvider,
-		Name: "Fake Provider",
+		Name: "Test Provider",
 	}, provider)
 
 	extensionBankRef.Get().Set("fake", ext)

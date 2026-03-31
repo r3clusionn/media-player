@@ -684,7 +684,6 @@ func (q *Syncer) synchronizeAnime(diff *AnimeDiffResult) {
 	}
 
 	// The snapshot is up-to-date
-	return
 }
 
 // synchronizeManga creates or updates the manga snapshot in the local database.
@@ -775,5 +774,4 @@ func (q *Syncer) synchronizeManga(diff *MangaDiffResult) {
 	}
 
 	// The snapshot is up-to-date
-	return
 }

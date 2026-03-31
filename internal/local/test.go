@@ -1,12 +1,14 @@
 package local
 
 import (
-	"path/filepath"
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/database/db"
+	"seanime/internal/database/db_bridge"
+	"seanime/internal/database/models"
 	"seanime/internal/events"
 	"seanime/internal/extension"
+	"seanime/internal/library/anime"
 	"seanime/internal/manga"
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
@@ -17,28 +19,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func GetMockManager(t *testing.T, db *db.Database) Manager {
-	cfg := testutil.LoadConfig(t)
+func NewTestManager(t *testing.T, db *db.Database) Manager {
+	env := testutil.NewTestEnv(t)
 
-	logger := util.NewLogger()
-	metadataProvider := metadata_provider.GetFakeProvider(t, db)
-	metadataProviderRef := util.NewRef[metadata_provider.Provider](metadataProvider)
-	mangaRepository := manga.GetFakeRepository(t, db)
+	logger := env.Logger()
+	metadataProvider := metadata_provider.NewTestProviderWithEnv(env, db)
+	metadataProviderRef := util.NewRef(metadataProvider)
+	mangaRepository := manga.NewTestRepositoryWithEnv(env, db)
 
 	wsEventManager := events.NewMockWSEventManager(logger)
-	anilistClient := anilist.NewMockAnilistClient()
+	anilistClient := anilist.NewFixtureAnilistClient()
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, db)
 	anilistPlatformRef := util.NewRef[platform.Platform](anilistPlatform)
 
-	localDir := filepath.Join(cfg.Path.DataDir, "offline")
-	assetsDir := filepath.Join(cfg.Path.DataDir, "offline", "assets")
+	localDir := env.MustMkdirData("offline")
+	assetsDir := env.MustMkdirData("offline", "assets")
+
+	var localFilesCount int64
+	err := db.Gorm().Model(&models.LocalFiles{}).Count(&localFilesCount).Error
+	require.NoError(t, err)
+	if localFilesCount == 0 {
+		_, err = db_bridge.InsertLocalFiles(db, make([]*anime.LocalFile, 0))
+		require.NoError(t, err)
+	}
 
 	m, err := NewManager(&NewManagerOptions{
 		LocalDir:            localDir,
 		AssetDir:            assetsDir,
-		Logger:              util.NewLogger(),
+		Logger:              logger,
 		MetadataProviderRef: metadataProviderRef,
 		MangaRepository:     mangaRepository,
 		Database:            db,

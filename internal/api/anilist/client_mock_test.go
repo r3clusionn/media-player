@@ -3,71 +3,93 @@ package anilist
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"seanime/internal/testutil"
+	"strconv"
+	"strings"
 	"testing"
 
-	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// USE CASE: Generate a boilerplate Anilist AnimeCollection for testing purposes and save it to 'test/data/BoilerplateAnimeCollection'.
-// The generated AnimeCollection will have all entries in the 'Planning' status.
-// The generated AnimeCollection will be used to test various Anilist API methods.
-// You can use TestModifyAnimeCollectionEntry to modify the generated AnimeCollection before using it in a test.
-//   - DO NOT RUN IF YOU DON'T PLAN TO GENERATE A NEW 'test/data/BoilerplateAnimeCollection'
-func TestGenerateBoilerplateAnimeCollection(t *testing.T) {
-	t.Skip("This test is not meant to be run")
-	cfg := testutil.InitTestProvider(t, testutil.Anilist())
+const recordCompleteAnimeIDsEnvName = "SEANIME_TEST_RECORD_COMPLETE_ANIME_IDS"
 
-	anilistClient := TestGetMockAnilistClient()
+func TestMaybeWriteJSONFixtureCreatesDirectories(t *testing.T) {
+	t.Setenv(testutil.RecordAnilistFixturesEnvName, "true")
 
-	ac, err := anilistClient.AnimeCollection(context.Background(), &cfg.Provider.AnilistUsername)
+	target := filepath.Join(t.TempDir(), "fixtures", "nested", "fixture.json")
+	err := maybeWriteJSONFixture(target, map[string]string{"status": "ok"}, nil)
+	assert.NoError(t, err)
 
-	if assert.NoError(t, err) {
+	_, err = os.Stat(target)
+	assert.NoError(t, err)
+}
 
-		lists := ac.GetMediaListCollection().GetLists()
+func TestCustomQueryFixturePathIsStable(t *testing.T) {
+	body := []byte(`{"query":"query Example { Page { pageInfo { total } } }","variables":{"page":1}}`)
 
-		entriesToAddToPlanning := make([]*AnimeListEntry, 0)
+	path1 := customQueryFixturePath(body)
+	path2 := customQueryFixturePath(body)
 
-		if assert.NoError(t, err) {
+	assert.Equal(t, path1, path2)
+	assert.Contains(t, path1, filepath.Join("test", "testdata", "anilist-custom-query"))
+}
 
-			for _, list := range lists {
-				if list.Status != nil {
-					if list.GetStatus().String() != string(MediaListStatusPlanning) {
-						entries := list.GetEntries()
-						for _, entry := range entries {
-							entry.Progress = new(0)
-							entry.Score = new(0.0)
-							entry.Status = new(MediaListStatusPlanning)
-							entriesToAddToPlanning = append(entriesToAddToPlanning, entry)
-						}
-						list.Entries = make([]*AnimeListEntry, 0)
-					}
-				}
-			}
+func TestFixtureMangaCollectionUsesCommittedFixture(t *testing.T) {
+	client := NewFixtureAnilistClient()
 
-			newLists := make([]*AnimeCollection_MediaListCollection_Lists, 0)
-			for _, list := range lists {
-				if list.Status == nil {
-					continue
-				}
-				if *list.GetStatus() == MediaListStatusPlanning {
-					list.Entries = append(list.Entries, entriesToAddToPlanning...)
-					newLists = append(newLists, list)
-				} else {
-					newLists = append(newLists, list)
-				}
-			}
+	collection, err := client.MangaCollection(context.Background(), nil)
+	require.NoError(t, err)
+	require.NotNil(t, collection)
 
-			ac.MediaListCollection.Lists = newLists
+	entry, found := collection.GetListEntryFromMangaId(101517)
+	require.True(t, found)
+	require.Equal(t, MediaListStatusCurrent, *entry.GetStatus())
+	require.Equal(t, 260, *entry.GetProgress())
+}
 
-			data, err := json.Marshal(ac)
-			if assert.NoError(t, err) {
-				err = os.WriteFile(testutil.DataPath("BoilerplateAnimeCollection"), data, 0644)
-				assert.NoError(t, err)
-			}
-		}
-
+func TestRecordCompleteAnimeByIDFixtures(t *testing.T) {
+	if !testutil.ShouldRecordAnilistFixtures() {
+		t.Skip("AniList fixture recording disabled")
 	}
 
+	rawIDs := strings.TrimSpace(os.Getenv(recordCompleteAnimeIDsEnvName))
+	if rawIDs == "" {
+		t.Skip("no CompleteAnimeByID fixture ids requested")
+	}
+
+	cfg := testutil.LoadConfig(t)
+	if cfg.Provider.AnilistJwt == "" {
+		t.Skip("AniList fixture recording requires provider.anilist_jwt")
+	}
+
+	client := NewFixtureAnilistClientWithToken(cfg.Provider.AnilistJwt)
+	for _, mediaID := range parseFixtureMediaIDs(t, rawIDs) {
+		_, err := client.CompleteAnimeByID(context.Background(), &mediaID)
+		require.NoErrorf(t, err, "failed to record CompleteAnimeByID fixture for media %d", mediaID)
+	}
+}
+
+func parseFixtureMediaIDs(t *testing.T, raw string) []int {
+	t.Helper()
+
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		switch r {
+		case ',', ' ', '\n', '\t':
+			return true
+		default:
+			return false
+		}
+	})
+	require.NotEmpty(t, parts, "expected at least one media id")
+
+	ids := make([]int, 0, len(parts))
+	for _, part := range parts {
+		mediaID, err := strconv.Atoi(part)
+		require.NoErrorf(t, err, "invalid media id %q", part)
+		ids = append(ids, mediaID)
+	}
+
+	return ids
 }

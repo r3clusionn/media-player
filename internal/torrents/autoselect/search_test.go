@@ -7,7 +7,6 @@ import (
 	"seanime/internal/extension"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
-	"seanime/internal/testutil"
 	itorrent "seanime/internal/torrents/torrent"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
@@ -19,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// FakeSearchProvider is a fake torrent provider for testing search functionality
-type FakeSearchProvider struct {
+// TestSearchProvider is a programmable torrent provider for search tests.
+type TestSearchProvider struct {
 	SearchResults    map[string][]*hibiketorrent.AnimeTorrent // keyed by resolution
 	CanSmartSearch   bool
 	SearchCallCount  int
@@ -29,7 +28,7 @@ type FakeSearchProvider struct {
 	LastBatchSetting bool
 }
 
-func (f *FakeSearchProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
+func (f *TestSearchProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
 	f.SearchCallCount++
 	f.LastSearchQuery = opts.Query
 	f.LastResolution = ""
@@ -42,7 +41,7 @@ func (f *FakeSearchProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*h
 	return []*hibiketorrent.AnimeTorrent{}, nil
 }
 
-func (f *FakeSearchProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
+func (f *TestSearchProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
 	f.SearchCallCount++
 	f.LastResolution = opts.Resolution
 	f.LastBatchSetting = opts.Batch
@@ -54,19 +53,19 @@ func (f *FakeSearchProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOpti
 	return []*hibiketorrent.AnimeTorrent{}, nil
 }
 
-func (f *FakeSearchProvider) GetTorrentInfoHash(torrent *hibiketorrent.AnimeTorrent) (string, error) {
+func (f *TestSearchProvider) GetTorrentInfoHash(torrent *hibiketorrent.AnimeTorrent) (string, error) {
 	return torrent.InfoHash, nil
 }
 
-func (f *FakeSearchProvider) GetTorrentMagnetLink(torrent *hibiketorrent.AnimeTorrent) (string, error) {
+func (f *TestSearchProvider) GetTorrentMagnetLink(torrent *hibiketorrent.AnimeTorrent) (string, error) {
 	return torrent.MagnetLink, nil
 }
 
-func (f *FakeSearchProvider) GetLatest() ([]*hibiketorrent.AnimeTorrent, error) {
+func (f *TestSearchProvider) GetLatest() ([]*hibiketorrent.AnimeTorrent, error) {
 	return []*hibiketorrent.AnimeTorrent{}, nil
 }
 
-func (f *FakeSearchProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
+func (f *TestSearchProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 	return hibiketorrent.AnimeProviderSettings{
 		CanSmartSearch:     f.CanSmartSearch,
 		SmartSearchFilters: nil,
@@ -75,10 +74,10 @@ func (f *FakeSearchProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 	}
 }
 
-var _ hibiketorrent.AnimeProvider = (*FakeSearchProvider)(nil)
+var _ hibiketorrent.AnimeProvider = (*TestSearchProvider)(nil)
 
-// setupTestAutoSelect creates an AutoSelect instance with a fake provider
-func setupTestAutoSelect(t *testing.T, provider *FakeSearchProvider) *AutoSelect {
+// setupTestAutoSelect creates an AutoSelect instance with a test provider.
+func setupTestAutoSelect(t *testing.T, provider *TestSearchProvider) *AutoSelect {
 	logger := util.NewLogger()
 
 	tempDir := t.TempDir()
@@ -87,11 +86,11 @@ func setupTestAutoSelect(t *testing.T, provider *FakeSearchProvider) *AutoSelect
 
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 
-	// Create fake extension
+	// Create test extension
 	ext := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
 		ID:   "fake-provider",
 		Type: extension.TypeAnimeTorrentProvider,
-		Name: "Fake Provider",
+		Name: "Test Provider",
 	}, provider)
 
 	extensionBankRef.Get().Set("fake-provider", ext)
@@ -136,8 +135,6 @@ func createTestMedia(t *testing.T) *anilist.CompleteAnime {
 }
 
 func TestSearchFromProvider_SingleResolution(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -146,7 +143,7 @@ func TestSearchFromProvider_SingleResolution(t *testing.T) {
 		{Name: "[Erai-raws] One Piece - 1000 [1080p].mkv", InfoHash: "hash2", Seeders: 150},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": t1080p,
 		},
@@ -170,8 +167,6 @@ func TestSearchFromProvider_SingleResolution(t *testing.T) {
 }
 
 func TestSearchFromProvider_MultipleResolutions_FirstSucceeds(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -179,7 +174,7 @@ func TestSearchFromProvider_MultipleResolutions_FirstSucceeds(t *testing.T) {
 		{Name: "[SubsPlease] One Piece - 1000 (1080p).mkv", InfoHash: "hash1", Seeders: 100},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": t1080p,
 			"720p":  {}, // Empty
@@ -204,8 +199,6 @@ func TestSearchFromProvider_MultipleResolutions_FirstSucceeds(t *testing.T) {
 }
 
 func TestSearchFromProvider_MultipleResolutions_Fallback(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -213,7 +206,7 @@ func TestSearchFromProvider_MultipleResolutions_Fallback(t *testing.T) {
 		{Name: "[SubsPlease] One Piece - 1000 (720p).mkv", InfoHash: "hash1", Seeders: 80},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": {}, // Empty, should fallback
 			"720p":  t720p,
@@ -238,12 +231,10 @@ func TestSearchFromProvider_MultipleResolutions_Fallback(t *testing.T) {
 }
 
 func TestSearchFromProvider_AllResolutionsFail(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": {},
 			"720p":  {},
@@ -269,8 +260,6 @@ func TestSearchFromProvider_AllResolutionsFail(t *testing.T) {
 }
 
 func TestSearchFromProvider_NoResolutionsInProfile(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -278,7 +267,7 @@ func TestSearchFromProvider_NoResolutionsInProfile(t *testing.T) {
 		{Name: "[SubsPlease] One Piece - 1000.mkv", InfoHash: "hash1", Seeders: 100},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"": tAny, // Empty resolution key for "any"
 		},
@@ -302,8 +291,6 @@ func TestSearchFromProvider_NoResolutionsInProfile(t *testing.T) {
 }
 
 func TestSearchFromProvider_BatchFallback(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1
 
@@ -311,7 +298,7 @@ func TestSearchFromProvider_BatchFallback(t *testing.T) {
 		{Name: "[SubsPlease] One Piece - 01 (1080p).mkv", InfoHash: "hash1", Seeders: 100},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": tSingle,
 		},
@@ -335,8 +322,6 @@ func TestSearchFromProvider_BatchFallback(t *testing.T) {
 }
 
 func TestSearchFromProviders_MultipleProviders(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -345,7 +330,7 @@ func TestSearchFromProviders_MultipleProviders(t *testing.T) {
 		{Name: "[Erai-raws] One Piece - 1000 [1080p].mkv", InfoHash: "hash2", Seeders: 150},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": t1080p,
 		},
@@ -367,8 +352,6 @@ func TestSearchFromProviders_MultipleProviders(t *testing.T) {
 }
 
 func TestSearchFromProviders_Deduplication(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -378,7 +361,7 @@ func TestSearchFromProviders_Deduplication(t *testing.T) {
 		{Name: "[Erai-raws] One Piece - 1000 [1080p].mkv", InfoHash: "hash2", Seeders: 150},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": t1080p,
 		},
@@ -400,8 +383,6 @@ func TestSearchFromProviders_Deduplication(t *testing.T) {
 }
 
 func TestSearch_Integration(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	media := createTestMedia(t)
 	episodeNumber := 1000
 
@@ -409,7 +390,7 @@ func TestSearch_Integration(t *testing.T) {
 		{Name: "[SubsPlease] One Piece - 1000 (720p).mkv", InfoHash: "hash1", Seeders: 100},
 	}
 
-	provider := &FakeSearchProvider{
+	provider := &TestSearchProvider{
 		SearchResults: map[string][]*hibiketorrent.AnimeTorrent{
 			"1080p": {}, // Empty, should fallback to 720p
 			"720p":  t720p,
@@ -581,14 +562,14 @@ func TestGetProvidersToSearch(t *testing.T) {
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 
 	// Create fake extensions
-	provider1 := &FakeSearchProvider{CanSmartSearch: false}
+	provider1 := &TestSearchProvider{CanSmartSearch: false}
 	ext1 := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
 		ID:   "provider1",
 		Type: extension.TypeAnimeTorrentProvider,
 		Name: "Provider 1",
 	}, provider1)
 
-	provider2 := &FakeSearchProvider{CanSmartSearch: false}
+	provider2 := &TestSearchProvider{CanSmartSearch: false}
 	ext2 := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
 		ID:   "provider2",
 		Type: extension.TypeAnimeTorrentProvider,
