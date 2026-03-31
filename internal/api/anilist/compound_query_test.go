@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCompoundQuery(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+func TestCompoundQueryLive(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.Anilist(), testutil.Live())
 
 	var ids = []int{171457, 21}
 

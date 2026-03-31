@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 	"time"
@@ -14,6 +15,9 @@ import (
 )
 
 func setupChromeVMWithServer(t *testing.T) (*goja.Runtime, *ChromeDP, *httptest.Server) {
+	t.Helper()
+	testutil.InitTestProvider(t, testutil.Live())
+
 	vm := goja.New()
 	chrome := BindChromeDP(vm)
 

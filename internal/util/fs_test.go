@@ -65,7 +65,7 @@ func TestIsFileUnderDir(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.child, func(t *testing.T) {
-			result := IsFileUnderDir(test.parent, test.child)
+			result := IsFileUnderDir(test.child, test.parent)
 			require.Equal(t, test.expected, result)
 		})
 	}

@@ -1215,6 +1215,12 @@ func TestDelayIntegration(t *testing.T) {
 	require.NoError(t, err)
 
 	mediaId := 154587 // Sousou no Frieren
+	testAnimeCollection := animeCollection.Copy()
+	require.NotNil(t, testAnimeCollection)
+	entry, found := testAnimeCollection.GetListEntryFromAnimeId(mediaId)
+	require.True(t, found)
+	progress := 0
+	entry.Progress = &progress
 
 	tests := []struct {
 		name                 string
@@ -1289,7 +1295,7 @@ func TestDelayIntegration(t *testing.T) {
 					Hash:        "hash1",
 					IsDelayed:   true,
 					DelayUntil:  time.Now().Add(-1 * time.Minute), // Expired
-					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1"}}),
+					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1"}, ExtensionID: "fake"}),
 				},
 			},
 			profile: &anime.AutoDownloaderProfile{
@@ -1317,7 +1323,7 @@ func TestDelayIntegration(t *testing.T) {
 					Score:       10,
 					IsDelayed:   true,
 					DelayUntil:  time.Now().Add(5 * time.Minute), // Not expired
-					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "Name", InfoHash: "hash_bad"}}),
+					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "Name", InfoHash: "hash_bad"}, ExtensionID: "fake"}),
 				},
 			},
 			profile: &anime.AutoDownloaderProfile{
@@ -1342,7 +1348,7 @@ func TestDelayIntegration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			fake := &TestHarness{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
 			ad := fake.New(t)
-			ad.SetAnimeCollection(animeCollection)
+			ad.SetAnimeCollection(testAnimeCollection.Copy())
 
 			// Setup DB
 			_, _ = fake.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})

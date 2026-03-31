@@ -192,7 +192,7 @@ func TestGojaPluginAnime(t *testing.T) {
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestGojaPluginMpv(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	payload := fmt.Sprintf(`
@@ -289,7 +289,7 @@ function init() {
 
 // Test that the plugin can play a video and listen to events
 func TestGojaPluginPlaybackEvents(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	payload := fmt.Sprintf(`

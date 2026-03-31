@@ -5,8 +5,8 @@ import (
 	"testing"
 )
 
-func TestSearchWithMAL(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MyAnimeList())
+func TestSearchWithMALLive(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
 	res, err := SearchWithMAL("bungo stray dogs", 4)
 
@@ -20,8 +20,8 @@ func TestSearchWithMAL(t *testing.T) {
 
 }
 
-func TestAdvancedSearchWithMal(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MyAnimeList())
+func TestAdvancedSearchWithMalLive(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
 	res, err := AdvancedSearchWithMAL("sousou no frieren")
 

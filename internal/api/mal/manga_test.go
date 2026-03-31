@@ -8,8 +8,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func TestGetMangaDetails(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList())
+func TestGetMangaDetailsLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
 	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
@@ -24,8 +24,8 @@ func TestGetMangaDetails(t *testing.T) {
 	t.Log(res.Title)
 }
 
-func TestGetMangaCollection(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList())
+func TestGetMangaCollectionLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
 	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
@@ -43,8 +43,8 @@ func TestGetMangaCollection(t *testing.T) {
 	}
 }
 
-func TestUpdateMangaListStatus(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.MyAnimeListMutation())
+func TestUpdateMangaListStatusLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.MyAnimeListMutation(), testutil.Live())
 
 	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 

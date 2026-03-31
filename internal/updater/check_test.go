@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,45 +19,38 @@ func TestUpdater_getReleaseName(t *testing.T) {
 }
 
 func TestUpdater_FetchLatestRelease(t *testing.T) {
+	fixture := newUpdaterTestFixture(t)
 
-	fallbackGithubUrl = "https://seanimedud.app/api/releases" // simulate dead endpoint
-	//githubUrl = "https://api.github.com/repos/5rahim/seanime-desktop/releases/latest"
+	websiteUrl = fixture.deadAPIURL
 
 	updater := New(constants.Version, util.NewLogger(), events.NewMockWSEventManager(util.NewLogger()))
 	release, err := updater.fetchLatestRelease("github")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if assert.NotNil(t, release) {
-		spew.Dump(release)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	assert.Equal(t, fixture.release.TagName, release.TagName)
+	assert.Len(t, release.Assets, len(fixture.release.Assets))
 }
 
 func TestUpdater_FetchLatestReleaseFromApi(t *testing.T) {
+	newUpdaterTestFixture(t)
 
 	updater := New(constants.Version, util.NewLogger(), events.NewMockWSEventManager(util.NewLogger()))
-	release, err := updater.fetchLatestReleaseFromApi("github")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if assert.NotNil(t, release) {
-		spew.Dump(release)
-	}
+	release, err := updater.fetchLatestReleaseFromApi(seanimeStableUrl)
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	assert.Equal(t, "v3.5.2", release.TagName)
+	assert.Len(t, release.Assets, 2)
 }
 
 func TestUpdater_FetchLatestReleaseFromGitHub(t *testing.T) {
+	fixture := newUpdaterTestFixture(t)
 
 	updater := New(constants.Version, util.NewLogger(), events.NewMockWSEventManager(util.NewLogger()))
 	release, err := updater.fetchLatestReleaseFromGitHub()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if assert.NotNil(t, release) {
-		spew.Dump(release)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	assert.Equal(t, fixture.release.TagName, release.TagName)
+	assert.Len(t, release.Assets, len(fixture.release.Assets))
 }
 
 func TestUpdater_CompareVersion(t *testing.T) {
@@ -121,18 +113,20 @@ func TestUpdater_CompareVersion(t *testing.T) {
 }
 
 func TestUpdater(t *testing.T) {
+	fixture := newUpdaterTestFixture(t)
 
-	u := New(constants.Version, util.NewLogger(), events.NewMockWSEventManager(util.NewLogger()))
+	u := New("2.0.2", util.NewLogger(), events.NewMockWSEventManager(util.NewLogger()))
 
 	rl, err := u.GetLatestRelease("github")
 	require.NoError(t, err)
+	require.NotNil(t, rl)
+	assert.Equal(t, fixture.release.TagName, rl.TagName)
 
-	rl.TagName = "v2.2.1"
 	newV := strings.TrimPrefix(rl.TagName, "v")
 	updateTypeI, shouldUpdate := util.CompareVersion(u.CurrentVersion, newV)
 	isOlder := util.VersionIsOlderThan(u.CurrentVersion, newV)
 
-	util.Spew(isOlder)
-	util.Spew(shouldUpdate)
-	util.Spew(updateTypeI)
+	assert.True(t, isOlder)
+	assert.True(t, shouldUpdate)
+	assert.Equal(t, -3, updateTypeI)
 }

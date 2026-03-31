@@ -11,7 +11,7 @@ import (
 )
 
 func TestMpcHc_Start(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 
 	mpc := &MpcHc{
 		Host:   cfg.Provider.MpcHost,
@@ -26,7 +26,7 @@ func TestMpcHc_Start(t *testing.T) {
 }
 
 func TestMpcHc_Play(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	mpc := &MpcHc{
@@ -47,7 +47,7 @@ func TestMpcHc_Play(t *testing.T) {
 }
 
 func TestMpcHc_GetVariables(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 
 	mpc := &MpcHc{
 		Host:   cfg.Provider.MpcHost,
@@ -69,7 +69,7 @@ func TestMpcHc_GetVariables(t *testing.T) {
 }
 
 func TestMpcHc_Seek(t *testing.T) {
-	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
 	sampleVideoPath := testutil.RequireSampleVideoPath(t)
 
 	mpc := &MpcHc{

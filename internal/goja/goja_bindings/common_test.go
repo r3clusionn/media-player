@@ -158,9 +158,6 @@ func TestByteSliceToUint8Array(t *testing.T) {
 }
 
 func TestGojaDocument(t *testing.T) {
-	vm := setupTestVM(t)
-	defer vm.ClearInterrupt()
-
 	tests := []struct {
 		entry string
 	}{
@@ -170,6 +167,9 @@ func TestGojaDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.entry, func(t *testing.T) {
+			vm := setupTestVM(t)
+			defer vm.ClearInterrupt()
+
 			fileB, err := os.ReadFile(tt.entry)
 			require.NoError(t, err)
 

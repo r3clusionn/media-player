@@ -26,6 +26,7 @@ type FlagsConfig struct {
 	EnableMediaPlayerTests     bool `mapstructure:"enable_media_player_tests"`
 	EnableTorrentClientTests   bool `mapstructure:"enable_torrent_client_tests"`
 	EnableTorrentstreamTests   bool `mapstructure:"enable_torrentstream_tests"`
+	EnableLiveTests            bool `mapstructure:"enable_live_tests"`
 }
 
 type ProviderConfig struct {
@@ -223,6 +224,15 @@ func ShouldRecordAnilistFixtures() bool {
 	}
 
 	return enabled
+}
+
+func Live() SkipFunc {
+	return func(t testing.TB, cfg *Config) {
+		t.Helper()
+		if !cfg.Flags.EnableLiveTests {
+			t.Skip("live tests disabled; set flags.enable_live_tests to true to enable")
+		}
+	}
 }
 
 func Anilist() SkipFunc {

@@ -349,26 +349,28 @@ func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 	}
 
 	if options.Body != nil && !goja.IsUndefined(options.Body) {
-		switch v := options.Body.Export().(type) {
-		case string:
-			reqBody = v
-		case io.Reader:
-			reqBody = v
-		case []byte:
-			reqBody = v
-		case *goja.ArrayBuffer:
-			reqBody = v.Bytes()
-		case goja.ArrayBuffer:
-			reqBody = v.Bytes()
-		case *formData:
-			body, mp := v.GetBuffer()
+		if fd, ok := getFormDataFromValue(f.vm, options.Body); ok {
+			body, mp := fd.GetBuffer()
 			reqBody = body
 			reqContentType = mp.FormDataContentType()
-		case map[string]interface{}:
-			reqBody = v
-			reqContentType = "application/json"
-		default:
-			reqBody = options.Body.String()
+		} else {
+			switch v := options.Body.Export().(type) {
+			case string:
+				reqBody = v
+			case io.Reader:
+				reqBody = v
+			case []byte:
+				reqBody = v
+			case *goja.ArrayBuffer:
+				reqBody = v.Bytes()
+			case goja.ArrayBuffer:
+				reqBody = v.Bytes()
+			case map[string]interface{}:
+				reqBody = v
+				reqContentType = "application/json"
+			default:
+				reqBody = options.Body.String()
+			}
 		}
 	}
 

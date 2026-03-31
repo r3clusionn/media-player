@@ -74,8 +74,11 @@ func TestParseSegmentInfo(t *testing.T) {
 	buf.Write([]byte{0x57, 0x41, 0x8B, 'g', 'o', '-', 'm', 'a', 't', 'r', 'o', 's', 'k', 'a'})
 	// TimestampScale
 	buf.Write([]byte{0x2A, 0xD7, 0xB1, 0x83, 0x0F, 0x42, 0x40}) // 1,000,000
-	// Duration
-	buf.Write([]byte{0x44, 0x89, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x86, 0xA0}) // 100000
+	// Duration as float64
+	durationBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(durationBytes, math.Float64bits(100000))
+	buf.Write([]byte{0x44, 0x89, 0x88})
+	buf.Write(durationBytes)
 
 	parser := &MatroskaParser{
 		reader: NewEBMLReader(bytes.NewReader(buf.Bytes())),
@@ -98,8 +101,8 @@ func TestParseSegmentInfo(t *testing.T) {
 	if parser.fileInfo.TimecodeScale != 1000000 {
 		t.Errorf("Expected TimecodeScale 1000000, got %d", parser.fileInfo.TimecodeScale)
 	}
-	if parser.fileInfo.Duration != 100000 {
-		t.Errorf("Expected Duration 100000, got %d", parser.fileInfo.Duration)
+	if parser.fileInfo.Duration != 100000000000 {
+		t.Errorf("Expected Duration 100000000000, got %d", parser.fileInfo.Duration)
 	}
 }
 
@@ -1819,7 +1822,10 @@ func TestParseSegmentInfo_Advanced(t *testing.T) {
 		// TimestampScale
 		buf.Write([]byte{0x2A, 0xD7, 0xB1, 0x83, 0x0F, 0x42, 0x40}) // 1,000,000
 		// Duration (as float)
-		buf.Write([]byte{0x44, 0x89, 0x88, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x86, 0xA0}) // Duration as 8-byte float
+		durationBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(durationBytes, math.Float64bits(100000))
+		buf.Write([]byte{0x44, 0x89, 0x88})
+		buf.Write(durationBytes)
 		// DateUTC (as int)
 		buf.Write([]byte{0x44, 0x61, 0x88, 0x00, 0x00, 0x01, 0x86, 0xA0, 0x00, 0x00, 0x00}) // Some timestamp
 		// SegmentUID
@@ -1846,8 +1852,8 @@ func TestParseSegmentInfo_Advanced(t *testing.T) {
 		if parser.fileInfo.TimecodeScale != 1000000 {
 			t.Errorf("Expected TimecodeScale 1000000, got %d", parser.fileInfo.TimecodeScale)
 		}
-		if parser.fileInfo.Duration != 100000 {
-			t.Errorf("Expected Duration 100000, got %d", parser.fileInfo.Duration)
+		if parser.fileInfo.Duration != 100000000000 {
+			t.Errorf("Expected Duration 100000000000, got %d", parser.fileInfo.Duration)
 		}
 	})
 
@@ -2840,7 +2846,7 @@ func TestReadPacket_BasicAndTrackMask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewMatroskaParser() failed: %v", err)
 	}
-	parser2.SetTrackMask(1 << (1 - 1)) // mask track 1
+	parser2.SetTrackMask(1) // mask track 1
 	pkt3, err := parser2.ReadPacket()
 	if err != io.EOF || pkt3 != nil {
 		t.Errorf("Expected EOF with masked track, got pkt=%v err=%v", pkt3, err)
@@ -3462,8 +3468,11 @@ func TestParseSegmentInfo_Rich(t *testing.T) {
 	segInfo.Write([]byte{0x3E, 0x83, 0xBB, 0x85, 'n', '.', 'm', 'k', 'v'})
 	// TimestampScale 1,000,000
 	segInfo.Write([]byte{0x2A, 0xD7, 0xB1, 0x83, 0x0F, 0x42, 0x40})
-	// Duration = 123 (as uint)
-	segInfo.Write([]byte{0x44, 0x89, 0x81, 0x7B})
+	// Duration = 123 (as float64)
+	durationBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(durationBytes, math.Float64bits(123))
+	segInfo.Write([]byte{0x44, 0x89, 0x88})
+	segInfo.Write(durationBytes)
 	// DateUTC (int64 as signed vint stored in ReadInt path via element.ReadInt; here emulate 8-byte int 0)
 	// We will skip setting DateUTC to keep test simple and stable.
 	// Title
@@ -3489,7 +3498,7 @@ func TestParseSegmentInfo_Rich(t *testing.T) {
 	if fi == nil || fi.Title != "Rich Title" || fi.Filename != "a.mkv" || fi.PrevFilename != "p.mkv" || fi.NextFilename != "n.mkv" {
 		t.Fatalf("Unexpected file info: %+v", fi)
 	}
-	if fi.TimecodeScale != 1000000 || fi.Duration != 123 {
+	if fi.TimecodeScale != 1000000 || fi.Duration != 123000000 {
 		t.Errorf("Unexpected scale/duration: %+v", fi)
 	}
 }

@@ -17,6 +17,8 @@ var (
 	websiteUrl        = "https://seanime.app/api/release"
 	fallbackGithubUrl = "https://api.github.com/repos/5rahim/seanime/releases/latest"
 	githubCheckUrl    = "https://seanime.app/api/github-status"
+	seanimeStableUrl  = "https://seanime.app/api/updates/stable/stable_server.json"
+	seanimeNightlyUrl = "https://seanime.app/api/updates/nightly/nightly_server.json"
 )
 
 type (
@@ -115,15 +117,13 @@ func (u *Updater) fetchLatestRelease(channel string) (*Release, error) {
 
 	switch channel {
 	case "seanime_nightly":
-		releaseUrl := "https://seanime.app/api/updates/nightly/nightly_server.json"
-		apiRelease, err := u.fetchLatestReleaseFromApi(releaseUrl)
+		apiRelease, err := u.fetchLatestReleaseFromApi(seanimeNightlyUrl)
 		if err != nil {
 			return nil, err
 		}
 		release = apiRelease
 	case "seanime":
-		releaseUrl := "https://seanime.app/api/updates/stable/stable_server.json"
-		apiRelease, err := u.fetchLatestReleaseFromApi(releaseUrl)
+		apiRelease, err := u.fetchLatestReleaseFromApi(seanimeStableUrl)
 		if err != nil {
 			return nil, err
 		}
