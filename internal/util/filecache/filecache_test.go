@@ -64,12 +64,12 @@ func TestCacherFunctions(t *testing.T) {
 }
 
 func TestCacherSetAndGet(t *testing.T) {
-	testutil.InitTestProvider(t)
+	cfg := testutil.InitTestProvider(t)
 
 	tempDir := t.TempDir()
 	t.Log(tempDir)
 
-	cacher, err := NewCacher(filepath.Join(testutil.ConfigData.Path.DataDir, "cache"))
+	cacher, err := NewCacher(filepath.Join(cfg.Path.DataDir, "cache"))
 
 	bucket := Bucket{
 		name: "test",

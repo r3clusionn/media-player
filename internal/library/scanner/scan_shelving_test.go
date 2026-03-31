@@ -18,11 +18,11 @@ import (
 )
 
 func TestScanner_Shelving(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestScanner_Shelving(t *testing.T) {
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
 	metadataProvider := metadata_provider.GetFakeProvider(t, database)
 	wsEventManager := events.NewMockWSEventManager(util.NewLogger())
 

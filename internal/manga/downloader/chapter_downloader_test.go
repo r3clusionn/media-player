@@ -13,12 +13,12 @@ import (
 )
 
 func TestQueue(t *testing.T) {
-	testutil.InitTestProvider(t)
+	cfg := testutil.InitTestProvider(t)
 
 	tempDir := t.TempDir()
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(tempDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(tempDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatalf("Failed to create database: %v", err)
 	}

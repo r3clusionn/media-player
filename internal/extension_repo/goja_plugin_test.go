@@ -63,11 +63,9 @@ func DefaultTestPluginOptions() TestPluginOptions {
 
 // InitTestPlugin initializes a test plugin with the given options
 func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog.Logger, *goja_runtime.Manager, *anilist_platform.AnilistPlatform, events.WSEventManagerInterface, error) {
+	cfg := testutil.LoadConfig(t)
 	if opts.SetupHooks {
-		testutil.SetTwoLevelDeep()
-		if tPtr, ok := t.(*testing.T); ok {
-			testutil.InitTestProvider(tPtr, testutil.Anilist())
-		}
+		cfg = testutil.InitTestProvider(t, testutil.Anilist())
 	}
 
 	ext := &extension.Extension{
@@ -86,7 +84,7 @@ func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog
 	ext.Plugin.Permissions.Allow = opts.Permissions.Allow
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	require.NoError(t, err)
 	wsEventManager := events.NewMockWSEventManager(logger)
 	anilistClientRef := util.NewRef[anilist.AnilistClient](anilist.NewMockAnilistClient())
@@ -152,8 +150,9 @@ func TestGojaPluginAnime(t *testing.T) {
 			extension.PluginPermissionDatabase,
 		},
 	}
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	require.NoError(t, err)
 
 	metadataProvider := metadata_provider.NewProvider(&metadata_provider.NewProviderImplOptions{
@@ -802,12 +801,13 @@ func TestGojaPluginStorage2(t *testing.T) {
 /////////////////////////////////////////////////////////////////////////////////////////////s
 
 func getPlaybackManager(t *testing.T) (*playbackmanager.PlaybackManager, *anilist.AnimeCollection, error) {
+	cfg := testutil.LoadConfig(t)
 
 	logger := util.NewLogger()
 
 	wsEventManager := events.NewMockWSEventManager(logger)
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 
 	if err != nil {
 		t.Fatalf("error while creating database, %v", err)

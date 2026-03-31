@@ -16,15 +16,16 @@ import (
 )
 
 func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist.MangaCollection) {
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	logger := util.NewLogger()
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	require.NoError(t, err)
-	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
+	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef[anilist.AnilistClient](anilistClient), extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), true)
 	require.NoError(t, err)
 	mangaCollection, err := anilistPlatform.GetMangaCollection(t.Context(), true)
@@ -39,9 +40,6 @@ func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist
 }
 
 func TestSync2(t *testing.T) {
-	testutil.SetTwoLevelDeep()
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	manager, animeCollection, _ := testSetupManager(t)
 
 	err := manager.TrackAnime(130003) // Bocchi the rock
@@ -98,9 +96,6 @@ func TestSync2(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	testutil.SetTwoLevelDeep()
-	testutil.InitTestProvider(t, testutil.Anilist())
-
 	manager, _, _ := testSetupManager(t)
 
 	err := manager.TrackAnime(130003) // Bocchi the rock

@@ -17,11 +17,10 @@ import (
 )
 
 func TestGojaAnimeTorrentProvider(t *testing.T) {
-	testutil.SetTwoLevelDeep()
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	logger := util.NewLogger()
-	database, _ := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, _ := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	anilistClientRef := util.NewRef(anilistClient)

@@ -14,21 +14,21 @@ func NewTestRepository(t *testing.T, defaultPlayer string) *Repository {
 	if defaultPlayer == "" {
 		defaultPlayer = "mpv"
 	}
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	logger := util.NewLogger()
 	WSEventManager := events.NewMockWSEventManager(logger)
 
 	_vlc := &vlc.VLC{
-		Host:     testutil.ConfigData.Provider.VlcHost,
-		Port:     testutil.ConfigData.Provider.VlcPort,
-		Password: testutil.ConfigData.Provider.VlcPassword,
+		Host:     cfg.Provider.VlcHost,
+		Port:     cfg.Provider.VlcPort,
+		Password: cfg.Provider.VlcPassword,
 		Logger:   logger,
 	}
 
 	_mpc := &mpchc.MpcHc{
-		Host:   testutil.ConfigData.Provider.MpcHost,
-		Port:   testutil.ConfigData.Provider.MpcPort,
+		Host:   cfg.Provider.MpcHost,
+		Port:   cfg.Provider.MpcPort,
 		Logger: logger,
 	}
 

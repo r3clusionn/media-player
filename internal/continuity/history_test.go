@@ -12,15 +12,14 @@ import (
 )
 
 func TestHistoryItems(t *testing.T) {
-	testutil.SetTwoLevelDeep()
-	testutil.InitTestProvider(t)
+	cfg := testutil.InitTestProvider(t)
 
 	logger := util.NewLogger()
 
 	tempDir := t.TempDir()
 	t.Log(tempDir)
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	require.NoError(t, err)
 
 	cacher, err := filecache.NewCacher(filepath.Join(tempDir, "cache"))

@@ -17,11 +17,11 @@ import (
 //   - DO NOT RUN IF YOU DON'T PLAN TO GENERATE A NEW 'test/data/BoilerplateAnimeCollection'
 func TestGenerateBoilerplateAnimeCollection(t *testing.T) {
 	t.Skip("This test is not meant to be run")
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := TestGetMockAnilistClient()
 
-	ac, err := anilistClient.AnimeCollection(context.Background(), &testutil.ConfigData.Provider.AnilistUsername)
+	ac, err := anilistClient.AnimeCollection(context.Background(), &cfg.Provider.AnilistUsername)
 
 	if assert.NoError(t, err) {
 
@@ -63,7 +63,7 @@ func TestGenerateBoilerplateAnimeCollection(t *testing.T) {
 
 			data, err := json.Marshal(ac)
 			if assert.NoError(t, err) {
-				err = os.WriteFile(testutil.GetDataPath("BoilerplateAnimeCollection"), data, 0644)
+				err = os.WriteFile(testutil.DataPath("BoilerplateAnimeCollection"), data, 0644)
 				assert.NoError(t, err)
 			}
 		}

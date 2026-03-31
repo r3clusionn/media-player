@@ -17,18 +17,18 @@ import (
 )
 
 func TestNewMediaFetcher(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 	anilistClientRef := util.NewRef(anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
 	metadataProvider := metadata_provider.GetFakeProvider(t, database)
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
@@ -119,10 +119,11 @@ func TestNewMediaFetcher(t *testing.T) {
 }
 
 func TestNewEnhancedMediaFetcher(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,10 +206,11 @@ func TestNewEnhancedMediaFetcher(t *testing.T) {
 }
 
 func TestFetchMediaFromLocalFiles(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

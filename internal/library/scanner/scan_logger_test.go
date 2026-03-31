@@ -14,10 +14,11 @@ import (
 )
 
 func TestScanLogger(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

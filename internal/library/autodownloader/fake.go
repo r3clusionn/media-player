@@ -59,8 +59,10 @@ func (f FakeTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 var _ hibiketorrent.AnimeProvider = (*FakeTorrentProvider)(nil)
 
 func (f *Fake) New(t *testing.T) *AutoDownloader {
+	cfg := testutil.LoadConfig(t)
+
 	logger := util.NewLogger()
-	database, err := db.NewDatabase("", testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase("", cfg.Database.Name, logger)
 	require.NoError(t, err)
 
 	f.Database = database

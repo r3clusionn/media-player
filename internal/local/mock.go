@@ -18,6 +18,8 @@ import (
 )
 
 func GetMockManager(t *testing.T, db *db.Database) Manager {
+	cfg := testutil.LoadConfig(t)
+
 	logger := util.NewLogger()
 	metadataProvider := metadata_provider.GetFakeProvider(t, db)
 	metadataProviderRef := util.NewRef[metadata_provider.Provider](metadataProvider)
@@ -30,8 +32,8 @@ func GetMockManager(t *testing.T, db *db.Database) Manager {
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, db)
 	anilistPlatformRef := util.NewRef[platform.Platform](anilistPlatform)
 
-	localDir := filepath.Join(testutil.ConfigData.Path.DataDir, "offline")
-	assetsDir := filepath.Join(testutil.ConfigData.Path.DataDir, "offline", "assets")
+	localDir := filepath.Join(cfg.Path.DataDir, "offline")
+	assetsDir := filepath.Join(cfg.Path.DataDir, "offline", "assets")
 
 	m, err := NewManager(&NewManagerOptions{
 		LocalDir:            localDir,

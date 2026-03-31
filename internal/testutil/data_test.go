@@ -7,9 +7,17 @@ import (
 )
 
 func TestGetConfig(t *testing.T) {
-	assert.Empty(t, ConfigData)
+	cfg := InitTestProvider(t)
+	assert.NotEqual(t, Config{}, *cfg)
+}
 
-	InitTestProvider(t)
+func TestLoadConfig_IsolatedInstances(t *testing.T) {
+	first := LoadConfig(t)
+	second := LoadConfig(t)
 
-	assert.NotEmpty(t, ConfigData)
+	assert.NotSame(t, first, second)
+	assert.Equal(t, *first, *second)
+
+	first.Path.DataDir = t.TempDir()
+	assert.NotEqual(t, first.Path.DataDir, second.Path.DataDir)
 }

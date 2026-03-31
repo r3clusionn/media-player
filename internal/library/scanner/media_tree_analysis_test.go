@@ -16,14 +16,14 @@ import (
 )
 
 func TestMediaTreeAnalysis(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 	tree := anilist.NewCompleteAnimeRelationTree()
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, util.NewLogger())
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, util.NewLogger())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,12 +113,13 @@ func TestMediaTreeAnalysis(t *testing.T) {
 }
 
 func TestMediaTreeAnalysis2(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
 	tree := anilist.NewCompleteAnimeRelationTree()
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, util.NewLogger())
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, util.NewLogger())
 	if err != nil {
 		t.Fatal(err)
 	}

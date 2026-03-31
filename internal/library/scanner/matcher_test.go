@@ -103,10 +103,10 @@ func TestMatcher1(t *testing.T) {
 }
 
 func TestMatcher2(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
-	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &testutil.ConfigData.Provider.AnilistUsername)
+	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
+	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -238,10 +238,10 @@ func TestMatcher2(t *testing.T) {
 }
 
 func TestMatcher3(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
-	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &testutil.ConfigData.Provider.AnilistUsername)
+	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
+	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -948,19 +948,19 @@ func TestMatcherWithOfflineDB(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
 	anilistClient := anilist.TestGetMockAnilistClient()
 	logger := util.NewLogger()
 
-	database, err := db.NewDatabase(testutil.ConfigData.Path.DataDir, testutil.ConfigData.Database.Name, logger)
+	database, err := db.NewDatabase(cfg.Path.DataDir, cfg.Database.Name, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 	anilistClientRef := util.NewRef(anilistClient)
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(testutil.ConfigData.Provider.AnilistUsername)
+	anilistPlatform.SetUsername(cfg.Provider.AnilistUsername)
 	metadataProvider := metadata_provider.GetFakeProvider(t, database)
 	completeAnimeCache := anilist.NewCompleteAnimeCache()
 	anilistRateLimiter := limiter.NewAnilistLimiter()
@@ -1395,10 +1395,10 @@ func TestGetFileFormatType(t *testing.T) {
 }
 
 func TestMatcher_applyMatchingRule(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.Anilist())
+	cfg := testutil.InitTestProvider(t, testutil.Anilist())
 
-	anilistClient := anilist.NewAnilistClient(testutil.ConfigData.Provider.AnilistJwt, "")
-	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &testutil.ConfigData.Provider.AnilistUsername)
+	anilistClient := anilist.NewAnilistClient(cfg.Provider.AnilistJwt, "")
+	animeCollection, err := anilistClient.AnimeCollectionWithRelations(context.Background(), &cfg.Provider.AnilistUsername)
 	if err != nil {
 		t.Fatal(err.Error())
 	}

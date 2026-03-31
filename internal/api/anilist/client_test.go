@@ -13,13 +13,14 @@ import (
 //func TestHiddenFromStatus(t *testing.T) {
 //	test_utils.InitTestProvider(t, test_utils.Anilist())
 //
-//	token := test_utils.ConfigData.Provider.AnilistJwt
+//	cfg := test_utils.InitTestProvider(t, test_utils.Anilist())
+//	token := cfg.Provider.AnilistJwt
 //	logger := util.NewLogger()
-//	//anilistClient := NewAnilistClient(test_utils.ConfigData.Provider.AnilistJwt)
+//	//anilistClient := NewAnilistClient(cfg.Provider.AnilistJwt)
 //
 //	variables := map[string]interface{}{}
 //
-//	variables["userName"] = test_utils.ConfigData.Provider.AnilistUsername
+//	variables["userName"] = cfg.Provider.AnilistUsername
 //	variables["type"] = "ANIME"
 //
 //	requestBody, err := json.Marshal(map[string]interface{}{
@@ -76,7 +77,7 @@ import (
 //		mediaLists = append(mediaLists, ret.Page.MediaList...)
 //	}
 //
-//	//res, err := anilistClient.AnimeCollection(context.Background(), &test_utils.ConfigData.Provider.AnilistUsername)
+//	//res, err := anilistClient.AnimeCollection(context.Background(), &cfg.Provider.AnilistUsername)
 //	//assert.NoError(t, err)
 //
 //	for _, mediaList := range mediaLists {

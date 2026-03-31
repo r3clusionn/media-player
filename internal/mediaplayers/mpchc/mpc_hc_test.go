@@ -11,12 +11,12 @@ import (
 )
 
 func TestMpcHc_Start(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   testutil.ConfigData.Provider.MpcHost,
-		Path:   testutil.ConfigData.Provider.MpcPath,
-		Port:   testutil.ConfigData.Provider.MpcPort,
+		Host:   cfg.Provider.MpcHost,
+		Path:   cfg.Provider.MpcPath,
+		Port:   cfg.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -26,12 +26,12 @@ func TestMpcHc_Start(t *testing.T) {
 }
 
 func TestMpcHc_Play(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   testutil.ConfigData.Provider.MpcHost,
-		Path:   testutil.ConfigData.Provider.MpcPath,
-		Port:   testutil.ConfigData.Provider.MpcPort,
+		Host:   cfg.Provider.MpcHost,
+		Path:   cfg.Provider.MpcPath,
+		Port:   cfg.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -46,12 +46,12 @@ func TestMpcHc_Play(t *testing.T) {
 }
 
 func TestMpcHc_GetVariables(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   testutil.ConfigData.Provider.MpcHost,
-		Path:   testutil.ConfigData.Provider.MpcPath,
-		Port:   testutil.ConfigData.Provider.MpcPort,
+		Host:   cfg.Provider.MpcHost,
+		Path:   cfg.Provider.MpcPath,
+		Port:   cfg.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 
@@ -68,12 +68,12 @@ func TestMpcHc_GetVariables(t *testing.T) {
 }
 
 func TestMpcHc_Seek(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MediaPlayer())
+	cfg := testutil.InitTestProvider(t, testutil.MediaPlayer())
 
 	mpc := &MpcHc{
-		Host:   testutil.ConfigData.Provider.MpcHost,
-		Path:   testutil.ConfigData.Provider.MpcPath,
-		Port:   testutil.ConfigData.Provider.MpcPort,
+		Host:   cfg.Provider.MpcHost,
+		Path:   cfg.Provider.MpcPath,
+		Port:   cfg.Provider.MpcPort,
 		Logger: util.NewLogger(),
 	}
 

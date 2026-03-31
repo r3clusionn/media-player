@@ -9,9 +9,9 @@ import (
 )
 
 func TestGetMangaDetails(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MyAnimeList())
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList())
 
-	malWrapper := NewWrapper(testutil.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	res, err := malWrapper.GetMangaDetails(13)
 
@@ -25,9 +25,9 @@ func TestGetMangaDetails(t *testing.T) {
 }
 
 func TestGetMangaCollection(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MyAnimeList())
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList())
 
-	malWrapper := NewWrapper(testutil.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	res, err := malWrapper.GetMangaCollection()
 
@@ -44,9 +44,9 @@ func TestGetMangaCollection(t *testing.T) {
 }
 
 func TestUpdateMangaListStatus(t *testing.T) {
-	testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.MyAnimeListMutation())
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.MyAnimeListMutation())
 
-	malWrapper := NewWrapper(testutil.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	mId := 13
 	progress := 1000
