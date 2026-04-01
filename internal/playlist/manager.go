@@ -305,14 +305,17 @@ func (m *Manager) startPlaylist(playlist *anime.Playlist, options *startPlaylist
 				m.nativePlayer.VideoCore().Unsubscribe("playlist-manager")
 				return
 			case event := <-playbackManagerSubscriber.EventCh:
-				if m.playerType.Load() != SystemPlayer {
-					continue
-				}
 				switch e := event.(type) {
 				case playbackmanager.VideoCompletedEvent, playbackmanager.StreamCompletedEvent:
+					if m.playerType.Load() != SystemPlayer {
+						continue
+					}
 					m.state.Store(StateCompleted)
 
 				case playbackmanager.PlaybackErrorEvent, playbackmanager.VideoStoppedEvent, playbackmanager.StreamStoppedEvent:
+					if m.playerType.Load() != SystemPlayer {
+						continue
+					}
 					if m.state.Load() == StateStarted {
 						m.StopPlaylist("Playlist stopped")
 
@@ -365,9 +368,6 @@ func (m *Manager) startPlaylist(playlist *anime.Playlist, options *startPlaylist
 					}
 				}
 			case event := <-videoCoreSubscriber.Events():
-				if m.playerType.Load() != NativePlayer {
-					continue
-				}
 				if !event.IsNativePlayer() {
 					continue
 				}
@@ -377,10 +377,16 @@ func (m *Manager) startPlaylist(playlist *anime.Playlist, options *startPlaylist
 					m.playerType.Store(NativePlayer)
 
 				case *videocore.VideoCompletedEvent:
+					if m.playerType.Load() != NativePlayer {
+						continue
+					}
 					m.markCurrentAsCompleted()
 					m.state.Store(StateCompleted)
 
 				case *videocore.VideoEndedEvent:
+					if m.playerType.Load() != NativePlayer {
+						continue
+					}
 					if m.state.Load() == StateCompleted {
 						m.markCurrentAsCompleted()
 						m.playNextEpisode()
@@ -388,6 +394,9 @@ func (m *Manager) startPlaylist(playlist *anime.Playlist, options *startPlaylist
 					m.state.Store(StateIdle)
 
 				case *videocore.VideoTerminatedEvent:
+					if m.playerType.Load() != NativePlayer {
+						continue
+					}
 					if m.state.Load() == StateStarted || m.state.Load() == StateCompleted {
 						m.StopPlaylist("Playlist stopped")
 					}
@@ -480,6 +489,7 @@ func (m *Manager) markCurrentAsCompleted() {
 
 	data, ok := m.currentPlaylistData.Get()
 	if !ok {
+		m.mu.Unlock()
 		return
 	}
 
@@ -672,10 +682,10 @@ func (m *Manager) StopPlaylist(reason string, isError ...bool) {
 	if m.cancel != nil {
 		m.cancel()
 	}
+	data, ok := m.currentPlaylistData.Get()
 	// Delete playlist if all episodes are completed
-	go func() {
-		data, ok := m.currentPlaylistData.Get()
-		if !ok {
+	go func(data *playlistData, ok bool) {
+		if !ok || data == nil {
 			return
 		}
 		d := *data
@@ -692,7 +702,7 @@ func (m *Manager) StopPlaylist(reason string, isError ...bool) {
 			_ = db_bridge.DeletePlaylist(m.db, d.playlist.DbId)
 			m.wsEventManager.SendEventTo(m.clientId, events.InvalidateQueries, []string{events.GetPlaylistsEndpoint})
 		}
-	}()
+	}(data, ok)
 	m.isStartingPlaylist.Store(false)
 	m.resetPlaylist()
 	if len(isError) > 0 && isError[0] {
@@ -706,7 +716,6 @@ func (m *Manager) StopPlaylist(reason string, isError ...bool) {
 // isEpisodeCompleted is true if the current episode is completed (used for manual tracking)
 func (m *Manager) PlayEpisode(which string, isCurrentCompleted bool) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	m.logger.Debug().Str("which", which).Bool("isCurrentCompleted", isCurrentCompleted).Msg("playlist: Episode requested")
 
@@ -721,6 +730,7 @@ func (m *Manager) PlayEpisode(which string, isCurrentCompleted bool) {
 
 	currentEpisode, ok := m.currentEpisode.Get()
 	if !ok {
+		m.mu.Unlock()
 		if which == "next" {
 			m.logger.Debug().Msg("playlist: No episodes in playlist, playing next episode")
 			m.playNextEpisode()
@@ -739,12 +749,14 @@ func (m *Manager) PlayEpisode(which string, isCurrentCompleted bool) {
 
 	if episode == nil {
 		m.logger.Error().Msgf("playlist: Episode not found for '%s'", which)
+		m.mu.Unlock()
 		return
 	}
 
 	m.logger.Debug().Str("which", which).Int("mediaId", episode.Episode.BaseAnime.ID).Str("aniDBEpisode", episode.Episode.AniDBEpisode).Str("episode", episode.Episode.DisplayTitle).Msg("playlist: Episode found")
 
 	m.playEpisode(episode)
+	m.mu.Unlock()
 }
 
 func (m *Manager) ReopenEpisode() {

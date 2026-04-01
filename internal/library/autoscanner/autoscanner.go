@@ -209,6 +209,10 @@ func (as *AutoScanner) scan() {
 		as.logger.Error().Err(err).Msg("autoscanner: Failed to get settings")
 		return
 	}
+	if settings.Library == nil {
+		as.logger.Error().Msg("autoscanner: Library settings are not set")
+		return
+	}
 
 	if settings.Library.LibraryPath == "" {
 		as.logger.Error().Msg("autoscanner: Library path is not set")

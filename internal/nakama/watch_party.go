@@ -87,12 +87,14 @@ type WatchPartyManager struct {
 	logger  *zerolog.Logger
 	manager *Manager
 
+	playbackController watchPartyPlaybackController
+
 	currentSession   mo.Option[*WatchPartySession] // Current watch party session
 	sessionCtx       context.Context               // Context for the current watch party session
 	sessionCtxCancel context.CancelFunc            // Cancel function for the current watch party session
 	mu               sync.RWMutex                  // Mutex for the watch party manager
 
-	// SeekToSlow management to prevent choppy playback
+	// SeekToSlow management to prevent choppy player
 	lastSeekTime time.Time     // Time of last seek operation
 	seekCooldown time.Duration // Minimum time between seeks
 
@@ -115,7 +117,7 @@ type WatchPartyManager struct {
 
 	// Buffering detection (peer only)
 	bufferDetectionMu sync.Mutex // Mutex for buffering detection state
-	lastPosition      float64    // Last known playback position
+	lastPosition      float64    // Last known player position
 	lastPositionTime  time.Time  // When we last updated the position
 	stallCount        int        // Number of consecutive stalls detected
 
@@ -128,7 +130,14 @@ type WatchPartyManager struct {
 	lastRxSequence uint64     // Latest received sequence number
 
 	// Peer
-	peerPlaybackListener *WatchPartyPlaybackSubscriber // Listener for playback status changes (can be nil)
+	peerPlaybackListener *WatchPartyPlaybackSubscriber // Listener for player status changes (can be nil)
+}
+
+type watchPartyPlaybackController interface {
+	PullStatus() (*WatchPartyPlaybackStatus, bool)
+	Pause()
+	Resume()
+	SeekTo(float64)
 }
 
 type WatchPartySession struct {
@@ -281,6 +290,16 @@ func NewWatchPartyManager(manager *Manager) *WatchPartyManager {
 		manager:      manager,
 		seekCooldown: DefaultSeekCooldown,
 	}
+}
+
+func (wpm *WatchPartyManager) player() watchPartyPlaybackController {
+	if wpm.playbackController != nil {
+		return wpm.playbackController
+	}
+	if wpm.manager == nil {
+		return nil
+	}
+	return wpm.manager.genericPlayer
 }
 
 // Cleanup stops all goroutines and cleans up resources to prevent memory leaks

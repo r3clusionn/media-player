@@ -1,190 +1,229 @@
 package anime_test
 
 import (
-	"context"
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata"
-	"seanime/internal/api/metadata_provider"
 	"seanime/internal/library/anime"
-	"seanime/internal/testutil"
-	"seanime/internal/util"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestNewEntryDownloadInfo(t *testing.T) {
-	env := testutil.NewTestEnv(t)
+func TestNewEntryDownloadInfoEpisodeZeroDiscrepancy(t *testing.T) {
+	// anilist counts episode 0 here, but the metadata maps it as S1.
+	// the expected list should still expose that extra slot as episode 0.
+	h := newAnimeTestHarness(t)
+	mediaID := 146065
 
-	logger := util.NewLogger()
-	database := env.MustNewDatabase(logger)
-	metadataProvider := metadata_provider.NewTestProviderWithEnv(env, database)
-
-	anilistClient := anilist.NewTestAnilistClient()
-	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusReleasing)
+	patchAnimeCollectionEntry(t, h.animeCollection, mediaID, anilist.AnimeCollectionEntryPatch{
+		AiredEpisodes:     new(6),
+		NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{Episode: 7},
+	})
+	h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3, 4, 5}, map[string]int{"S1": 1})
 
 	tests := []struct {
-		name                             string
-		localFiles                       []*anime.LocalFile
-		mediaId                          int
-		currentProgress                  int
-		status                           anilist.MediaListStatus
-		expectedEpisodeNumbersToDownload []struct {
-			episodeNumber int
-			aniDbEpisode  string
-		}
+		name             string
+		progress         int
+		expectedEpisodes []downloadEpisodeExpectation
 	}{
 		{
-			// AniList includes episode 0 as a main episode but AniDB lists it as a special S1
-			// So we should expect to see episode 0 (S1) in the list of episodes to download
-			name:            "Mushoku Tensei: Jobless Reincarnation Season 2",
-			localFiles:      nil,
-			mediaId:         146065,
-			currentProgress: 0,
-			status:          anilist.MediaListStatusCurrent,
-			expectedEpisodeNumbersToDownload: []struct {
-				episodeNumber int
-				aniDbEpisode  string
-			}{
-				{episodeNumber: 0, aniDbEpisode: "S1"},
-				{episodeNumber: 1, aniDbEpisode: "1"},
-				{episodeNumber: 2, aniDbEpisode: "2"},
-				{episodeNumber: 3, aniDbEpisode: "3"},
-				{episodeNumber: 4, aniDbEpisode: "4"},
-				{episodeNumber: 5, aniDbEpisode: "5"},
-				{episodeNumber: 6, aniDbEpisode: "6"},
-				{episodeNumber: 7, aniDbEpisode: "7"},
-				{episodeNumber: 8, aniDbEpisode: "8"},
-				{episodeNumber: 9, aniDbEpisode: "9"},
-				{episodeNumber: 10, aniDbEpisode: "10"},
-				{episodeNumber: 11, aniDbEpisode: "11"},
-				{episodeNumber: 12, aniDbEpisode: "12"},
-			},
+			name:             "progress zero keeps episode zero",
+			progress:         0,
+			expectedEpisodes: []downloadEpisodeExpectation{{0, "S1"}, {1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}},
 		},
 		{
-			// Same as above but progress of 1 should just eliminate episode 0 from the list and not episode 1
-			name:            "Mushoku Tensei: Jobless Reincarnation Season 2 - 2",
-			localFiles:      nil,
-			mediaId:         146065,
-			currentProgress: 1,
-			status:          anilist.MediaListStatusCurrent,
-			expectedEpisodeNumbersToDownload: []struct {
-				episodeNumber int
-				aniDbEpisode  string
-			}{
-				{episodeNumber: 1, aniDbEpisode: "1"},
-				{episodeNumber: 2, aniDbEpisode: "2"},
-				{episodeNumber: 3, aniDbEpisode: "3"},
-				{episodeNumber: 4, aniDbEpisode: "4"},
-				{episodeNumber: 5, aniDbEpisode: "5"},
-				{episodeNumber: 6, aniDbEpisode: "6"},
-				{episodeNumber: 7, aniDbEpisode: "7"},
-				{episodeNumber: 8, aniDbEpisode: "8"},
-				{episodeNumber: 9, aniDbEpisode: "9"},
-				{episodeNumber: 10, aniDbEpisode: "10"},
-				{episodeNumber: 11, aniDbEpisode: "11"},
-				{episodeNumber: 12, aniDbEpisode: "12"},
-			},
-		},
-		{
-			name:            "Watashi ga Koibito ni Nareru Wake Naijan, Murimuri! Season 2",
-			localFiles:      nil,
-			mediaId:         199112,
-			currentProgress: 0,
-			status:          anilist.MediaListStatusCurrent,
-			expectedEpisodeNumbersToDownload: []struct {
-				episodeNumber int
-				aniDbEpisode  string
-			}{
-				{episodeNumber: 1, aniDbEpisode: "1"},
-				{episodeNumber: 2, aniDbEpisode: "2"},
-				{episodeNumber: 3, aniDbEpisode: "3"},
-				{episodeNumber: 4, aniDbEpisode: "4"},
-				{episodeNumber: 5, aniDbEpisode: "5"},
-			},
+			name:             "progress one only removes episode zero",
+			progress:         1,
+			expectedEpisodes: []downloadEpisodeExpectation{{1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}},
 		},
 	}
 
 	for _, tt := range tests {
-
 		t.Run(tt.name, func(t *testing.T) {
+			// we only care about the logical episode list here, not local download state.
+			info := h.newEntryDownloadInfo(t, mediaID, nil, tt.progress, anilist.MediaListStatusCurrent)
 
-			anilistEntry, _ := animeCollection.GetListEntryFromAnimeId(tt.mediaId)
-			require.NotNil(t, anilistEntry)
-
-			animeMetadata, err := metadataProvider.GetAnimeMetadata(metadata.AnilistPlatform, tt.mediaId)
-			require.NoError(t, err)
-
-			info, err := anime.NewEntryDownloadInfo(&anime.NewEntryDownloadInfoOptions{
-				LocalFiles:          tt.localFiles,
-				Progress:            &tt.currentProgress,
-				Status:              &tt.status,
-				Media:               anilistEntry.Media,
-				MetadataProviderRef: util.NewRef(metadataProvider),
-				AnimeMetadata:       animeMetadata,
-			})
-
-			if assert.NoError(t, err) && assert.NotNil(t, info) {
-
-				foundEpToDownload := make([]struct {
-					episodeNumber int
-					aniDbEpisode  string
-				}, 0)
-				for _, ep := range info.EpisodesToDownload {
-					foundEpToDownload = append(foundEpToDownload, struct {
-						episodeNumber int
-						aniDbEpisode  string
-					}{
-						episodeNumber: ep.EpisodeNumber,
-						aniDbEpisode:  ep.AniDBEpisode,
-					})
-				}
-
-				assert.ElementsMatch(t, tt.expectedEpisodeNumbersToDownload, foundEpToDownload)
-
+			require.ElementsMatch(t, tt.expectedEpisodes, collectDownloadEpisodes(info))
+			require.False(t, info.HasInaccurateSchedule)
+			// generated download entries use placeholder local files internally, then clear them back out.
+			for _, episode := range info.EpisodesToDownload {
+				require.Nil(t, episode.Episode.LocalFile)
+				require.Equal(t, episode.AniDBEpisode, episode.Episode.AniDBEpisode)
 			}
-
 		})
-
 	}
-
 }
 
-func TestNewEntryDownloadInfo2(t *testing.T) {
-	mediaId := 21
-	env := testutil.NewTestEnv(t)
+func TestNewEntryDownloadInfoSpecialsDiscrepancyAndBatchFlags(t *testing.T) {
+	// this covers the path where anilist's aired count includes specials.
+	// we expect the main episodes plus two remapped specials, and finished media should allow batch mode.
+	h := newAnimeTestHarness(t)
+	mediaID := 154587
 
-	logger := util.NewLogger()
-	database := env.MustNewDatabase(logger)
-	metadataProvider := metadata_provider.NewTestProviderWithEnv(env, database)
+	patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 6)
+	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
+	metadataOverride := h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3, 4}, map[string]int{"S1": 1, "S2": 2})
+	metadataOverride.Episodes["1"].AbsoluteEpisodeNumber = 13
 
-	anilistClient := anilist.NewTestAnilistClient()
-	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
 
-	anilistEntry, _ := animeCollection.GetListEntryFromAnimeId(mediaId)
+	require.ElementsMatch(t, []downloadEpisodeExpectation{{1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {6, "S1"}, {5, "S2"}}, collectDownloadEpisodes(info))
+	require.True(t, info.CanBatch)
+	require.True(t, info.BatchAll)
+	require.False(t, info.Rewatch)
+	require.Equal(t, 12, info.AbsoluteOffset)
+}
 
-	animeMetadata, err := metadataProvider.GetAnimeMetadata(metadata.AnilistPlatform, mediaId)
-	require.NoError(t, err)
+func TestNewEntryDownloadInfoCompletedRewatchFiltersDownloadedEpisodes(t *testing.T) {
+	// completed entries reset progress back to 0 for download planning.
+	// the remaining list should just be "everything not already on disk" and mark this as a rewatch.
+	h := newAnimeTestHarness(t)
+	mediaID := 154587
 
-	info, err := anime.NewEntryDownloadInfo(&anime.NewEntryDownloadInfoOptions{
-		LocalFiles:          nil,
-		Progress:            new(0),
-		Status:              new(anilist.MediaListStatusCurrent),
-		Media:               anilistEntry.Media,
-		MetadataProviderRef: util.NewRef(metadataProvider),
-		AnimeMetadata:       animeMetadata,
+	patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 5)
+	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
+	h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3, 4, 5}, nil)
+
+	localFiles := anime.NewTestLocalFiles(
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/Anime",
+			FilePathTemplate: "/Anime/Frieren/%ep.mkv",
+			MediaID:          mediaID,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+			},
+		},
+	)
+
+	info := h.newEntryDownloadInfo(t, mediaID, localFiles, 4, anilist.MediaListStatusCompleted)
+
+	require.ElementsMatch(t, []downloadEpisodeExpectation{{2, "2"}, {4, "4"}, {5, "5"}}, collectDownloadEpisodes(info))
+	require.True(t, info.CanBatch)
+	require.False(t, info.BatchAll)
+	require.True(t, info.Rewatch)
+}
+
+func TestNewEntryDownloadInfoScheduleFlags(t *testing.T) {
+	t.Run("releasing without next airing is inaccurate", func(t *testing.T) {
+		// releasing shows without next airing data keep the full aired list,
+		// but they should be marked as having an inaccurate schedule.
+		h := newAnimeTestHarness(t)
+		mediaID := 154587
+
+		patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 5)
+		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusReleasing)
+		h.clearNextAiringEpisode(t, mediaID)
+		h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3, 4, 5}, nil)
+
+		info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
+
+		require.ElementsMatch(t, []downloadEpisodeExpectation{{1, "1"}, {2, "2"}, {3, "3"}, {4, "4"}, {5, "5"}}, collectDownloadEpisodes(info))
+		require.True(t, info.HasInaccurateSchedule)
 	})
-	require.NoError(t, err)
 
-	require.NotNil(t, info)
+	t.Run("next airing trims future episodes", func(t *testing.T) {
+		// once next airing is known, anything at or after that future episode should be filtered out.
+		h := newAnimeTestHarness(t)
+		mediaID := 154587
 
-	t.Log(len(info.EpisodesToDownload))
-	assert.GreaterOrEqual(t, len(info.EpisodesToDownload), 1096)
+		patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 12)
+		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusReleasing)
+		patchAnimeCollectionEntry(t, h.animeCollection, mediaID, anilist.AnimeCollectionEntryPatch{
+			NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{Episode: 4},
+		})
+		h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3, 4, 5, 6}, nil)
+
+		info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
+
+		require.ElementsMatch(t, []downloadEpisodeExpectation{{1, "1"}, {2, "2"}, {3, "3"}}, collectDownloadEpisodes(info))
+		require.False(t, info.HasInaccurateSchedule)
+	})
+}
+
+func TestNewEntryDownloadInfoFallsBackToMetadataCurrentEpisodeCount(t *testing.T) {
+	// if media.Episodes is missing, the code falls back to aired episode dates in metadata.
+	// only past-dated episodes should survive that fallback count.
+	h := newAnimeTestHarness(t)
+	mediaID := 154587
+
+	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
+	h.clearEpisodeCount(t, mediaID)
+	h.clearNextAiringEpisode(t, mediaID)
+	h.setCustomMetadata(mediaID, h.newMetadataWithAirDates(t, mediaID, map[int]string{
+		1: "2000-01-01",
+		2: "2000-01-02",
+		3: "2099-01-01",
+	}))
+
+	info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
+
+	require.ElementsMatch(t, []downloadEpisodeExpectation{{1, "1"}, {2, "2"}}, collectDownloadEpisodes(info))
+}
+
+func TestNewEntryDownloadInfoEarlyReturnsAndErrors(t *testing.T) {
+	t.Run("not yet released returns empty result", func(t *testing.T) {
+		// unreleased media short-circuits before any download planning starts.
+		h := newAnimeTestHarness(t)
+		mediaID := 154587
+
+		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusNotYetReleased)
+		h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3}, nil)
+
+		info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
+
+		require.Empty(t, info.EpisodesToDownload)
+		require.False(t, info.CanBatch)
+		require.False(t, info.Rewatch)
+	})
+
+	t.Run("missing metadata returns an error", func(t *testing.T) {
+		// metadata is required for the planner, so nil should fail fast.
+		h := newAnimeTestHarness(t)
+		mediaID := 154587
+		entry := h.findEntry(t, mediaID)
+
+		_, err := anime.NewEntryDownloadInfo(&anime.NewEntryDownloadInfoOptions{
+			LocalFiles:          nil,
+			Progress:            new(0),
+			Status:              new(anilist.MediaListStatusCurrent),
+			Media:               entry.Media,
+			MetadataProviderRef: h.metadataProviderRef,
+			AnimeMetadata:       nil,
+		})
+
+		require.EqualError(t, err, "could not get anime metadata")
+	})
+
+	t.Run("missing current episode count returns empty result", func(t *testing.T) {
+		// when both media and metadata resolve to zero aired episodes, we just get an empty plan.
+		mediaID := 154587
+		h := newAnimeTestHarness(t)
+
+		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
+		h.clearEpisodeCount(t, mediaID)
+		h.clearNextAiringEpisode(t, mediaID)
+		h.setCustomMetadata(mediaID, h.setEpisodeMetadata(t, mediaID, []int{1, 2, 3}, nil))
+		h.clearMetadataAirDates(mediaID)
+
+		info := h.newEntryDownloadInfo(t, mediaID, nil, 0, anilist.MediaListStatusCurrent)
+
+		require.Empty(t, info.EpisodesToDownload)
+	})
+}
+
+type downloadEpisodeExpectation struct {
+	episodeNumber int
+	aniDBEpisode  string
+}
+
+func collectDownloadEpisodes(info *anime.EntryDownloadInfo) []downloadEpisodeExpectation {
+	ret := make([]downloadEpisodeExpectation, 0, len(info.EpisodesToDownload))
+	for _, episode := range info.EpisodesToDownload {
+		ret = append(ret, downloadEpisodeExpectation{
+			episodeNumber: episode.EpisodeNumber,
+			aniDBEpisode:  episode.AniDBEpisode,
+		})
+	}
+	return ret
 }

@@ -1,10 +1,8 @@
 package extension_playground
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"seanime/internal/api/anilist"
 	metadataapi "seanime/internal/api/metadata"
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/extension"
@@ -12,8 +10,8 @@ import (
 	hibikeonlinestream "seanime/internal/extension/hibike/onlinestream"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/platforms/platform"
+	"seanime/internal/testmocks"
 	"seanime/internal/util"
-	"seanime/internal/util/result"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -268,8 +266,8 @@ func TestPlaygroundRepositoryCachesFetchedMedia(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, anime)
 	require.NotNil(t, metadata)
-	require.Equal(t, 1, fakePlatform.animeCalls[testAnimeID])
-	require.Equal(t, 2, fakeMetadataProvider.calls[testAnimeID])
+	require.Equal(t, 1, fakePlatform.AnimeCalls(testAnimeID))
+	require.Equal(t, 2, fakeMetadataProvider.MetadataCalls(testAnimeID))
 
 	manga, err := repo.getManga(testMangaID)
 	require.NoError(t, err)
@@ -278,7 +276,7 @@ func TestPlaygroundRepositoryCachesFetchedMedia(t *testing.T) {
 	manga, err = repo.getManga(testMangaID)
 	require.NoError(t, err)
 	require.NotNil(t, manga)
-	require.Equal(t, 1, fakePlatform.mangaCalls[testMangaID])
+	require.Equal(t, 1, fakePlatform.MangaCalls(testMangaID))
 }
 
 func TestRunPlaygroundCodeValidation(t *testing.T) {
@@ -612,10 +610,28 @@ func TestRunPlaygroundCodeOnlinestreamProvider(t *testing.T) {
 	})
 }
 
-func newTestPlaygroundRepository() (*PlaygroundRepository, *fakePlatform, *fakeMetadataProvider) {
+func newTestPlaygroundRepository() (*PlaygroundRepository, *testmocks.FakePlatform, *testmocks.FakeMetadataProvider) {
 	logger := util.NewLogger()
-	fakePlatform := newFakePlatform()
-	fakeMetadataProvider := newFakeMetadataProvider()
+	fakePlatform := testmocks.NewFakePlatformBuilder().
+		WithAnime(testmocks.NewBaseAnime(testAnimeID, "Sample Anime")).
+		WithManga(testmocks.NewBaseManga(testMangaID, "Blue Lock")).
+		Build()
+	fakeMetadataProvider := testmocks.NewFakeMetadataProviderBuilder().
+		WithAnimeMetadata(testAnimeID, &metadataapi.AnimeMetadata{
+			Titles: map[string]string{
+				"en": "Sample Anime",
+			},
+			Episodes: map[string]*metadataapi.EpisodeMetadata{
+				"1": {
+					Episode:               "1",
+					EpisodeNumber:         1,
+					AbsoluteEpisodeNumber: 13,
+					AnidbEid:              77,
+				},
+			},
+			Mappings: &metadataapi.AnimeMappings{AnidbId: 9001},
+		}).
+		Build()
 
 	return NewPlaygroundRepository(
 		logger,
@@ -627,225 +643,4 @@ func newTestPlaygroundRepository() (*PlaygroundRepository, *fakePlatform, *fakeM
 func decodeJSON(t *testing.T, raw string, target interface{}) {
 	t.Helper()
 	require.NoError(t, json.Unmarshal([]byte(raw), target))
-}
-
-func newFakePlatform() *fakePlatform {
-	return &fakePlatform{
-		animeByID: map[int]*anilist.BaseAnime{
-			testAnimeID: newTestAnime(testAnimeID, "Sample Anime"),
-		},
-		mangaByID: map[int]*anilist.BaseManga{
-			testMangaID: newTestManga(testMangaID, "Blue Lock"),
-		},
-		animeCalls: make(map[int]int),
-		mangaCalls: make(map[int]int),
-	}
-}
-
-func newFakeMetadataProvider() *fakeMetadataProvider {
-	return &fakeMetadataProvider{
-		metadataByID: map[int]*metadataapi.AnimeMetadata{
-			testAnimeID: {
-				Titles: map[string]string{
-					"en": "Sample Anime",
-				},
-				Episodes: map[string]*metadataapi.EpisodeMetadata{
-					"1": {
-						Episode:               "1",
-						EpisodeNumber:         1,
-						AbsoluteEpisodeNumber: 13,
-						AnidbEid:              77,
-					},
-				},
-				Mappings: &metadataapi.AnimeMappings{AnidbId: 9001},
-			},
-		},
-		calls: make(map[int]int),
-		cache: result.NewBoundedCache[string, *metadataapi.AnimeMetadata](10),
-	}
-}
-
-func newTestAnime(id int, title string) *anilist.BaseAnime {
-	return &anilist.BaseAnime{
-		ID:       id,
-		IDMal:    new(501),
-		Status:   new(anilist.MediaStatusFinished),
-		Format:   new(anilist.MediaFormatTv),
-		Episodes: new(12),
-		IsAdult:  new(false),
-		Title: &anilist.BaseAnime_Title{
-			English: new(title),
-			Romaji:  new(title),
-		},
-		Synonyms: []*string{new(title), new("Sample Anime Season 1")},
-		StartDate: &anilist.BaseAnime_StartDate{
-			Year:  new(2024),
-			Month: new(1),
-			Day:   new(2),
-		},
-	}
-}
-
-func newTestManga(id int, title string) *anilist.BaseManga {
-	return &anilist.BaseManga{
-		ID:      id,
-		Status:  new(anilist.MediaStatusFinished),
-		Format:  new(anilist.MediaFormatManga),
-		IsAdult: new(false),
-		Title: &anilist.BaseManga_Title{
-			English: new(title),
-			Romaji:  new(title),
-		},
-		Synonyms: []*string{new(title), new(title + " Alternative")},
-		StartDate: &anilist.BaseManga_StartDate{
-			Year: new(2023),
-		},
-	}
-}
-
-type fakePlatform struct {
-	animeByID  map[int]*anilist.BaseAnime
-	mangaByID  map[int]*anilist.BaseManga
-	animeCalls map[int]int
-	mangaCalls map[int]int
-}
-
-func (f *fakePlatform) SetUsername(string) {}
-
-func (f *fakePlatform) UpdateEntry(context.Context, int, *anilist.MediaListStatus, *int, *int, *anilist.FuzzyDateInput, *anilist.FuzzyDateInput) error {
-	return nil
-}
-
-func (f *fakePlatform) UpdateEntryProgress(context.Context, int, int, *int) error {
-	return nil
-}
-
-func (f *fakePlatform) UpdateEntryRepeat(context.Context, int, int) error {
-	return nil
-}
-
-func (f *fakePlatform) DeleteEntry(context.Context, int, int) error {
-	return nil
-}
-
-func (f *fakePlatform) GetAnime(_ context.Context, mediaID int) (*anilist.BaseAnime, error) {
-	f.animeCalls[mediaID]++
-	anime, ok := f.animeByID[mediaID]
-	if !ok {
-		return nil, fmt.Errorf("anime %d not found", mediaID)
-	}
-	return anime, nil
-}
-
-func (f *fakePlatform) GetAnimeByMalID(context.Context, int) (*anilist.BaseAnime, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetAnimeWithRelations(context.Context, int) (*anilist.CompleteAnime, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetAnimeDetails(context.Context, int) (*anilist.AnimeDetailsById_Media, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetManga(_ context.Context, mediaID int) (*anilist.BaseManga, error) {
-	f.mangaCalls[mediaID]++
-	manga, ok := f.mangaByID[mediaID]
-	if !ok {
-		return nil, fmt.Errorf("manga %d not found", mediaID)
-	}
-	return manga, nil
-}
-
-func (f *fakePlatform) GetAnimeCollection(context.Context, bool) (*anilist.AnimeCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetRawAnimeCollection(context.Context, bool) (*anilist.AnimeCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetMangaDetails(context.Context, int) (*anilist.MangaDetailsById_Media, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetAnimeCollectionWithRelations(context.Context) (*anilist.AnimeCollectionWithRelations, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetMangaCollection(context.Context, bool) (*anilist.MangaCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetRawMangaCollection(context.Context, bool) (*anilist.MangaCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) AddMediaToCollection(context.Context, []int) error {
-	return nil
-}
-
-func (f *fakePlatform) GetStudioDetails(context.Context, int) (*anilist.StudioDetails, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetAnilistClient() anilist.AnilistClient {
-	return nil
-}
-
-func (f *fakePlatform) RefreshAnimeCollection(context.Context) (*anilist.AnimeCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) RefreshMangaCollection(context.Context) (*anilist.MangaCollection, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetViewerStats(context.Context) (*anilist.ViewerStats, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) GetAnimeAiringSchedule(context.Context) (*anilist.AnimeAiringSchedule, error) {
-	return nil, nil
-}
-
-func (f *fakePlatform) ClearCache() {}
-
-func (f *fakePlatform) Close() {}
-
-type fakeMetadataProvider struct {
-	metadataByID map[int]*metadataapi.AnimeMetadata
-	calls        map[int]int
-	cache        *result.BoundedCache[string, *metadataapi.AnimeMetadata]
-}
-
-func (f *fakeMetadataProvider) GetAnimeMetadata(_ metadataapi.Platform, mediaID int) (*metadataapi.AnimeMetadata, error) {
-	f.calls[mediaID]++
-	if metadata, ok := f.metadataByID[mediaID]; ok {
-		return metadata, nil
-	}
-	return nil, nil
-}
-
-func (f *fakeMetadataProvider) GetAnimeMetadataWrapper(_ *anilist.BaseAnime, _ *metadataapi.AnimeMetadata) metadata_provider.AnimeMetadataWrapper {
-	return fakeAnimeMetadataWrapper{}
-}
-
-func (f *fakeMetadataProvider) GetCache() *result.BoundedCache[string, *metadataapi.AnimeMetadata] {
-	return f.cache
-}
-
-func (f *fakeMetadataProvider) SetUseFallbackProvider(bool) {}
-
-func (f *fakeMetadataProvider) ClearCache() {
-	f.cache.Clear()
-}
-
-func (f *fakeMetadataProvider) Close() {}
-
-type fakeAnimeMetadataWrapper struct{}
-
-func (fakeAnimeMetadataWrapper) GetEpisodeMetadata(string) metadataapi.EpisodeMetadata {
-	return metadataapi.EpisodeMetadata{}
 }

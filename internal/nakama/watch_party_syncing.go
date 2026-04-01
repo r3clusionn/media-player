@@ -8,10 +8,10 @@ import (
 
 const debugSyncing = false
 
-// handleWatchPartyPlaybackStatusEvent is called when the host sends a playback status.
+// handleWatchPartyPlaybackStatusEvent is called when the host sends a player status.
 //
 // We check if the peer is a participant in the session.
-// If yes, we will update the playback status and sync the playback position.
+// If yes, we will update the player status and sync the player position.
 func (wpm *WatchPartyManager) handleWatchPartyPlaybackStatusEvent(payload *WatchPartyPlaybackStatusPayload) {
 	if wpm.manager.IsHost() {
 		return
@@ -54,8 +54,13 @@ func (wpm *WatchPartyManager) handleWatchPartyPlaybackStatusEvent(payload *Watch
 		return
 	}
 
+	player := wpm.player()
+	if player == nil {
+		return
+	}
+
 	// If the playback manager doesn't have a status, do nothing
-	playbackStatus, ok := wpm.manager.genericPlayer.PullStatus()
+	playbackStatus, ok := player.PullStatus()
 	if !ok {
 		if debugSyncing {
 			wpm.logger.Error().Msg("nakama: Cannot sync, no status")
@@ -134,7 +139,7 @@ func (wpm *WatchPartyManager) handleWatchPartyPlaybackStatusEvent(payload *Watch
 				wpm.pendingSeekPosition = seekPosition
 				wpm.seekMu.Unlock()
 
-				wpm.manager.genericPlayer.SeekTo(seekPosition)
+				player.SeekTo(seekPosition)
 			} else if positionDrift > 0 && positionDrift <= ResumeAheadTolerance {
 				wpm.logger.Debug().
 					Float64("positionDrift", positionDrift).
@@ -144,49 +149,25 @@ func (wpm *WatchPartyManager) handleWatchPartyPlaybackStatusEvent(payload *Watch
 			}
 
 			wpm.logger.Debug().Msg("nakama: Host resumed, resuming peer playback")
-			wpm.manager.genericPlayer.Resume()
+			player.Resume()
 		} else {
 			wpm.logger.Debug().Msg("nakama: Host paused, handling peer pause")
 			wpm.handleHostPause(payloadStatus, playbackStatus, timeSinceMessage)
 		}
+		return
 	}
 
-	// Handle position sync for different state combinations
-	if payloadStatus.Paused == playbackStatus.Paused {
-		// Both in same state, use normal sync
-		wpm.syncPlaybackPosition(payloadStatus, playbackStatus, timeSinceMessage, session)
-	} else if !payloadStatus.Paused && playbackStatus.Paused {
-		// Host playing, peer paused, sync position and resume
-		hostExpectedPosition := payloadStatus.CurrentTime + timeSinceMessage
-
-		wpm.logger.Debug().
-			Float64("hostPosition", hostExpectedPosition).
-			Float64("peerPosition", playbackStatus.CurrentTime).
-			Msg("nakama: Host is playing but peer is paused, syncing and resuming")
-
-		// Resume and sync to host position
-		wpm.manager.genericPlayer.Resume()
-
-		// Track pending seek
-		now := time.Now()
-		wpm.seekMu.Lock()
-		wpm.pendingSeekTime = now
-		wpm.pendingSeekPosition = hostExpectedPosition
-		wpm.seekMu.Unlock()
-
-		wpm.manager.genericPlayer.SeekTo(hostExpectedPosition)
-	} else if payloadStatus.Paused && !playbackStatus.Paused {
-		// Host paused, peer playing, pause immediately
-		wpm.logger.Debug().Msg("nakama: Host is paused but peer is playing, pausing immediately")
-
-		// Cancel catch-up and pause
-		wpm.cancelCatchUp()
-		wpm.handleHostPause(payloadStatus, playbackStatus, timeSinceMessage)
-	}
+	// Both in same state, use normal sync.
+	wpm.syncPlaybackPosition(payloadStatus, playbackStatus, timeSinceMessage, session)
 }
 
-// handleHostPause handles when the host pauses playback
+// handleHostPause handles when the host pauses player
 func (wpm *WatchPartyManager) handleHostPause(hostStatus *WatchPartyPlaybackStatus, peerStatus *WatchPartyPlaybackStatus, timeSinceMessage float64) {
+	player := wpm.player()
+	if player == nil {
+		return
+	}
+
 	// Cancel any ongoing catch-up operation
 	wpm.cancelCatchUp()
 
@@ -220,15 +201,20 @@ func (wpm *WatchPartyManager) handleHostPause(hostStatus *WatchPartyPlaybackStat
 			wpm.pendingSeekPosition = hostActualPausePosition
 			wpm.seekMu.Unlock()
 
-			wpm.manager.genericPlayer.SeekTo(hostActualPausePosition)
+			player.SeekTo(hostActualPausePosition)
 		}
-		wpm.manager.genericPlayer.Pause()
+		player.Pause()
 		wpm.logger.Debug().Msgf("nakama: Host paused, peer paused immediately (diff: %.2f)", timeDifference)
 	}
 }
 
 // startCatchUp starts a catch-up operation to sync with the host's pause position
 func (wpm *WatchPartyManager) startCatchUp(hostPausePosition float64, timeSinceMessage float64) {
+	player := wpm.player()
+	if player == nil {
+		return
+	}
+
 	wpm.catchUpMu.Lock()
 	defer wpm.catchUpMu.Unlock()
 
@@ -266,13 +252,13 @@ func (wpm *WatchPartyManager) startCatchUp(hostPausePosition float64, timeSinceM
 					wpm.pendingSeekPosition = hostPausePosition
 					wpm.seekMu.Unlock()
 
-					wpm.manager.genericPlayer.SeekTo(hostPausePosition)
-					wpm.manager.genericPlayer.Pause()
+					player.SeekTo(hostPausePosition)
+					player.Pause()
 					return
 				}
 
 				// Get current playback status
-				currentStatus, ok := wpm.manager.genericPlayer.PullStatus()
+				currentStatus, ok := player.PullStatus()
 				if !ok {
 					continue
 				}
@@ -289,8 +275,8 @@ func (wpm *WatchPartyManager) startCatchUp(hostPausePosition float64, timeSinceM
 					wpm.pendingSeekPosition = hostPausePosition
 					wpm.seekMu.Unlock()
 
-					wpm.manager.genericPlayer.SeekTo(hostPausePosition)
-					wpm.manager.genericPlayer.Pause()
+					player.SeekTo(hostPausePosition)
+					player.Pause()
 					return
 				}
 
@@ -317,9 +303,13 @@ func (wpm *WatchPartyManager) cancelCatchUp() {
 	}
 }
 
-// syncPlaybackPosition synchronizes playback position when both host and peer are in the same play/pause state
+// syncPlaybackPosition synchronizes player position when both host and peer are in the same play/pause state
 func (wpm *WatchPartyManager) syncPlaybackPosition(hostStatus *WatchPartyPlaybackStatus, peerStatus *WatchPartyPlaybackStatus, timeSinceMessage float64, session *WatchPartySession) {
 	now := time.Now()
+	player := wpm.player()
+	if player == nil {
+		return
+	}
 
 	// Ignore very old messages to prevent stale syncing
 	if timeSinceMessage > MaxMessageAge {
@@ -422,7 +412,7 @@ func (wpm *WatchPartyManager) syncPlaybackPosition(hostStatus *WatchPartyPlaybac
 		wpm.pendingSeekPosition = seekPosition
 		wpm.seekMu.Unlock()
 
-		wpm.manager.genericPlayer.SeekTo(seekPosition)
+		player.SeekTo(seekPosition)
 		wpm.lastSeekTime = now
 	}
 }

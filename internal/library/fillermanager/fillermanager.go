@@ -240,7 +240,7 @@ func (fm *FillerManager) HydrateOnlinestreamFillerData(mId int, episodes []*onli
 	if fm == nil {
 		return
 	}
-	if episodes == nil || len(episodes) == 0 {
+	if len(episodes) == 0 {
 		return
 	}
 

@@ -131,7 +131,7 @@ func (wpm *WatchPartyManager) stopStatusReporting() {
 	}
 }
 
-// sendStatusToHost sends current playback status and buffer state to the host
+// sendStatusToHost sends current player status and buffer state to the host
 func (wpm *WatchPartyManager) sendStatusToHost(peerId string) {
 	playbackStatus, hasPlayback := wpm.manager.genericPlayer.PullStatus()
 	if !hasPlayback {
@@ -152,7 +152,7 @@ func (wpm *WatchPartyManager) sendStatusToHost(peerId string) {
 	})
 }
 
-// calculateBufferState calculates buffering state and buffer health from playback status
+// calculateBufferState calculates buffering state and buffer health from player status
 func (wpm *WatchPartyManager) calculateBufferState(status *WatchPartyPlaybackStatus) (bool, float64) {
 	if status == nil {
 		return true, 0.0 // No status means we're probably buffering
@@ -249,7 +249,7 @@ func (wpm *WatchPartyManager) calculateBufferState(status *WatchPartyPlaybackSta
 	}
 }
 
-// resetBufferingState resets the buffering detection state (useful when playback changes)
+// resetBufferingState resets the buffering detection state (useful when player changes)
 func (wpm *WatchPartyManager) resetBufferingState() {
 	wpm.bufferDetectionMu.Lock()
 	defer wpm.bufferDetectionMu.Unlock()
@@ -548,7 +548,7 @@ func (wpm *WatchPartyManager) handleWatchPartyCreatedEvent(payload *WatchPartyCr
 // handleWatchPartyStoppedEvent is called when the host stops a watch party.
 //
 // We check if the user was a participant in an active watch party session.
-// If yes, we will cancel playback.
+// If yes, we will cancel player.
 func (wpm *WatchPartyManager) handleWatchPartyStoppedEvent() {
 	if wpm.manager.IsHost() {
 		return
@@ -591,7 +591,7 @@ func (wpm *WatchPartyManager) handleWatchPartyStoppedEvent() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // relayModeListenToPlayerAsOrigin starts listening to players when in relay mode.
-// If the user is the relay origin, we listen to playback started events to send it to the relay host.
+// If the user is the relay origin, we listen to player started events to send it to the relay host.
 func (wpm *WatchPartyManager) relayModeListenToPlayerAsOrigin() {
 	go func() {
 		id := "nakama:relay-origin"

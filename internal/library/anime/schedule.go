@@ -25,6 +25,10 @@ type ScheduleItem struct {
 }
 
 func GetScheduleItems(animeSchedule *anilist.AnimeAiringSchedule, animeCollection *anilist.AnimeCollection) []*ScheduleItem {
+	if animeSchedule == nil || animeCollection == nil || animeCollection.MediaListCollection == nil {
+		return []*ScheduleItem{}
+	}
+
 	animeEntryMap := make(map[int]*anilist.AnimeListEntry)
 	for _, list := range animeCollection.MediaListCollection.GetLists() {
 		for _, entry := range list.GetEntries() {
@@ -49,7 +53,7 @@ func GetScheduleItems(animeSchedule *anilist.AnimeAiringSchedule, animeCollectio
 		t := time.Unix(int64(node.GetAiringAt()), 0)
 		item := &ScheduleItem{
 			MediaId:        entry.GetMedia().GetID(),
-			Title:          *entry.GetMedia().GetTitle().GetUserPreferred(),
+			Title:          entry.GetMedia().GetTitleSafe(),
 			Time:           t.UTC().Format("15:04"),
 			DateTime:       t.UTC(),
 			Image:          entry.GetMedia().GetCoverImageSafe(),

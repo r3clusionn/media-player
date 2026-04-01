@@ -25,6 +25,9 @@ func NewTestLocalFiles(groups ...TestLocalFileGroup) []*LocalFile {
 	for _, group := range groups {
 		for _, episode := range group.Episodes {
 			lf := NewLocalFile(strings.ReplaceAll(group.FilePathTemplate, "%ep", strconv.Itoa(episode.Episode)), group.LibraryPath)
+			if lf.ParsedData != nil && lf.ParsedData.Episode == "" {
+				lf.ParsedData.Episode = strconv.Itoa(episode.Episode)
+			}
 			lf.MediaId = group.MediaID
 			lf.Metadata = &LocalFileMetadata{
 				AniDBEpisode: episode.AniDBEpisode,
