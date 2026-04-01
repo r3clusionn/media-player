@@ -1,11 +1,14 @@
 package anizip
 
 import (
-	"github.com/stretchr/testify/assert"
+	"seanime/internal/testutil"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestFetchAniZipMedia(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.Live())
 
 	tests := []struct {
 		name          string

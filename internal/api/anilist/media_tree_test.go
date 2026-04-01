@@ -2,6 +2,7 @@ package anilist
 
 import (
 	"context"
+	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
 
@@ -57,7 +58,7 @@ func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
 					for _, treeId := range tt.edgeIds {
 						a, found := tree.Get(treeId)
 						assert.Truef(t, found, "expected tree to contain %d", treeId)
-						spew.Dump(a.GetTitleSafe())
+						util.Spew(a.GetTitleSafe())
 					}
 
 				}
