@@ -1,12 +1,14 @@
 import { useListExtensionData } from "@/api/hooks/extensions.hooks"
 import { useIsMainTabRef } from "@/app/websocket-provider"
 import { useDebounce } from "@/hooks/use-debounce"
+import { copyToClipboard } from "@/lib/helpers/browser.ts"
 import { usePathname, useRouter, useSearchParams } from "@/lib/navigation"
 import { WSEvents } from "@/lib/server/ws-events"
 import { startTransition, useEffect, useState } from "react"
 import { useWindowSize } from "react-use"
 import { useWebsocketMessageListener } from "../../_hooks/handle-websockets"
 import { PluginCommandPalettes } from "./command/plugin-command-palettes"
+import { usePluginListenDOMClipboardWriteEvent } from "./generated/plugin-events"
 import {
     usePluginListenDOMGetViewportSizeEvent,
     usePluginListenScreenGetCurrentEvent,
@@ -69,6 +71,11 @@ export function PluginManager() {
     usePluginListenScreenReloadEvent((event) => {
         if (!isMainTabRef.current) return
         router.refresh()
+    }, "") // Li
+
+    usePluginListenDOMClipboardWriteEvent((event) => {
+        if (!isMainTabRef.current) return
+        copyToClipboard(event.text)
     }, "") // Listen to all plugins
 
     return <>

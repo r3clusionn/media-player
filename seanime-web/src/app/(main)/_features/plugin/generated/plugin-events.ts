@@ -82,6 +82,7 @@ export enum PluginServerEvents {
     DOMManipulate = "dom:manipulate",
     DOMObserveInView = "dom:observe-in-view",
     DOMGetViewportSize = "dom:get-viewport-size",
+    DOMClipboardWrite = "dom:clipboard:write",
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -1241,6 +1242,20 @@ export function usePluginListenDOMGetViewportSizeEvent(cb: (payload: Plugin_Serv
     return useWebsocketPluginMessageListener<Plugin_Server_DOMGetViewportSizeEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.DOMGetViewportSize,
+        onMessage: cb,
+    })
+}
+
+export type Plugin_Server_DOMClipboardWriteEventPayload = {
+    text: string
+}
+
+export function usePluginListenDOMClipboardWriteEvent(cb: (payload: Plugin_Server_DOMClipboardWriteEventPayload, extensionId: string) => void,
+    extensionID: string,
+) {
+    return useWebsocketPluginMessageListener<Plugin_Server_DOMClipboardWriteEventPayload>({
+        extensionId: extensionID,
+        type: PluginServerEvents.DOMClipboardWrite,
         onMessage: cb,
     })
 }

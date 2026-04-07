@@ -1508,6 +1508,10 @@ declare namespace $ui {
             onResize(cb: (size: { width: number, height: number }) => void): () => void
 
         }
+
+        clipboard: {
+            write(text: string): void
+        }
     }
 
     interface Notification {

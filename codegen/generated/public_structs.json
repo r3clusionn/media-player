@@ -11477,8 +11477,8 @@
   {
     "filepath": "../internal/api/anilist/client_mock.go",
     "filename": "client_mock.go",
-    "name": "MockAnilistClientImpl",
-    "formattedName": "AL_MockAnilistClientImpl",
+    "name": "FixtureAnilistClient",
+    "formattedName": "AL_FixtureAnilistClient",
     "package": "anilist",
     "fields": [
       {
@@ -11505,69 +11505,10 @@
       }
     ],
     "comments": [
-      " MockAnilistClientImpl is a mock implementation of the AnilistClient, used for tests.",
-      " It uses the real implementation of the AnilistClient to make requests then populates a cache with the results.",
-      " This is to avoid making repeated requests to the AniList API during tests but still have realistic data."
+      " FixtureAnilistClient is a fixture-backed test implementation of AnilistClient.",
+      " It reads committed fixtures first and can fall back to the live client when",
+      " a fixture is missing. Fixture writes are opt-in via SEANIME_TEST_RECORD_ANILIST_FIXTURES."
     ]
-  },
-  {
-    "filepath": "../internal/api/anilist/client_mock.go",
-    "filename": "client_mock.go",
-    "name": "TestModifyAnimeCollectionEntryInput",
-    "formattedName": "AL_TestModifyAnimeCollectionEntryInput",
-    "package": "anilist",
-    "fields": [
-      {
-        "name": "Status",
-        "jsonName": "Status",
-        "goType": "MediaListStatus",
-        "typescriptType": "AL_MediaListStatus",
-        "usedTypescriptType": "AL_MediaListStatus",
-        "usedStructName": "anilist.MediaListStatus",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Progress",
-        "jsonName": "Progress",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Score",
-        "jsonName": "Score",
-        "goType": "float64",
-        "typescriptType": "number",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "AiredEpisodes",
-        "jsonName": "AiredEpisodes",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "NextAiringEpisode",
-        "jsonName": "NextAiringEpisode",
-        "goType": "BaseAnime_NextAiringEpisode",
-        "typescriptType": "AL_BaseAnime_NextAiringEpisode",
-        "usedTypescriptType": "AL_BaseAnime_NextAiringEpisode",
-        "usedStructName": "anilist.BaseAnime_NextAiringEpisode",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
   },
   {
     "filepath": "../internal/api/anilist/collection_helper.go",
@@ -23735,6 +23676,74 @@
         "typescriptType": "Array\u003cAL_UserReleaseYearStats\u003e",
         "usedTypescriptType": "AL_UserReleaseYearStats",
         "usedStructName": "anilist.UserReleaseYearStats",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/api/anilist/test_collection_helpers.go",
+    "filename": "test_collection_helpers.go",
+    "name": "AnimeCollectionEntryPatch",
+    "formattedName": "AL_AnimeCollectionEntryPatch",
+    "package": "anilist",
+    "fields": [
+      {
+        "name": "Status",
+        "jsonName": "Status",
+        "goType": "MediaListStatus",
+        "typescriptType": "AL_MediaListStatus",
+        "usedTypescriptType": "AL_MediaListStatus",
+        "usedStructName": "anilist.MediaListStatus",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Progress",
+        "jsonName": "Progress",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Score",
+        "jsonName": "Score",
+        "goType": "float64",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Repeat",
+        "jsonName": "Repeat",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "AiredEpisodes",
+        "jsonName": "AiredEpisodes",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "NextAiringEpisode",
+        "jsonName": "NextAiringEpisode",
+        "goType": "BaseAnime_NextAiringEpisode",
+        "typescriptType": "AL_BaseAnime_NextAiringEpisode",
+        "usedTypescriptType": "AL_BaseAnime_NextAiringEpisode",
+        "usedStructName": "anilist.BaseAnime_NextAiringEpisode",
         "required": false,
         "public": true,
         "comments": []
@@ -48667,31 +48676,13 @@
   {
     "filepath": "../internal/library/anime/test_helpers.go",
     "filename": "test_helpers.go",
-    "name": "MockHydratedLocalFileOptions",
-    "formattedName": "Anime_MockHydratedLocalFileOptions",
+    "name": "TestLocalFileEpisode",
+    "formattedName": "Anime_TestLocalFileEpisode",
     "package": "anime",
     "fields": [
       {
-        "name": "FilePath",
-        "jsonName": "FilePath",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "LibraryPath",
-        "jsonName": "LibraryPath",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "MediaId",
-        "jsonName": "MediaId",
+        "name": "Episode",
+        "jsonName": "Episode",
         "goType": "int",
         "typescriptType": "number",
         "required": true,
@@ -48699,17 +48690,8 @@
         "comments": []
       },
       {
-        "name": "MetadataEpisode",
-        "jsonName": "MetadataEpisode",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "MetadataAniDbEpisode",
-        "jsonName": "MetadataAniDbEpisode",
+        "name": "AniDBEpisode",
+        "jsonName": "AniDBEpisode",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -48717,8 +48699,8 @@
         "comments": []
       },
       {
-        "name": "MetadataType",
-        "jsonName": "MetadataType",
+        "name": "Type",
+        "jsonName": "Type",
         "goType": "LocalFileType",
         "typescriptType": "Anime_LocalFileType",
         "usedTypescriptType": "Anime_LocalFileType",
@@ -48733,22 +48715,13 @@
   {
     "filepath": "../internal/library/anime/test_helpers.go",
     "filename": "test_helpers.go",
-    "name": "MockHydratedLocalFileWrapperOptionsMetadata",
-    "formattedName": "Anime_MockHydratedLocalFileWrapperOptionsMetadata",
+    "name": "TestLocalFileGroup",
+    "formattedName": "Anime_TestLocalFileGroup",
     "package": "anime",
     "fields": [
       {
-        "name": "MetadataEpisode",
-        "jsonName": "MetadataEpisode",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "MetadataAniDbEpisode",
-        "jsonName": "MetadataAniDbEpisode",
+        "name": "LibraryPath",
+        "jsonName": "LibraryPath",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -48756,13 +48729,31 @@
         "comments": []
       },
       {
-        "name": "MetadataType",
-        "jsonName": "MetadataType",
-        "goType": "LocalFileType",
-        "typescriptType": "Anime_LocalFileType",
-        "usedTypescriptType": "Anime_LocalFileType",
-        "usedStructName": "anime.LocalFileType",
+        "name": "FilePathTemplate",
+        "jsonName": "FilePathTemplate",
+        "goType": "string",
+        "typescriptType": "string",
         "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "MediaID",
+        "jsonName": "MediaID",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Episodes",
+        "jsonName": "Episodes",
+        "goType": "[]TestLocalFileEpisode",
+        "typescriptType": "Array\u003cAnime_TestLocalFileEpisode\u003e",
+        "usedTypescriptType": "Anime_TestLocalFileEpisode",
+        "usedStructName": "anime.TestLocalFileEpisode",
+        "required": false,
         "public": true,
         "comments": []
       }
@@ -49324,70 +49315,6 @@
     ]
   },
   {
-    "filepath": "../internal/library/autodownloader/fake.go",
-    "filename": "fake.go",
-    "name": "Fake",
-    "formattedName": "AutoDownloader_Fake",
-    "package": "autodownloader",
-    "fields": [
-      {
-        "name": "SearchResults",
-        "jsonName": "SearchResults",
-        "goType": "[]hibiketorrent.AnimeTorrent",
-        "typescriptType": "Array\u003cHibikeTorrent_AnimeTorrent\u003e",
-        "usedTypescriptType": "HibikeTorrent_AnimeTorrent",
-        "usedStructName": "hibiketorrent.AnimeTorrent",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "GetLatestResults",
-        "jsonName": "GetLatestResults",
-        "goType": "[]hibiketorrent.AnimeTorrent",
-        "typescriptType": "Array\u003cHibikeTorrent_AnimeTorrent\u003e",
-        "usedTypescriptType": "HibikeTorrent_AnimeTorrent",
-        "usedStructName": "hibiketorrent.AnimeTorrent",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Database",
-        "jsonName": "Database",
-        "goType": "db.Database",
-        "typescriptType": "DB_Database",
-        "usedTypescriptType": "DB_Database",
-        "usedStructName": "db.Database",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/library/autodownloader/fake.go",
-    "filename": "fake.go",
-    "name": "FakeTorrentProvider",
-    "formattedName": "AutoDownloader_FakeTorrentProvider",
-    "package": "autodownloader",
-    "fields": [
-      {
-        "name": "fake",
-        "jsonName": "fake",
-        "goType": "Fake",
-        "typescriptType": "AutoDownloader_Fake",
-        "usedTypescriptType": "AutoDownloader_Fake",
-        "usedStructName": "autodownloader.Fake",
-        "required": false,
-        "public": false,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
     "filepath": "../internal/library/autodownloader/hook_events.go",
     "filename": "hook_events.go",
     "name": "AutoDownloaderRunStartedEvent",
@@ -49640,6 +49567,70 @@
     "embeddedStructNames": [
       "hook_resolver.Event"
     ]
+  },
+  {
+    "filepath": "../internal/library/autodownloader/test.go",
+    "filename": "test.go",
+    "name": "TestHarness",
+    "formattedName": "AutoDownloader_TestHarness",
+    "package": "autodownloader",
+    "fields": [
+      {
+        "name": "SearchResults",
+        "jsonName": "SearchResults",
+        "goType": "[]hibiketorrent.AnimeTorrent",
+        "typescriptType": "Array\u003cHibikeTorrent_AnimeTorrent\u003e",
+        "usedTypescriptType": "HibikeTorrent_AnimeTorrent",
+        "usedStructName": "hibiketorrent.AnimeTorrent",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "GetLatestResults",
+        "jsonName": "GetLatestResults",
+        "goType": "[]hibiketorrent.AnimeTorrent",
+        "typescriptType": "Array\u003cHibikeTorrent_AnimeTorrent\u003e",
+        "usedTypescriptType": "HibikeTorrent_AnimeTorrent",
+        "usedStructName": "hibiketorrent.AnimeTorrent",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Database",
+        "jsonName": "Database",
+        "goType": "db.Database",
+        "typescriptType": "DB_Database",
+        "usedTypescriptType": "DB_Database",
+        "usedStructName": "db.Database",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/library/autodownloader/test.go",
+    "filename": "test.go",
+    "name": "TestTorrentProvider",
+    "formattedName": "AutoDownloader_TestTorrentProvider",
+    "package": "autodownloader",
+    "fields": [
+      {
+        "name": "harness",
+        "jsonName": "harness",
+        "goType": "TestHarness",
+        "typescriptType": "AutoDownloader_TestHarness",
+        "usedTypescriptType": "AutoDownloader_TestHarness",
+        "usedStructName": "autodownloader.TestHarness",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
   },
   {
     "filepath": "../internal/library/autoscanner/autoscanner.go",
@@ -62182,38 +62173,149 @@
     ]
   },
   {
-    "filepath": "../internal/mediastream/optimizer/optimizer.go",
-    "filename": "optimizer.go",
-    "name": "Quality",
-    "formattedName": "Quality",
-    "package": "optimizer",
-    "fields": [],
-    "aliasOf": {
-      "goType": "string",
-      "typescriptType": "string",
-      "declaredValues": [
-        "\"low\"",
-        "\"medium\"",
-        "\"high\"",
-        "\"max\""
-      ]
-    },
-    "comments": []
-  },
-  {
-    "filepath": "../internal/mediastream/optimizer/optimizer.go",
-    "filename": "optimizer.go",
-    "name": "Optimizer",
-    "formattedName": "Optimizer",
-    "package": "optimizer",
+    "filepath": "../internal/mediastream/cassette/cassette.go",
+    "filename": "cassette.go",
+    "name": "NewCassetteOptions",
+    "formattedName": "NewCassetteOptions",
+    "package": "cassette",
     "fields": [
       {
-        "name": "wsEventManager",
-        "jsonName": "wsEventManager",
-        "goType": "events.WSEventManagerInterface",
-        "typescriptType": "Events_WSEventManagerInterface",
-        "usedTypescriptType": "Events_WSEventManagerInterface",
-        "usedStructName": "events.WSEventManagerInterface",
+        "name": "Logger",
+        "jsonName": "Logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HwAccelKind",
+        "jsonName": "HwAccelKind",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Preset",
+        "jsonName": "Preset",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TempOutDir",
+        "jsonName": "TempOutDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "FfmpegPath",
+        "jsonName": "FfmpegPath",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "FfprobePath",
+        "jsonName": "FfprobePath",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HwAccelCustomSettings",
+        "jsonName": "HwAccelCustomSettings",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "MaxConcurrency",
+        "jsonName": "MaxConcurrency",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " NewCassetteOptions configuration for the transcoder"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/cassette.go",
+    "filename": "cassette.go",
+    "name": "Cassette",
+    "formattedName": "Cassette",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "sessions",
+        "jsonName": "sessions",
+        "goType": "sync.Map",
+        "typescriptType": "Map",
+        "usedTypescriptType": "Map",
+        "usedStructName": "sync.Map",
+        "required": false,
+        "public": false,
+        "comments": [
+          " map[string]*Session keyed by file path."
+        ]
+      },
+      {
+        "name": "sessionsMu",
+        "jsonName": "sessionsMu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "clientChan",
+        "jsonName": "clientChan",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "tracker",
+        "jsonName": "tracker",
+        "goType": "ClientTracker",
+        "typescriptType": "ClientTracker",
+        "usedTypescriptType": "ClientTracker",
+        "usedStructName": "cassette.ClientTracker",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "governor",
+        "jsonName": "governor",
+        "goType": "Governor",
+        "typescriptType": "Governor",
+        "usedTypescriptType": "Governor",
+        "usedStructName": "cassette.Governor",
         "required": false,
         "public": false,
         "comments": []
@@ -62230,8 +62332,32 @@
         "comments": []
       },
       {
-        "name": "libraryDir",
-        "jsonName": "libraryDir",
+        "name": "settings",
+        "jsonName": "settings",
+        "goType": "Settings",
+        "typescriptType": "Settings",
+        "usedTypescriptType": "Settings",
+        "usedStructName": "cassette.Settings",
+        "required": true,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " Cassette is the top-level transcoding orchestrator.",
+      " it manages sessions, client tracking, and resource allocation."
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/governor.go",
+    "filename": "governor.go",
+    "name": "Governor",
+    "formattedName": "Governor",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "sem",
+        "jsonName": "sem",
         "goType": "",
         "typescriptType": "any",
         "required": true,
@@ -62239,24 +62365,491 @@
         "comments": []
       },
       {
-        "name": "concurrentTasks",
-        "jsonName": "concurrentTasks",
+        "name": "active",
+        "jsonName": "active",
+        "goType": "atomic.Int32",
+        "typescriptType": "Int32",
+        "usedTypescriptType": "Int32",
+        "usedStructName": "atomic.Int32",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "maxSlot",
+        "jsonName": "maxSlot",
         "goType": "int",
         "typescriptType": "number",
         "required": true,
         "public": false,
         "comments": []
+      },
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "stats",
+        "jsonName": "stats",
+        "goType": "GovernorStats",
+        "typescriptType": "GovernorStats",
+        "usedTypescriptType": "GovernorStats",
+        "usedStructName": "cassette.GovernorStats",
+        "required": true,
+        "public": false,
+        "comments": []
       }
     ],
-    "comments": []
+    "comments": [
+      " Governor throttles concurrent ffmpeg processes"
+    ]
   },
   {
-    "filepath": "../internal/mediastream/optimizer/optimizer.go",
-    "filename": "optimizer.go",
-    "name": "NewOptimizerOptions",
-    "formattedName": "NewOptimizerOptions",
-    "package": "optimizer",
+    "filepath": "../internal/mediastream/cassette/governor.go",
+    "filename": "governor.go",
+    "name": "GovernorStats",
+    "formattedName": "GovernorStats",
+    "package": "cassette",
     "fields": [
+      {
+        "name": "ActiveProcesses",
+        "jsonName": "activeProcesses",
+        "goType": "int32",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "MaxConcurrency",
+        "jsonName": "maxConcurrency",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TotalLaunched",
+        "jsonName": "totalLaunched",
+        "goType": "int64",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TotalCompleted",
+        "jsonName": "totalCompleted",
+        "goType": "int64",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TotalWaitTime",
+        "jsonName": "totalWaitTime",
+        "goType": "time.Duration",
+        "typescriptType": "Duration",
+        "usedTypescriptType": "Duration",
+        "usedStructName": "time.Duration",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " GovernorStats contains runtime metrics"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/hwaccel.go",
+    "filename": "hwaccel.go",
+    "name": "HwAccelOptions",
+    "formattedName": "HwAccelOptions",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Kind",
+        "jsonName": "Kind",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Preset",
+        "jsonName": "Preset",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CustomSettings",
+        "jsonName": "CustomSettings",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": [
+          " JSON-encoded HwAccelProfile for \"custom\" kind."
+        ]
+      }
+    ],
+    "comments": [
+      " HwAccelOptions are configuration knobs for hardware acceleration"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/keyframe.go",
+    "filename": "keyframe.go",
+    "name": "KeyframeIndex",
+    "formattedName": "KeyframeIndex",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Sha",
+        "jsonName": "sha",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Keyframes",
+        "jsonName": "keyframes",
+        "goType": "[]float64",
+        "typescriptType": "Array\u003cnumber\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "IsDone",
+        "jsonName": "isDone",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.RWMutex",
+        "typescriptType": "RWMutex",
+        "usedTypescriptType": "RWMutex",
+        "usedStructName": "sync.RWMutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "ready",
+        "jsonName": "ready",
+        "goType": "sync.WaitGroup",
+        "typescriptType": "WaitGroup",
+        "usedTypescriptType": "WaitGroup",
+        "usedStructName": "sync.WaitGroup",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "listeners",
+        "jsonName": "listeners",
+        "goType": "[]",
+        "typescriptType": "Array\u003cany\u003e",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " KeyframeIndex holds extracted keyframe timestamps"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/pipeline.go",
+    "filename": "pipeline.go",
+    "name": "PipelineKind",
+    "formattedName": "PipelineKind",
+    "package": "cassette",
+    "fields": [],
+    "aliasOf": {
+      "goType": "int",
+      "typescriptType": "number",
+      "declaredValues": []
+    },
+    "comments": [
+      " PipelineKind distinguishes video from audio pipelines"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/pipeline.go",
+    "filename": "pipeline.go",
+    "name": "Pipeline",
+    "formattedName": "Pipeline",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "kind",
+        "jsonName": "kind",
+        "goType": "PipelineKind",
+        "typescriptType": "PipelineKind",
+        "usedTypescriptType": "PipelineKind",
+        "usedStructName": "cassette.PipelineKind",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "label",
+        "jsonName": "label",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": [
+          " e.g. \"video (720p)\" or \"audio 0\""
+        ]
+      },
+      {
+        "name": "session",
+        "jsonName": "session",
+        "goType": "Session",
+        "typescriptType": "Session",
+        "usedTypescriptType": "Session",
+        "usedStructName": "cassette.Session",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "segments",
+        "jsonName": "segments",
+        "goType": "SegmentTable",
+        "typescriptType": "SegmentTable",
+        "usedTypescriptType": "SegmentTable",
+        "usedStructName": "cassette.SegmentTable",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "velocity",
+        "jsonName": "velocity",
+        "goType": "VelocityEstimator",
+        "typescriptType": "VelocityEstimator",
+        "usedTypescriptType": "VelocityEstimator",
+        "usedStructName": "cassette.VelocityEstimator",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "headsMu",
+        "jsonName": "headsMu",
+        "goType": "sync.RWMutex",
+        "typescriptType": "RWMutex",
+        "usedTypescriptType": "RWMutex",
+        "usedStructName": "sync.RWMutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "heads",
+        "jsonName": "heads",
+        "goType": "[]head",
+        "typescriptType": "Array\u003chead\u003e",
+        "usedTypescriptType": "head",
+        "usedStructName": "cassette.head",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "activeHeadsWg",
+        "jsonName": "activeHeadsWg",
+        "goType": "sync.WaitGroup",
+        "typescriptType": "WaitGroup",
+        "usedTypescriptType": "WaitGroup",
+        "usedStructName": "sync.WaitGroup",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "killCh",
+        "jsonName": "killCh",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "settings",
+        "jsonName": "settings",
+        "goType": "Settings",
+        "typescriptType": "Settings",
+        "usedTypescriptType": "Settings",
+        "usedStructName": "cassette.Settings",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "governor",
+        "jsonName": "governor",
+        "goType": "Governor",
+        "typescriptType": "Governor",
+        "usedTypescriptType": "Governor",
+        "usedStructName": "cassette.Governor",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "ctx",
+        "jsonName": "ctx",
+        "goType": "context.Context",
+        "typescriptType": "Context",
+        "usedTypescriptType": "Context",
+        "usedStructName": "context.Context",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "cancel",
+        "jsonName": "cancel",
+        "goType": "context.CancelFunc",
+        "typescriptType": "CancelFunc",
+        "usedTypescriptType": "CancelFunc",
+        "usedStructName": "context.CancelFunc",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "buildArgs",
+        "jsonName": "buildArgs",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "outPathFmt",
+        "jsonName": "outPathFmt",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " Pipeline manages a single encode stream"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/pipeline.go",
+    "filename": "pipeline.go",
+    "name": "PipelineConfig",
+    "formattedName": "PipelineConfig",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Kind",
+        "jsonName": "Kind",
+        "goType": "PipelineKind",
+        "typescriptType": "PipelineKind",
+        "usedTypescriptType": "PipelineKind",
+        "usedStructName": "cassette.PipelineKind",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Label",
+        "jsonName": "Label",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Session",
+        "jsonName": "Session",
+        "goType": "Session",
+        "typescriptType": "Session",
+        "usedTypescriptType": "Session",
+        "usedStructName": "cassette.Session",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Settings",
+        "jsonName": "Settings",
+        "goType": "Settings",
+        "typescriptType": "Settings",
+        "usedTypescriptType": "Settings",
+        "usedStructName": "cassette.Settings",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Governor",
+        "jsonName": "Governor",
+        "goType": "Governor",
+        "typescriptType": "Governor",
+        "usedTypescriptType": "Governor",
+        "usedStructName": "cassette.Governor",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
       {
         "name": "Logger",
         "jsonName": "Logger",
@@ -62269,29 +62862,494 @@
         "comments": []
       },
       {
-        "name": "WSEventManager",
-        "jsonName": "WSEventManager",
-        "goType": "events.WSEventManagerInterface",
-        "typescriptType": "Events_WSEventManagerInterface",
-        "usedTypescriptType": "Events_WSEventManagerInterface",
-        "usedStructName": "events.WSEventManagerInterface",
-        "required": false,
+        "name": "BuildArgs",
+        "jsonName": "BuildArgs",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "OutPathFmt",
+        "jsonName": "OutPathFmt",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
         "public": true,
         "comments": []
       }
     ],
-    "comments": []
+    "comments": [
+      " PipelineConfig configures a new pipeline"
+    ]
   },
   {
-    "filepath": "../internal/mediastream/optimizer/optimizer.go",
-    "filename": "optimizer.go",
-    "name": "StartMediaOptimizationOptions",
-    "formattedName": "StartMediaOptimizationOptions",
-    "package": "optimizer",
+    "filepath": "../internal/mediastream/cassette/quality.go",
+    "filename": "quality.go",
+    "name": "Quality",
+    "formattedName": "Quality",
+    "package": "cassette",
+    "fields": [],
+    "aliasOf": {
+      "goType": "string",
+      "typescriptType": "string",
+      "declaredValues": [
+        "\"240p\"",
+        "\"360p\"",
+        "\"480p\"",
+        "\"720p\"",
+        "\"1080p\"",
+        "\"1440p\"",
+        "\"4k\"",
+        "\"8k\"",
+        "\"original\""
+      ]
+    },
+    "comments": [
+      " Quality represents a named video resolution tier.",
+      " [Original] indicates a transmux (copy) of the source video without re-encoding."
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/quality.go",
+    "filename": "quality.go",
+    "name": "QualityLadderEntry",
+    "formattedName": "QualityLadderEntry",
+    "package": "cassette",
     "fields": [
       {
-        "name": "Filepath",
-        "jsonName": "Filepath",
+        "name": "Quality",
+        "jsonName": "Quality",
+        "goType": "Quality",
+        "typescriptType": "Quality",
+        "usedTypescriptType": "Quality",
+        "usedStructName": "cassette.Quality",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Width",
+        "jsonName": "Width",
+        "goType": "int32",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Height",
+        "jsonName": "Height",
+        "goType": "int32",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "NeedsTranscode",
+        "jsonName": "NeedsTranscode",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "OriginalCanTransmux",
+        "jsonName": "OriginalCanTransmux",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " QualityLadderEntry is one rung in a dynamic quality ladder built from",
+      " the source file's actual properties"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/quality.go",
+    "filename": "quality.go",
+    "name": "AudioTranscodeDecision",
+    "formattedName": "AudioTranscodeDecision",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Copy",
+        "jsonName": "Copy",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Codec",
+        "jsonName": "Codec",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Bitrate",
+        "jsonName": "Bitrate",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Channels",
+        "jsonName": "Channels",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " AudioTranscodeDecision describes how an audio track should be handled"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/segment.go",
+    "filename": "segment.go",
+    "name": "SegmentTable",
+    "formattedName": "SegmentTable",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.RWMutex",
+        "typescriptType": "RWMutex",
+        "usedTypescriptType": "RWMutex",
+        "usedStructName": "sync.RWMutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "segments",
+        "jsonName": "segments",
+        "goType": "[]segmentEntry",
+        "typescriptType": "Array\u003csegmentEntry\u003e",
+        "usedTypescriptType": "segmentEntry",
+        "usedStructName": "cassette.segmentEntry",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " SegmentTable tracks which segments are ready"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/session.go",
+    "filename": "session.go",
+    "name": "Session",
+    "formattedName": "Session",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "ready",
+        "jsonName": "ready",
+        "goType": "sync.WaitGroup",
+        "typescriptType": "WaitGroup",
+        "usedTypescriptType": "WaitGroup",
+        "usedStructName": "sync.WaitGroup",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "err",
+        "jsonName": "err",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "cassette.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "Path",
+        "jsonName": "Path",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Out",
+        "jsonName": "Out",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Keyframes",
+        "jsonName": "Keyframes",
+        "goType": "KeyframeIndex",
+        "typescriptType": "KeyframeIndex",
+        "usedTypescriptType": "KeyframeIndex",
+        "usedStructName": "cassette.KeyframeIndex",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Info",
+        "jsonName": "Info",
+        "goType": "videofile.MediaInfo",
+        "typescriptType": "MediaInfo",
+        "usedTypescriptType": "MediaInfo",
+        "usedStructName": "videofile.MediaInfo",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Ladder",
+        "jsonName": "Ladder",
+        "goType": "[]QualityLadderEntry",
+        "typescriptType": "Array\u003cQualityLadderEntry\u003e",
+        "usedTypescriptType": "QualityLadderEntry",
+        "usedStructName": "cassette.QualityLadderEntry",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "videosMu",
+        "jsonName": "videosMu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "videos",
+        "jsonName": "videos",
+        "goType": "map[Quality]Pipeline",
+        "typescriptType": "Record\u003cQuality, Pipeline\u003e",
+        "usedTypescriptType": "Pipeline",
+        "usedStructName": "cassette.Pipeline",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "audiosMu",
+        "jsonName": "audiosMu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "audios",
+        "jsonName": "audios",
+        "goType": "map[int32]Pipeline",
+        "typescriptType": "Record\u003cnumber, Pipeline\u003e",
+        "usedTypescriptType": "Pipeline",
+        "usedStructName": "cassette.Pipeline",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "settings",
+        "jsonName": "settings",
+        "goType": "Settings",
+        "typescriptType": "Settings",
+        "usedTypescriptType": "Settings",
+        "usedStructName": "cassette.Settings",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "governor",
+        "jsonName": "governor",
+        "goType": "Governor",
+        "typescriptType": "Governor",
+        "usedTypescriptType": "Governor",
+        "usedStructName": "cassette.Governor",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " Session represents a per-file transcode session"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/settings.go",
+    "filename": "settings.go",
+    "name": "HwAccelProfile",
+    "formattedName": "HwAccelProfile",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Name",
+        "jsonName": "name",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DecodeFlags",
+        "jsonName": "decodeFlags",
+        "goType": "[]string",
+        "typescriptType": "Array\u003cstring\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "EncodeFlags",
+        "jsonName": "encodeFlags",
+        "goType": "[]string",
+        "typescriptType": "Array\u003cstring\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ScaleFilter",
+        "jsonName": "scaleFilter",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "NoScaleFilter",
+        "jsonName": "noScaleFilter",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ForcedIDR",
+        "jsonName": "forcedIdr",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " HwAccelProfile holds ffmpeg flags for a hardware backend"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/settings.go",
+    "filename": "settings.go",
+    "name": "Settings",
+    "formattedName": "Settings",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "StreamDir",
+        "jsonName": "StreamDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HwAccel",
+        "jsonName": "HwAccel",
+        "goType": "HwAccelProfile",
+        "typescriptType": "HwAccelProfile",
+        "usedTypescriptType": "HwAccelProfile",
+        "usedStructName": "cassette.HwAccelProfile",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "FfmpegPath",
+        "jsonName": "FfmpegPath",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "FfprobePath",
+        "jsonName": "FfprobePath",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " Settings holds the runtime configuration for a cassette instance"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/tracker.go",
+    "filename": "tracker.go",
+    "name": "ClientInfo",
+    "formattedName": "ClientInfo",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "Client",
+        "jsonName": "Client",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Path",
+        "jsonName": "Path",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -62304,33 +63362,189 @@
         "goType": "Quality",
         "typescriptType": "Quality",
         "usedTypescriptType": "Quality",
-        "usedStructName": "optimizer.Quality",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "AudioChannelIndex",
-        "jsonName": "AudioChannelIndex",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "MediaInfo",
-        "jsonName": "MediaInfo",
-        "goType": "videofile.MediaInfo",
-        "typescriptType": "MediaInfo",
-        "usedTypescriptType": "MediaInfo",
-        "usedStructName": "videofile.MediaInfo",
+        "usedStructName": "cassette.Quality",
         "required": false,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "Audio",
+        "jsonName": "Audio",
+        "goType": "int32",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": [
+          " -1 means \"unchanged / not set\"."
+        ]
+      },
+      {
+        "name": "Head",
+        "jsonName": "Head",
+        "goType": "int32",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": [
+          " -1 means \"unchanged / not set\"."
+        ]
       }
     ],
-    "comments": []
+    "comments": [
+      " ClientInfo represents a snapshot of client consumption"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/tracker.go",
+    "filename": "tracker.go",
+    "name": "ClientTracker",
+    "formattedName": "ClientTracker",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "clients",
+        "jsonName": "clients",
+        "goType": "map[string]ClientInfo",
+        "typescriptType": "Record\u003cstring, ClientInfo\u003e",
+        "usedTypescriptType": "ClientInfo",
+        "usedStructName": "cassette.ClientInfo",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "visitDate",
+        "jsonName": "visitDate",
+        "goType": "map[string]time.Time",
+        "typescriptType": "Record\u003cstring, string\u003e",
+        "usedStructName": "time.Time",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "lastUsage",
+        "jsonName": "lastUsage",
+        "goType": "map[string]time.Time",
+        "typescriptType": "Record\u003cstring, string\u003e",
+        "usedStructName": "time.Time",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "qualityActive",
+        "jsonName": "qualityActive",
+        "goType": "map[string]map[Quality]time.Time",
+        "typescriptType": "Record\u003cstring, Record\u003cQuality, string\u003e\u003e",
+        "usedStructName": "time.Time",
+        "required": false,
+        "public": false,
+        "comments": [
+          " path -\u003e quality -\u003e last used"
+        ]
+      },
+      {
+        "name": "audioActive",
+        "jsonName": "audioActive",
+        "goType": "map[string]map[int32]time.Time",
+        "typescriptType": "Record\u003cstring, Record\u003cnumber, string\u003e\u003e",
+        "usedStructName": "time.Time",
+        "required": false,
+        "public": false,
+        "comments": [
+          " path -\u003e audio  -\u003e last used"
+        ]
+      },
+      {
+        "name": "cassette",
+        "jsonName": "cassette",
+        "goType": "Cassette",
+        "typescriptType": "Cassette",
+        "usedTypescriptType": "Cassette",
+        "usedStructName": "cassette.Cassette",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "deletedStream",
+        "jsonName": "deletedStream",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "killCh",
+        "jsonName": "killCh",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " ClientTracker monitors client activity and cleans up idle resources"
+    ]
+  },
+  {
+    "filepath": "../internal/mediastream/cassette/velocity.go",
+    "filename": "velocity.go",
+    "name": "VelocityEstimator",
+    "formattedName": "VelocityEstimator",
+    "package": "cassette",
+    "fields": [
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "samples",
+        "jsonName": "samples",
+        "goType": "[]velocitySample",
+        "typescriptType": "Array\u003cvelocitySample\u003e",
+        "usedTypescriptType": "velocitySample",
+        "usedStructName": "cassette.velocitySample",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "maxAge",
+        "jsonName": "maxAge",
+        "goType": "time.Duration",
+        "typescriptType": "Duration",
+        "usedTypescriptType": "Duration",
+        "usedStructName": "time.Duration",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " VelocityEstimator tracks playback speed to adjust prefetch"
+    ]
   },
   {
     "filepath": "../internal/mediastream/playback.go",
@@ -62505,17 +63719,6 @@
         "comments": []
       },
       {
-        "name": "optimizer",
-        "jsonName": "optimizer",
-        "goType": "optimizer.Optimizer",
-        "typescriptType": "Optimizer",
-        "usedTypescriptType": "Optimizer",
-        "usedStructName": "optimizer.Optimizer",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
         "name": "settings",
         "jsonName": "settings",
         "goType": "",
@@ -62564,6 +63767,17 @@
         "typescriptType": "Events_WSEventManagerInterface",
         "usedTypescriptType": "Events_WSEventManagerInterface",
         "usedStructName": "events.WSEventManagerInterface",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "videoCore",
+        "jsonName": "videoCore",
+        "goType": "videocore.VideoCore",
+        "typescriptType": "VideoCore_VideoCore",
+        "usedTypescriptType": "VideoCore_VideoCore",
+        "usedStructName": "videocore.VideoCore",
         "required": false,
         "public": false,
         "comments": []
@@ -62645,6 +63859,17 @@
         "comments": []
       },
       {
+        "name": "VideoCore",
+        "jsonName": "VideoCore",
+        "goType": "videocore.VideoCore",
+        "typescriptType": "VideoCore_VideoCore",
+        "usedTypescriptType": "VideoCore_VideoCore",
+        "usedStructName": "videocore.VideoCore",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
         "name": "FileCacher",
         "jsonName": "FileCacher",
         "goType": "filecache.Cacher",
@@ -62652,45 +63877,6 @@
         "usedTypescriptType": "Filecache_Cacher",
         "usedStructName": "filecache.Cacher",
         "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/mediastream/repository.go",
-    "filename": "repository.go",
-    "name": "StartMediaOptimizationOptions",
-    "formattedName": "Mediastream_StartMediaOptimizationOptions",
-    "package": "mediastream",
-    "fields": [
-      {
-        "name": "Filepath",
-        "jsonName": "Filepath",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Quality",
-        "jsonName": "Quality",
-        "goType": "optimizer.Quality",
-        "typescriptType": "Quality",
-        "usedTypescriptType": "Quality",
-        "usedStructName": "optimizer.Quality",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "AudioChannelIndex",
-        "jsonName": "AudioChannelIndex",
-        "goType": "int",
-        "typescriptType": "number",
-        "required": true,
         "public": true,
         "comments": []
       }
@@ -63685,15 +64871,6 @@
     "package": "videofile",
     "fields": [
       {
-        "name": "ready",
-        "jsonName": "ready",
-        "goType": "",
-        "typescriptType": "any",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
         "name": "Sha",
         "jsonName": "sha",
         "goType": "string",
@@ -63891,6 +65068,42 @@
         "jsonName": "bitrate",
         "goType": "uint32",
         "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "PixFmt",
+        "jsonName": "pixFmt",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ColorSpace",
+        "jsonName": "colorSpace",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ColorTransfer",
+        "jsonName": "colorTransfer",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ColorPrimaries",
+        "jsonName": "colorPrimaries",
+        "goType": "string",
+        "typescriptType": "string",
         "required": true,
         "public": true,
         "comments": []
@@ -67090,6 +68303,17 @@
         "comments": []
       },
       {
+        "name": "playbackController",
+        "jsonName": "playbackController",
+        "goType": "watchPartyPlaybackController",
+        "typescriptType": "Nakama_watchPartyPlaybackController",
+        "usedTypescriptType": "Nakama_watchPartyPlaybackController",
+        "usedStructName": "nakama.watchPartyPlaybackController",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "currentSession",
         "jsonName": "currentSession",
         "goType": "",
@@ -67322,7 +68546,7 @@
         "required": true,
         "public": false,
         "comments": [
-          " Last known playback position"
+          " Last known player position"
         ]
       },
       {
@@ -67416,7 +68640,7 @@
         "required": false,
         "public": false,
         "comments": [
-          " Listener for playback status changes (can be nil)"
+          " Listener for player status changes (can be nil)"
         ]
       }
     ],
@@ -69872,6 +71096,15 @@
         "usedTypescriptType": "AL_AnilistClient",
         "usedStructName": "anilist.AnilistClient",
         "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "useFixtureCollections",
+        "jsonName": "useFixtureCollections",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
         "public": false,
         "comments": []
       },
@@ -75562,7 +76795,8 @@
         "\"dom:create\"",
         "\"dom:manipulate\"",
         "\"dom:observe-in-view\"",
-        "\"dom:get-viewport-size\""
+        "\"dom:get-viewport-size\"",
+        "\"dom:clipboard:write\""
       ]
     },
     "comments": []
@@ -76356,6 +77590,25 @@
     "formattedName": "PluginUI_ServerScreenGetCurrentEventPayload",
     "package": "plugin_ui",
     "fields": [],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/ui/events.go",
+    "filename": "events.go",
+    "name": "ServerDOMClipboardWriteEventPayload",
+    "formattedName": "PluginUI_ServerDOMClipboardWriteEventPayload",
+    "package": "plugin_ui",
+    "fields": [
+      {
+        "name": "Text",
+        "jsonName": "text",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
     "comments": []
   },
   {
@@ -78680,6 +79933,15 @@
         "required": false,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "Records",
+        "jsonName": "records",
+        "goType": "map[string]",
+        "typescriptType": "Record\u003cstring, any\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": []
@@ -78977,11 +80239,492 @@
     "comments": []
   },
   {
-    "filepath": "../internal/test_utils/data.go",
+    "filepath": "../internal/testmocks/fake_metadata_provider.go",
+    "filename": "fake_metadata_provider.go",
+    "name": "FakeMetadataProviderBuilder",
+    "formattedName": "FakeMetadataProviderBuilder",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "provider",
+        "jsonName": "provider",
+        "goType": "FakeMetadataProvider",
+        "typescriptType": "FakeMetadataProvider",
+        "usedTypescriptType": "FakeMetadataProvider",
+        "usedStructName": "testmocks.FakeMetadataProvider",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_metadata_provider.go",
+    "filename": "fake_metadata_provider.go",
+    "name": "FakeMetadataProvider",
+    "formattedName": "FakeMetadataProvider",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "metadataByID",
+        "jsonName": "metadataByID",
+        "goType": "map[int]metadata.AnimeMetadata",
+        "typescriptType": "Record\u003cnumber, Metadata_AnimeMetadata\u003e",
+        "usedTypescriptType": "Metadata_AnimeMetadata",
+        "usedStructName": "metadata.AnimeMetadata",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "wrappersByID",
+        "jsonName": "wrappersByID",
+        "goType": "map[int]metadata_provider.AnimeMetadataWrapper",
+        "typescriptType": "Record\u003cnumber, AnimeMetadataWrapper\u003e",
+        "usedTypescriptType": "AnimeMetadataWrapper",
+        "usedStructName": "metadata_provider.AnimeMetadataWrapper",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "calls",
+        "jsonName": "calls",
+        "goType": "map[int]int",
+        "typescriptType": "Record\u003cnumber, number\u003e",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "cache",
+        "jsonName": "cache",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_metadata_provider.go",
+    "filename": "fake_metadata_provider.go",
+    "name": "FakeAnimeMetadataWrapper",
+    "formattedName": "FakeAnimeMetadataWrapper",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "episodes",
+        "jsonName": "episodes",
+        "goType": "map[string]metadata.EpisodeMetadata",
+        "typescriptType": "Record\u003cstring, Metadata_EpisodeMetadata\u003e",
+        "usedTypescriptType": "Metadata_EpisodeMetadata",
+        "usedStructName": "metadata.EpisodeMetadata",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_platform.go",
+    "filename": "fake_platform.go",
+    "name": "FakePlatformBuilder",
+    "formattedName": "FakePlatformBuilder",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "platform",
+        "jsonName": "platform",
+        "goType": "FakePlatform",
+        "typescriptType": "FakePlatform",
+        "usedTypescriptType": "FakePlatform",
+        "usedStructName": "testmocks.FakePlatform",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_platform.go",
+    "filename": "fake_platform.go",
+    "name": "FakePlatform",
+    "formattedName": "FakePlatform",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "animeByID",
+        "jsonName": "animeByID",
+        "goType": "map[int]anilist.BaseAnime",
+        "typescriptType": "Record\u003cnumber, AL_BaseAnime\u003e",
+        "usedTypescriptType": "AL_BaseAnime",
+        "usedStructName": "anilist.BaseAnime",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mangaByID",
+        "jsonName": "mangaByID",
+        "goType": "map[int]anilist.BaseManga",
+        "typescriptType": "Record\u003cnumber, AL_BaseManga\u003e",
+        "usedTypescriptType": "AL_BaseManga",
+        "usedStructName": "anilist.BaseManga",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollection",
+        "jsonName": "animeCollection",
+        "goType": "anilist.AnimeCollection",
+        "typescriptType": "AL_AnimeCollection",
+        "usedTypescriptType": "AL_AnimeCollection",
+        "usedStructName": "anilist.AnimeCollection",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawAnimeCollection",
+        "jsonName": "rawAnimeCollection",
+        "goType": "anilist.AnimeCollection",
+        "typescriptType": "AL_AnimeCollection",
+        "usedTypescriptType": "AL_AnimeCollection",
+        "usedStructName": "anilist.AnimeCollection",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollectionWithRel",
+        "jsonName": "animeCollectionWithRel",
+        "goType": "anilist.AnimeCollectionWithRelations",
+        "typescriptType": "AL_AnimeCollectionWithRelations",
+        "usedTypescriptType": "AL_AnimeCollectionWithRelations",
+        "usedStructName": "anilist.AnimeCollectionWithRelations",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mangaCollection",
+        "jsonName": "mangaCollection",
+        "goType": "anilist.MangaCollection",
+        "typescriptType": "AL_MangaCollection",
+        "usedTypescriptType": "AL_MangaCollection",
+        "usedStructName": "anilist.MangaCollection",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawMangaCollection",
+        "jsonName": "rawMangaCollection",
+        "goType": "anilist.MangaCollection",
+        "typescriptType": "AL_MangaCollection",
+        "usedTypescriptType": "AL_MangaCollection",
+        "usedStructName": "anilist.MangaCollection",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeAiringSchedule",
+        "jsonName": "animeAiringSchedule",
+        "goType": "anilist.AnimeAiringSchedule",
+        "typescriptType": "AL_AnimeAiringSchedule",
+        "usedTypescriptType": "AL_AnimeAiringSchedule",
+        "usedStructName": "anilist.AnimeAiringSchedule",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "viewerStats",
+        "jsonName": "viewerStats",
+        "goType": "anilist.ViewerStats",
+        "typescriptType": "AL_ViewerStats",
+        "usedTypescriptType": "AL_ViewerStats",
+        "usedStructName": "anilist.ViewerStats",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollectionErr",
+        "jsonName": "animeCollectionErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawAnimeCollectionErr",
+        "jsonName": "rawAnimeCollectionErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollectionWithRelErr",
+        "jsonName": "animeCollectionWithRelErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mangaCollectionErr",
+        "jsonName": "mangaCollectionErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawMangaCollectionErr",
+        "jsonName": "rawMangaCollectionErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeAiringScheduleErr",
+        "jsonName": "animeAiringScheduleErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "viewerStatsErr",
+        "jsonName": "viewerStatsErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "updateEntryProgressErr",
+        "jsonName": "updateEntryProgressErr",
+        "goType": "error",
+        "typescriptType": "error",
+        "usedTypescriptType": "error",
+        "usedStructName": "testmocks.error",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCalls",
+        "jsonName": "animeCalls",
+        "goType": "map[int]int",
+        "typescriptType": "Record\u003cnumber, number\u003e",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mangaCalls",
+        "jsonName": "mangaCalls",
+        "goType": "map[int]int",
+        "typescriptType": "Record\u003cnumber, number\u003e",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollectionCalls",
+        "jsonName": "animeCollectionCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawAnimeCollectionCalls",
+        "jsonName": "rawAnimeCollectionCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeCollectionWithRelCalls",
+        "jsonName": "animeCollectionWithRelCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mangaCollectionCalls",
+        "jsonName": "mangaCollectionCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "rawMangaCollectionCalls",
+        "jsonName": "rawMangaCollectionCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "animeAiringScheduleCalls",
+        "jsonName": "animeAiringScheduleCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "viewerStatsCalls",
+        "jsonName": "viewerStatsCalls",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "updateEntryProgressCalls",
+        "jsonName": "updateEntryProgressCalls",
+        "goType": "[]FakeUpdateEntryProgressCall",
+        "typescriptType": "Array\u003cFakeUpdateEntryProgressCall\u003e",
+        "usedTypescriptType": "FakeUpdateEntryProgressCall",
+        "usedStructName": "testmocks.FakeUpdateEntryProgressCall",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_platform.go",
+    "filename": "fake_platform.go",
+    "name": "FakeUpdateEntryProgressCall",
+    "formattedName": "FakeUpdateEntryProgressCall",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "MediaID",
+        "jsonName": "MediaID",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Progress",
+        "jsonName": "Progress",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TotalEpisodes",
+        "jsonName": "TotalEpisodes",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/media_builders.go",
+    "filename": "media_builders.go",
+    "name": "BaseAnimeBuilder",
+    "formattedName": "BaseAnimeBuilder",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "anime",
+        "jsonName": "anime",
+        "goType": "anilist.BaseAnime",
+        "typescriptType": "AL_BaseAnime",
+        "usedTypescriptType": "AL_BaseAnime",
+        "usedStructName": "anilist.BaseAnime",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/media_builders.go",
+    "filename": "media_builders.go",
+    "name": "BaseMangaBuilder",
+    "formattedName": "BaseMangaBuilder",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "manga",
+        "jsonName": "manga",
+        "goType": "anilist.BaseManga",
+        "typescriptType": "AL_BaseManga",
+        "usedTypescriptType": "AL_BaseManga",
+        "usedStructName": "anilist.BaseManga",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testutil/data.go",
     "filename": "data.go",
     "name": "Config",
     "formattedName": "Config",
-    "package": "test_utils",
+    "package": "testutil",
     "fields": [
       {
         "name": "Provider",
@@ -78989,7 +80732,7 @@
         "goType": "ProviderConfig",
         "typescriptType": "ProviderConfig",
         "usedTypescriptType": "ProviderConfig",
-        "usedStructName": "test_utils.ProviderConfig",
+        "usedStructName": "testutil.ProviderConfig",
         "required": true,
         "public": true,
         "comments": []
@@ -79000,7 +80743,7 @@
         "goType": "PathConfig",
         "typescriptType": "PathConfig",
         "usedTypescriptType": "PathConfig",
-        "usedStructName": "test_utils.PathConfig",
+        "usedStructName": "testutil.PathConfig",
         "required": true,
         "public": true,
         "comments": []
@@ -79011,7 +80754,7 @@
         "goType": "DatabaseConfig",
         "typescriptType": "DatabaseConfig",
         "usedTypescriptType": "DatabaseConfig",
-        "usedStructName": "test_utils.DatabaseConfig",
+        "usedStructName": "testutil.DatabaseConfig",
         "required": true,
         "public": true,
         "comments": []
@@ -79022,7 +80765,7 @@
         "goType": "FlagsConfig",
         "typescriptType": "FlagsConfig",
         "usedTypescriptType": "FlagsConfig",
-        "usedStructName": "test_utils.FlagsConfig",
+        "usedStructName": "testutil.FlagsConfig",
         "required": true,
         "public": true,
         "comments": []
@@ -79031,11 +80774,11 @@
     "comments": []
   },
   {
-    "filepath": "../internal/test_utils/data.go",
+    "filepath": "../internal/testutil/data.go",
     "filename": "data.go",
     "name": "FlagsConfig",
     "formattedName": "FlagsConfig",
-    "package": "test_utils",
+    "package": "testutil",
     "fields": [
       {
         "name": "EnableAnilistTests",
@@ -79099,16 +80842,25 @@
         "required": true,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "EnableLiveTests",
+        "jsonName": "EnableLiveTests",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": []
   },
   {
-    "filepath": "../internal/test_utils/data.go",
+    "filepath": "../internal/testutil/data.go",
     "filename": "data.go",
     "name": "ProviderConfig",
     "formattedName": "ProviderConfig",
-    "package": "test_utils",
+    "package": "testutil",
     "fields": [
       {
         "name": "AnilistJwt",
@@ -79348,15 +81100,24 @@
     "comments": []
   },
   {
-    "filepath": "../internal/test_utils/data.go",
+    "filepath": "../internal/testutil/data.go",
     "filename": "data.go",
     "name": "PathConfig",
     "formattedName": "PathConfig",
-    "package": "test_utils",
+    "package": "testutil",
     "fields": [
       {
         "name": "DataDir",
         "jsonName": "DataDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "SampleVideoPath",
+        "jsonName": "SampleVideoPath",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -79367,11 +81128,11 @@
     "comments": []
   },
   {
-    "filepath": "../internal/test_utils/data.go",
+    "filepath": "../internal/testutil/data.go",
     "filename": "data.go",
     "name": "DatabaseConfig",
     "formattedName": "DatabaseConfig",
-    "package": "test_utils",
+    "package": "testutil",
     "fields": [
       {
         "name": "Name",
@@ -79380,6 +81141,76 @@
         "typescriptType": "string",
         "required": true,
         "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testutil/env.go",
+    "filename": "env.go",
+    "name": "TestEnv",
+    "formattedName": "TestEnv",
+    "package": "testutil",
+    "fields": [
+      {
+        "name": "t",
+        "jsonName": "t",
+        "goType": "testing.TB",
+        "typescriptType": "TB",
+        "usedTypescriptType": "TB",
+        "usedStructName": "testing.TB",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "RootDir",
+        "jsonName": "RootDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DataDir",
+        "jsonName": "DataDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CacheDir",
+        "jsonName": "CacheDir",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "cfg",
+        "jsonName": "cfg",
+        "goType": "Config",
+        "typescriptType": "Config",
+        "usedTypescriptType": "Config",
+        "usedStructName": "testutil.Config",
+        "required": false,
+        "public": false,
         "comments": []
       }
     ],
@@ -84320,8 +86151,8 @@
   {
     "filepath": "../internal/torrents/autoselect/search_test.go",
     "filename": "search_test.go",
-    "name": "FakeSearchProvider",
-    "formattedName": "FakeSearchProvider",
+    "name": "TestSearchProvider",
+    "formattedName": "TestSearchProvider",
     "package": "autoselect",
     "fields": [
       {
@@ -84384,7 +86215,7 @@
       }
     ],
     "comments": [
-      " FakeSearchProvider is a fake torrent provider for testing search functionality"
+      " TestSearchProvider is a programmable torrent provider for search tests."
     ]
   },
   {
@@ -86052,660 +87883,6 @@
     "comments": []
   },
   {
-    "filepath": "../internal/troubleshooter/logs.go",
-    "filename": "logs.go",
-    "name": "AnalysisResult",
-    "formattedName": "AnalysisResult",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Items",
-        "jsonName": "items",
-        "goType": "[]AnalysisResultItem",
-        "typescriptType": "Array\u003cAnalysisResultItem\u003e",
-        "usedTypescriptType": "AnalysisResultItem",
-        "usedStructName": "troubleshooter.AnalysisResultItem",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/logs.go",
-    "filename": "logs.go",
-    "name": "AnalysisResultItem",
-    "formattedName": "AnalysisResultItem",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Observation",
-        "jsonName": "observation",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Recommendation",
-        "jsonName": "recommendation",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Severity",
-        "jsonName": "severity",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Errors",
-        "jsonName": "errors",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Warnings",
-        "jsonName": "warnings",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Logs",
-        "jsonName": "logs",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/logs.go",
-    "filename": "logs.go",
-    "name": "RuleBuilder",
-    "formattedName": "RuleBuilder",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "name",
-        "jsonName": "name",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "description",
-        "jsonName": "description",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "conditions",
-        "jsonName": "conditions",
-        "goType": "[]condition",
-        "typescriptType": "Array\u003ccondition\u003e",
-        "usedTypescriptType": "condition",
-        "usedStructName": "troubleshooter.condition",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "platforms",
-        "jsonName": "platforms",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "branches",
-        "jsonName": "branches",
-        "goType": "[]branch",
-        "typescriptType": "Array\u003cbranch\u003e",
-        "usedTypescriptType": "branch",
-        "usedStructName": "troubleshooter.branch",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "defaultBranch",
-        "jsonName": "defaultBranch",
-        "goType": "branch",
-        "typescriptType": "branch",
-        "usedTypescriptType": "branch",
-        "usedStructName": "troubleshooter.branch",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "state",
-        "jsonName": "state",
-        "goType": "AppState",
-        "typescriptType": "AppState",
-        "usedTypescriptType": "AppState",
-        "usedStructName": "troubleshooter.AppState",
-        "required": false,
-        "public": false,
-        "comments": []
-      }
-    ],
-    "comments": [
-      " RuleBuilder provides a fluent interface for building rules"
-    ]
-  },
-  {
-    "filepath": "../internal/troubleshooter/logs.go",
-    "filename": "logs.go",
-    "name": "BranchBuilder",
-    "formattedName": "BranchBuilder",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "rule",
-        "jsonName": "rule",
-        "goType": "RuleBuilder",
-        "typescriptType": "RuleBuilder",
-        "usedTypescriptType": "RuleBuilder",
-        "usedStructName": "troubleshooter.RuleBuilder",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "branch",
-        "jsonName": "branch",
-        "goType": "branch",
-        "typescriptType": "branch",
-        "usedTypescriptType": "branch",
-        "usedStructName": "troubleshooter.branch",
-        "required": true,
-        "public": false,
-        "comments": []
-      }
-    ],
-    "comments": [
-      " BranchBuilder helps build conditional branches"
-    ]
-  },
-  {
-    "filepath": "../internal/troubleshooter/logs.go",
-    "filename": "logs.go",
-    "name": "LogLine",
-    "formattedName": "LogLine",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Timestamp",
-        "jsonName": "Timestamp",
-        "goType": "time.Time",
-        "typescriptType": "string",
-        "usedStructName": "time.Time",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Line",
-        "jsonName": "Line",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Module",
-        "jsonName": "Module",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Level",
-        "jsonName": "Level",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Message",
-        "jsonName": "Message",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": [
-      " LogLine represents a parsed log line"
-    ]
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "Troubleshooter",
-    "formattedName": "Troubleshooter",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "logsDir",
-        "jsonName": "logsDir",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "logger",
-        "jsonName": "logger",
-        "goType": "zerolog.Logger",
-        "typescriptType": "Logger",
-        "usedTypescriptType": "Logger",
-        "usedStructName": "zerolog.Logger",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "rules",
-        "jsonName": "rules",
-        "goType": "[]RuleBuilder",
-        "typescriptType": "Array\u003cRuleBuilder\u003e",
-        "usedTypescriptType": "RuleBuilder",
-        "usedStructName": "troubleshooter.RuleBuilder",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "state",
-        "jsonName": "state",
-        "goType": "AppState",
-        "typescriptType": "AppState",
-        "usedTypescriptType": "AppState",
-        "usedStructName": "troubleshooter.AppState",
-        "required": false,
-        "public": false,
-        "comments": [
-          " For accessing app state like settings"
-        ]
-      },
-      {
-        "name": "modules",
-        "jsonName": "modules",
-        "goType": "Modules",
-        "typescriptType": "Modules",
-        "usedTypescriptType": "Modules",
-        "usedStructName": "troubleshooter.Modules",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "clientParams",
-        "jsonName": "clientParams",
-        "goType": "ClientParams",
-        "typescriptType": "ClientParams",
-        "usedTypescriptType": "ClientParams",
-        "usedStructName": "troubleshooter.ClientParams",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "currentResult",
-        "jsonName": "currentResult",
-        "goType": "Result",
-        "typescriptType": "Result",
-        "usedTypescriptType": "Result",
-        "usedStructName": "troubleshooter.Result",
-        "required": true,
-        "public": false,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "Modules",
-    "formattedName": "Modules",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "MediaPlayerRepository",
-        "jsonName": "MediaPlayerRepository",
-        "goType": "mediaplayer.Repository",
-        "typescriptType": "Repository",
-        "usedTypescriptType": "Repository",
-        "usedStructName": "mediaplayer.Repository",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "OnlinestreamRepository",
-        "jsonName": "OnlinestreamRepository",
-        "goType": "onlinestream.Repository",
-        "typescriptType": "Onlinestream_Repository",
-        "usedTypescriptType": "Onlinestream_Repository",
-        "usedStructName": "onlinestream.Repository",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "TorrentstreamRepository",
-        "jsonName": "TorrentstreamRepository",
-        "goType": "torrentstream.Repository",
-        "typescriptType": "Torrentstream_Repository",
-        "usedTypescriptType": "Torrentstream_Repository",
-        "usedStructName": "torrentstream.Repository",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "NewTroubleshooterOptions",
-    "formattedName": "NewTroubleshooterOptions",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "LogsDir",
-        "jsonName": "LogsDir",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Logger",
-        "jsonName": "Logger",
-        "goType": "zerolog.Logger",
-        "typescriptType": "Logger",
-        "usedTypescriptType": "Logger",
-        "usedStructName": "zerolog.Logger",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "State",
-        "jsonName": "State",
-        "goType": "AppState",
-        "typescriptType": "AppState",
-        "usedTypescriptType": "AppState",
-        "usedStructName": "troubleshooter.AppState",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "AppState",
-    "formattedName": "AppState",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Settings",
-        "jsonName": "Settings",
-        "goType": "models.Settings",
-        "typescriptType": "Models_Settings",
-        "usedTypescriptType": "Models_Settings",
-        "usedStructName": "models.Settings",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "TorrentstreamSettings",
-        "jsonName": "TorrentstreamSettings",
-        "goType": "models.TorrentstreamSettings",
-        "typescriptType": "Models_TorrentstreamSettings",
-        "usedTypescriptType": "Models_TorrentstreamSettings",
-        "usedStructName": "models.TorrentstreamSettings",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "MediastreamSettings",
-        "jsonName": "MediastreamSettings",
-        "goType": "models.MediastreamSettings",
-        "typescriptType": "Models_MediastreamSettings",
-        "usedTypescriptType": "Models_MediastreamSettings",
-        "usedStructName": "models.MediastreamSettings",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "DebridSettings",
-        "jsonName": "DebridSettings",
-        "goType": "models.DebridSettings",
-        "typescriptType": "Models_DebridSettings",
-        "usedTypescriptType": "Models_DebridSettings",
-        "usedStructName": "models.DebridSettings",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "Result",
-    "formattedName": "Result",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Items",
-        "jsonName": "items",
-        "goType": "[]ResultItem",
-        "typescriptType": "Array\u003cResultItem\u003e",
-        "usedTypescriptType": "ResultItem",
-        "usedStructName": "troubleshooter.ResultItem",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "ResultItem",
-    "formattedName": "ResultItem",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "Module",
-        "jsonName": "module",
-        "goType": "Module",
-        "typescriptType": "Module",
-        "usedTypescriptType": "Module",
-        "usedStructName": "troubleshooter.Module",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Observation",
-        "jsonName": "observation",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Recommendation",
-        "jsonName": "recommendation",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Level",
-        "jsonName": "level",
-        "goType": "Level",
-        "typescriptType": "Level",
-        "usedTypescriptType": "Level",
-        "usedStructName": "troubleshooter.Level",
-        "required": true,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Errors",
-        "jsonName": "errors",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Warnings",
-        "jsonName": "warnings",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      },
-      {
-        "name": "Logs",
-        "jsonName": "logs",
-        "goType": "[]string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": true,
-        "comments": []
-      }
-    ],
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "Module",
-    "formattedName": "Module",
-    "package": "troubleshooter",
-    "fields": [],
-    "aliasOf": {
-      "goType": "string",
-      "typescriptType": "string",
-      "declaredValues": [
-        "\"Playback\"",
-        "\"Media player\"",
-        "\"Anime library\"",
-        "\"Media streaming\"",
-        "\"Torrent streaming\""
-      ]
-    },
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "Level",
-    "formattedName": "Level",
-    "package": "troubleshooter",
-    "fields": [],
-    "aliasOf": {
-      "goType": "string",
-      "typescriptType": "string",
-      "declaredValues": [
-        "\"error\"",
-        "\"warning\"",
-        "\"info\"",
-        "\"debug\""
-      ]
-    },
-    "comments": []
-  },
-  {
-    "filepath": "../internal/troubleshooter/troubleshooter.go",
-    "filename": "troubleshooter.go",
-    "name": "ClientParams",
-    "formattedName": "ClientParams",
-    "package": "troubleshooter",
-    "fields": [
-      {
-        "name": "LibraryPlaybackOption",
-        "jsonName": "libraryPlaybackOption",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": [
-          " \"desktop_media_player\" or \"media_streaming\" or \"external_player_link\""
-        ]
-      },
-      {
-        "name": "TorrentOrDebridPlaybackOption",
-        "jsonName": "torrentOrDebridPlaybackOption",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": true,
-        "comments": [
-          " \"desktop_torrent_player\" or \"external_player_link\""
-        ]
-      }
-    ],
-    "comments": []
-  },
-  {
     "filepath": "../internal/updater/announcement.go",
     "filename": "announcement.go",
     "name": "AnnouncementType",
@@ -87584,56 +88761,6 @@
       }
     ],
     "comments": []
-  },
-  {
-    "filepath": "../internal/util/cachedreadseeker.go",
-    "filename": "cachedreadseeker.go",
-    "name": "CachedReadSeeker",
-    "formattedName": "Util_CachedReadSeeker",
-    "package": "util",
-    "fields": [
-      {
-        "name": "src",
-        "jsonName": "src",
-        "goType": "io.ReadSeekCloser",
-        "typescriptType": "ReadSeekCloser",
-        "usedTypescriptType": "ReadSeekCloser",
-        "usedStructName": "io.ReadSeekCloser",
-        "required": false,
-        "public": false,
-        "comments": [
-          " underlying source"
-        ]
-      },
-      {
-        "name": "cache",
-        "jsonName": "cache",
-        "goType": "string",
-        "typescriptType": "Array\u003cstring\u003e",
-        "required": false,
-        "public": false,
-        "comments": [
-          " bytes read so far"
-        ]
-      },
-      {
-        "name": "pos",
-        "jsonName": "pos",
-        "goType": "int64",
-        "typescriptType": "number",
-        "required": true,
-        "public": false,
-        "comments": [
-          " current read position"
-        ]
-      }
-    ],
-    "comments": [
-      " CachedReadSeeker wraps an io.ReadSeekCloser and caches bytes as they are read.",
-      " It implements io.ReadSeeker, allowing seeking within the already-cached",
-      " range without hitting the underlying reader again.",
-      " Additional reads beyond the cache will append to the cache automatically."
-    ]
   },
   {
     "filepath": "../internal/util/comparison/matching.go",

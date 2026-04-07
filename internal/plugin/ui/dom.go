@@ -76,6 +76,10 @@ func (d *DOMManager) BindToObj(vm *goja.Runtime, obj *goja.Object) {
 	_ = viewportObj.Set("getSize", d.jsViewportGetSize)
 	_ = domObj.Set("viewport", viewportObj)
 
+	clipboardObj := vm.NewObject()
+	_ = clipboardObj.Set("write", d.jsClipboardWrite)
+	_ = domObj.Set("clipboard", clipboardObj)
+
 	_ = obj.Set("dom", domObj)
 }
 
@@ -1807,4 +1811,21 @@ func (d *DOMManager) jsViewportGetSize(_ goja.FunctionCall) goja.Value {
 
 	<-done
 	return d.ctx.vm.ToValue(payload)
+}
+
+/////////////////////////////////////////////
+
+func (d *DOMManager) jsClipboardWrite(call goja.FunctionCall) goja.Value {
+
+	content, ok := call.Argument(0).Export().(string)
+	if !ok {
+		d.ctx.handleTypeError("clipboard: write requires a string")
+		return goja.Undefined()
+	}
+
+	d.ctx.SendEventToClient(ServerDOMClipboardWriteEvent, &ServerDOMClipboardWriteEventPayload{
+		Text: content,
+	})
+
+	return goja.Undefined()
 }
