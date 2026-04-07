@@ -5,6 +5,60 @@ export const __manga_currentPageIndexAtom = atom(0)
 export const __manga_currentPaginationMapIndexAtom = atom(0) // HORIZONTAL MODE
 export const __manga_paginationMapAtom = atom<Record<number, number[]>>({})
 
+export type MangaReaderResumeLocation = {
+    chapterId: string
+    provider: string
+    pageIndex: number
+    updatedAt: number
+}
+
+export const MANGA_READER_RESUME_MAX_ENTRIES = 250
+export const MANGA_READER_RESUME_MAX_AGE_MS = 1000 * 60 * 60 * 24 * 90
+
+export function cleanupMangaResumeLocations(locations: Record<string, MangaReaderResumeLocation>) {
+    const now = Date.now()
+
+    const trimmedLocations = Object.entries(locations)
+        .filter(([key, value]) => {
+            return (
+                !!key
+                && typeof value?.chapterId === "string"
+                && value.chapterId.length > 0
+                && typeof value?.provider === "string"
+                && value.provider.length > 0
+                && Number.isInteger(value?.pageIndex)
+                && value.pageIndex >= 0
+                && Number.isFinite(value?.updatedAt)
+                && now - value.updatedAt <= MANGA_READER_RESUME_MAX_AGE_MS
+            )
+        })
+        .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+        .slice(0, MANGA_READER_RESUME_MAX_ENTRIES)
+
+    const nextLocations = Object.fromEntries(trimmedLocations)
+
+    const sameSize = Object.keys(nextLocations).length === Object.keys(locations).length
+    if (!sameSize) return nextLocations
+
+    for (const [key, value] of Object.entries(nextLocations)) {
+        if (
+            locations[key]?.pageIndex !== value.pageIndex
+            || locations[key]?.updatedAt !== value.updatedAt
+        ) {
+            return nextLocations
+        }
+    }
+
+    return locations
+}
+
+export const __manga_resumeLocationsAtom = atomWithStorage<Record<string, MangaReaderResumeLocation>>(
+    "sea-manga-resume-locations",
+    {},
+    undefined,
+    { getOnInit: true },
+)
+
 export const __manga_hiddenBarAtom = atom(false)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
