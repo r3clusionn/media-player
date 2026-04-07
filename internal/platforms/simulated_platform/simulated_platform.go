@@ -39,9 +39,11 @@ type SimulatedPlatform struct {
 	collectionMu                   sync.RWMutex // used to protect access to collections
 	lastAnimeCollectionRefetchTime time.Time    // used to prevent refetching too many times
 	lastMangaCollectionRefetchTime time.Time    // used to prevent refetching too many times
-	refreshRateLimit               *limiter.Limiter
 	helper                         *shared_platform.PlatformHelper
 	db                             *db.Database
+	refreshRateLimit               *limiter.Limiter
+	refreshAnimeMetadataCancelFunc context.CancelFunc
+	refreshMangaMetadataCancelFunc context.CancelFunc
 }
 
 func NewSimulatedPlatform(localManager local.Manager, client *util.Ref[anilist.AnilistClient], extensionBankRef *util.Ref[*extension.UnifiedBank], logger *zerolog.Logger, db *db.Database) (platform.Platform, error) {
@@ -49,7 +51,7 @@ func NewSimulatedPlatform(localManager local.Manager, client *util.Ref[anilist.A
 		logger:           logger,
 		localManager:     localManager,
 		client:           shared_platform.NewCacheLayer(client),
-		refreshRateLimit: limiter.NewLimiter(time.Second, 1),
+		refreshRateLimit: limiter.NewLimiter(2*time.Second, 1),
 		helper:           shared_platform.NewPlatformHelper(extensionBankRef, db, logger),
 		db:               db,
 	}
@@ -746,6 +748,13 @@ func (sp *SimulatedPlatform) GetAnimeAiringSchedule(ctx context.Context) (*anili
 }
 
 func (sp *SimulatedPlatform) refreshAnimeCollectionMetadata(ctx context.Context, collection *anilist.AnimeCollection) error {
+	if sp.refreshAnimeMetadataCancelFunc != nil {
+		sp.refreshAnimeMetadataCancelFunc()
+	}
+	var fctx context.Context
+	fctx, sp.refreshAnimeMetadataCancelFunc = context.WithCancel(ctx)
+	defer sp.refreshAnimeMetadataCancelFunc()
+
 	mediaIDs := collectRefreshableAnimeIDs(collection)
 	if len(mediaIDs) == 0 {
 		return nil
@@ -755,7 +764,7 @@ func (sp *SimulatedPlatform) refreshAnimeCollectionMetadata(ctx context.Context,
 	wrapper := sp.GetAnimeCollectionWrapper()
 
 	for _, mediaID := range mediaIDs {
-		if err := ctx.Err(); err != nil {
+		if err := fctx.Err(); err != nil {
 			return err
 		}
 
@@ -790,6 +799,13 @@ func (sp *SimulatedPlatform) refreshAnimeCollectionMetadata(ctx context.Context,
 }
 
 func (sp *SimulatedPlatform) refreshMangaCollectionMetadata(ctx context.Context, collection *anilist.MangaCollection) error {
+	if sp.refreshMangaMetadataCancelFunc != nil {
+		sp.refreshMangaMetadataCancelFunc()
+	}
+	var fctx context.Context
+	fctx, sp.refreshMangaMetadataCancelFunc = context.WithCancel(ctx)
+	defer sp.refreshMangaMetadataCancelFunc()
+
 	mediaIDs := collectRefreshableMangaIDs(collection)
 	if len(mediaIDs) == 0 {
 		return nil
@@ -799,7 +815,7 @@ func (sp *SimulatedPlatform) refreshMangaCollectionMetadata(ctx context.Context,
 	wrapper := sp.GetMangaCollectionWrapper()
 
 	for _, mediaID := range mediaIDs {
-		if err := ctx.Err(); err != nil {
+		if err := fctx.Err(); err != nil {
 			return err
 		}
 
@@ -891,7 +907,7 @@ func shouldRefreshSimulatedMedia(entryStatus *anilist.MediaListStatus, mediaStat
 	}
 
 	switch *entryStatus {
-	case anilist.MediaListStatusCurrent, anilist.MediaListStatusPaused, anilist.MediaListStatusPlanning:
+	case anilist.MediaListStatusCurrent, anilist.MediaListStatusPlanning:
 	default:
 		return false
 	}
