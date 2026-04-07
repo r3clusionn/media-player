@@ -1,11 +1,8 @@
 .idea
-.junie
 logs/
 *.db
 .run/
 testdata/
-.vscode
-.cursor
 .DS_Store
 */.DS_Store
 .todo/
@@ -92,3 +89,21 @@ codegen/nonext/
 local_testing
 dist-server
 scripts/build.go
+
+# editors, tools
+.junie
+.vscode
+.cursor
+.agents
+.claude
+.zed
+.fleet
+.windstuf
+.aider*
+.supermaven
+.skills
+skills*.json
+.github/agents/
+.github/prompts/
+.github/skills/
+*.agent.md
