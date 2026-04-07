@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"seanime/internal/api/anilist"
+	"seanime/internal/customsource"
 	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/hook"
@@ -38,7 +39,7 @@ type SimulatedPlatform struct {
 	collectionMu                   sync.RWMutex // used to protect access to collections
 	lastAnimeCollectionRefetchTime time.Time    // used to prevent refetching too many times
 	lastMangaCollectionRefetchTime time.Time    // used to prevent refetching too many times
-	anilistRateLimit               *limiter.Limiter
+	refreshRateLimit               *limiter.Limiter
 	helper                         *shared_platform.PlatformHelper
 	db                             *db.Database
 }
@@ -48,7 +49,7 @@ func NewSimulatedPlatform(localManager local.Manager, client *util.Ref[anilist.A
 		logger:           logger,
 		localManager:     localManager,
 		client:           shared_platform.NewCacheLayer(client),
-		anilistRateLimit: limiter.NewAnilistLimiter(),
+		refreshRateLimit: limiter.NewLimiter(time.Second, 1),
 		helper:           shared_platform.NewPlatformHelper(extensionBankRef, db, logger),
 		db:               db,
 	}
@@ -543,6 +544,9 @@ func (sp *SimulatedPlatform) RefreshAnimeCollection(ctx context.Context) (*anili
 	if err != nil {
 		return nil, err
 	}
+	if err := sp.refreshAnimeCollectionMetadata(ctx, collection); err != nil {
+		return nil, err
+	}
 
 	// Merge custom source entries if available
 	sp.helper.MergeCustomSourceAnimeEntries(collection)
@@ -671,6 +675,9 @@ func (sp *SimulatedPlatform) RefreshMangaCollection(ctx context.Context) (*anili
 	if err != nil {
 		return nil, err
 	}
+	if err := sp.refreshMangaCollectionMetadata(ctx, collection); err != nil {
+		return nil, err
+	}
 
 	// Merge custom source entries if available
 	sp.helper.MergeCustomSourceMangaEntries(collection)
@@ -736,6 +743,165 @@ func (sp *SimulatedPlatform) GetAnimeAiringSchedule(ctx context.Context) (*anili
 	}
 
 	return sp.helper.BuildAnimeAiringSchedule(ctx, collection, sp.client)
+}
+
+func (sp *SimulatedPlatform) refreshAnimeCollectionMetadata(ctx context.Context, collection *anilist.AnimeCollection) error {
+	mediaIDs := collectRefreshableAnimeIDs(collection)
+	if len(mediaIDs) == 0 {
+		return nil
+	}
+
+	sp.logger.Trace().Int("count", len(mediaIDs)).Msg("simulated platform: Refreshing mutable anime metadata")
+	wrapper := sp.GetAnimeCollectionWrapper()
+
+	for _, mediaID := range mediaIDs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		sp.refreshRateLimit.Wait()
+
+		resp, err := sp.client.BaseAnimeByID(ctx, &mediaID)
+		if err != nil {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to refresh anime metadata")
+			continue
+		}
+
+		triggeredMedia, err := sp.helper.TriggerGetAnimeEvent(resp.GetMedia())
+		if err != nil {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to process refreshed anime metadata")
+			continue
+		}
+		if triggeredMedia == nil {
+			continue
+		}
+
+		sp.helper.SetCachedBaseAnime(mediaID, triggeredMedia)
+
+		sp.mu.Lock()
+		err = wrapper.UpdateMediaData(mediaID, triggeredMedia)
+		sp.mu.Unlock()
+		if err != nil && !errors.Is(err, ErrMediaNotFound) {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to save refreshed anime metadata")
+		}
+	}
+
+	return nil
+}
+
+func (sp *SimulatedPlatform) refreshMangaCollectionMetadata(ctx context.Context, collection *anilist.MangaCollection) error {
+	mediaIDs := collectRefreshableMangaIDs(collection)
+	if len(mediaIDs) == 0 {
+		return nil
+	}
+
+	sp.logger.Trace().Int("count", len(mediaIDs)).Msg("simulated platform: Refreshing mutable manga metadata")
+	wrapper := sp.GetMangaCollectionWrapper()
+
+	for _, mediaID := range mediaIDs {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		sp.refreshRateLimit.Wait()
+
+		resp, err := sp.client.BaseMangaByID(ctx, &mediaID)
+		if err != nil {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to refresh manga metadata")
+			continue
+		}
+
+		triggeredMedia, err := sp.helper.TriggerGetMangaEvent(resp.GetMedia())
+		if err != nil {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to process refreshed manga metadata")
+			continue
+		}
+		if triggeredMedia == nil {
+			continue
+		}
+
+		sp.helper.SetCachedBaseManga(mediaID, triggeredMedia)
+
+		sp.mu.Lock()
+		err = wrapper.UpdateMediaData(mediaID, triggeredMedia)
+		sp.mu.Unlock()
+		if err != nil && !errors.Is(err, ErrMediaNotFound) {
+			sp.logger.Warn().Err(err).Int("mediaID", mediaID).Msg("simulated platform: Failed to save refreshed manga metadata")
+		}
+	}
+
+	return nil
+}
+
+func collectRefreshableAnimeIDs(collection *anilist.AnimeCollection) []int {
+	if collection == nil || collection.GetMediaListCollection() == nil {
+		return nil
+	}
+
+	ret := make([]int, 0)
+	seen := make(map[int]struct{})
+	for _, list := range collection.GetMediaListCollection().GetLists() {
+		for _, entry := range list.GetEntries() {
+			if entry == nil || entry.GetMedia() == nil {
+				continue
+			}
+
+			mediaID := entry.GetMedia().GetID()
+			if _, ok := seen[mediaID]; ok || !shouldRefreshSimulatedMedia(entry.GetStatus(), entry.GetMedia().GetStatus(), mediaID) {
+				continue
+			}
+
+			seen[mediaID] = struct{}{}
+			ret = append(ret, mediaID)
+		}
+	}
+
+	return ret
+}
+
+func collectRefreshableMangaIDs(collection *anilist.MangaCollection) []int {
+	if collection == nil || collection.GetMediaListCollection() == nil {
+		return nil
+	}
+
+	ret := make([]int, 0)
+	seen := make(map[int]struct{})
+	for _, list := range collection.GetMediaListCollection().GetLists() {
+		for _, entry := range list.GetEntries() {
+			if entry == nil || entry.GetMedia() == nil {
+				continue
+			}
+
+			mediaID := entry.GetMedia().GetID()
+			if _, ok := seen[mediaID]; ok || !shouldRefreshSimulatedMedia(entry.GetStatus(), entry.GetMedia().GetStatus(), mediaID) {
+				continue
+			}
+
+			seen[mediaID] = struct{}{}
+			ret = append(ret, mediaID)
+		}
+	}
+
+	return ret
+}
+
+func shouldRefreshSimulatedMedia(entryStatus *anilist.MediaListStatus, mediaStatus *anilist.MediaStatus, mediaID int) bool {
+	if entryStatus == nil || mediaStatus == nil || customsource.IsExtensionId(mediaID) {
+		return false
+	}
+
+	switch *entryStatus {
+	case anilist.MediaListStatusCurrent, anilist.MediaListStatusPaused, anilist.MediaListStatusPlanning:
+	default:
+		return false
+	}
+
+	switch *mediaStatus {
+	case anilist.MediaStatusReleasing, anilist.MediaStatusNotYetReleased:
+		return true
+	default:
+		return false
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

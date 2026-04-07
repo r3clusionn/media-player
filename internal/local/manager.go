@@ -221,6 +221,7 @@ func (m *ManagerImpl) loadLocalAnimeCollection() {
 	collection, ok := m.localDb.GetLocalAnimeCollection()
 	if !ok {
 		m.localAnimeCollection = mo.None[*anilist.AnimeCollection]()
+		return
 	}
 	m.localAnimeCollection = mo.Some(collection)
 }
@@ -229,6 +230,7 @@ func (m *ManagerImpl) loadLocalMangaCollection() {
 	collection, ok := m.localDb.GetLocalMangaCollection()
 	if !ok {
 		m.localMangaCollection = mo.None[*anilist.MangaCollection]()
+		return
 	}
 	m.localMangaCollection = mo.Some(collection)
 }
@@ -905,6 +907,14 @@ func (m *ManagerImpl) SynchronizeAnilistToSimulatedCollection() error {
 }
 
 func (m *ManagerImpl) SynchronizeSimulatedCollectionToAnilist() error {
+	if m.animeCollection.IsAbsent() {
+		return fmt.Errorf("local manager: Cannot sync to anilist, anime collection not set")
+	}
+
+	if m.mangaCollection.IsAbsent() {
+		return fmt.Errorf("local manager: Cannot sync to anilist, manga collection not set")
+	}
+
 	if localAnimeCollection, ok := m.localDb.GetSimulatedAnimeCollection(); ok {
 		for _, list := range localAnimeCollection.MediaListCollection.Lists {
 			if list.GetStatus() == nil || list.GetEntries() == nil {
@@ -920,16 +930,14 @@ func (m *ManagerImpl) SynchronizeSimulatedCollectionToAnilist() error {
 				if e, found := m.animeCollection.MustGet().GetListEntryFromAnimeId(entry.GetMedia().GetID()); found {
 					originalEntry = e
 				}
-				if originalEntry == nil {
-					continue
-				}
+				if originalEntry != nil {
+					key1 := GetAnimeListDataKey(entry)
+					key2 := GetAnimeListDataKey(originalEntry)
 
-				key1 := GetAnimeListDataKey(entry)
-				key2 := GetAnimeListDataKey(originalEntry)
-
-				// If the entry is the same, skip
-				if key1 == key2 {
-					continue
+					// If the entry is the same, skip
+					if key1 == key2 {
+						continue
+					}
 				}
 
 				var startDate *anilist.FuzzyDateInput
@@ -985,16 +993,14 @@ func (m *ManagerImpl) SynchronizeSimulatedCollectionToAnilist() error {
 				if e, found := m.mangaCollection.MustGet().GetListEntryFromMangaId(entry.GetMedia().GetID()); found {
 					originalEntry = e
 				}
-				if originalEntry == nil {
-					continue
-				}
+				if originalEntry != nil {
+					key1 := GetMangaListDataKey(entry)
+					key2 := GetMangaListDataKey(originalEntry)
 
-				key1 := GetMangaListDataKey(entry)
-				key2 := GetMangaListDataKey(originalEntry)
-
-				// If the entry is the same, skip
-				if key1 == key2 {
-					continue
+					// If the entry is the same, skip
+					if key1 == key2 {
+						continue
+					}
 				}
 
 				var startDate *anilist.FuzzyDateInput

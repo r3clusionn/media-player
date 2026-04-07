@@ -37,7 +37,17 @@ type FakePlatform struct {
 	rawMangaCollectionCalls     int
 	animeAiringScheduleCalls    int
 	viewerStatsCalls            int
+	updateEntryCalls            []FakeUpdateEntryCall
 	updateEntryProgressCalls    []FakeUpdateEntryProgressCall
+}
+
+type FakeUpdateEntryCall struct {
+	MediaID     int
+	Status      *anilist.MediaListStatus
+	ScoreRaw    *int
+	Progress    *int
+	StartedAt   *anilist.FuzzyDateInput
+	CompletedAt *anilist.FuzzyDateInput
 }
 
 type FakeUpdateEntryProgressCall struct {
@@ -135,7 +145,35 @@ func (f *FakePlatform) UpdateEntryProgressCalls() []FakeUpdateEntryProgressCall 
 
 func (f *FakePlatform) SetUsername(string) {}
 
-func (f *FakePlatform) UpdateEntry(context.Context, int, *anilist.MediaListStatus, *int, *int, *anilist.FuzzyDateInput, *anilist.FuzzyDateInput) error {
+func (f *FakePlatform) UpdateEntryCalls() []FakeUpdateEntryCall {
+	ret := make([]FakeUpdateEntryCall, len(f.updateEntryCalls))
+	copy(ret, f.updateEntryCalls)
+	return ret
+}
+
+func (f *FakePlatform) UpdateEntry(_ context.Context, mediaID int, status *anilist.MediaListStatus, scoreRaw *int, progress *int, startedAt *anilist.FuzzyDateInput, completedAt *anilist.FuzzyDateInput) error {
+	call := FakeUpdateEntryCall{MediaID: mediaID}
+	if status != nil {
+		statusCopy := *status
+		call.Status = &statusCopy
+	}
+	if scoreRaw != nil {
+		scoreCopy := *scoreRaw
+		call.ScoreRaw = &scoreCopy
+	}
+	if progress != nil {
+		progressCopy := *progress
+		call.Progress = &progressCopy
+	}
+	if startedAt != nil {
+		startedAtCopy := *startedAt
+		call.StartedAt = &startedAtCopy
+	}
+	if completedAt != nil {
+		completedAtCopy := *completedAt
+		call.CompletedAt = &completedAtCopy
+	}
+	f.updateEntryCalls = append(f.updateEntryCalls, call)
 	return nil
 }
 
