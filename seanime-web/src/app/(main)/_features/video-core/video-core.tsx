@@ -129,7 +129,7 @@ import { Button, IconButton } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { logger } from "@/lib/helpers/debug"
-import { __isDesktop__ } from "@/types/constants"
+import { __isDesktop__, __isElectronDesktop__ } from "@/types/constants"
 import { useQueryClient } from "@tanstack/react-query"
 import { ErrorData } from "hls.js"
 import { atom } from "jotai"
@@ -750,6 +750,24 @@ export function VideoCore(props: VideoCoreProps) {
 
     React.useEffect(() => {
         setIsMiniPlayer(false)
+    }, [])
+
+    React.useEffect(() => {
+        if (!__isElectronDesktop__ || !window.electron?.on) return
+
+        const pausePlayback = () => {
+            if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+                videoRef.current.pause()
+            }
+        }
+
+        const removeMinimizedListener = window.electron.on("window:minimized", pausePlayback)
+        const removeHiddenListener = window.electron.on("window:hidden", pausePlayback)
+
+        return () => {
+            removeMinimizedListener?.()
+            removeHiddenListener?.()
+        }
     }, [])
 
     // Track if this player should dispatch terminated event on unmount

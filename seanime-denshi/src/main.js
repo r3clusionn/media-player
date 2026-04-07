@@ -1173,6 +1173,18 @@ app.whenReady().then(async () => {
 
     // Watch for window events to notify renderer
     if (mainWindow) {
+        mainWindow.on("minimize", () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send("window:minimized")
+            }
+        })
+
+        mainWindow.on("hide", () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send("window:hidden")
+            }
+        })
+
         mainWindow.on("maximize", () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send("window:maximized")

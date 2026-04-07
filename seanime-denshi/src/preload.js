@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld(
             const validChannels = [
                 "message",
                 "crash",
+                "window:minimized",
+                "window:hidden",
                 "window:maximized",
                 "window:unmaximized",
                 "window:fullscreen",
