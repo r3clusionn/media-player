@@ -27,6 +27,7 @@ type SubtitleStream struct {
 	completed bool // ran until the EOF
 
 	cleanupFunc func()
+	onStop      func()
 	stopOnce    sync.Once
 }
 
@@ -34,7 +35,12 @@ func (s *SubtitleStream) Stop(completed bool) {
 	s.stopOnce.Do(func() {
 		s.logger.Debug().Int64("offset", s.offset).Msg("directstream: Stopping subtitle stream")
 		s.completed = completed
-		s.cleanupFunc()
+		if s.onStop != nil {
+			s.onStop()
+		}
+		if s.cleanupFunc != nil {
+			s.cleanupFunc()
+		}
 	})
 }
 
@@ -42,6 +48,7 @@ func (s *SubtitleStream) Stop(completed bool) {
 func (s *BaseStream) StartSubtitleStreamP(stream Stream, playbackCtx context.Context, newReader io.ReadSeekCloser, offset int64, backoffBytes int64) {
 	mkvMetadataParser, ok := s.playbackInfo.MkvMetadataParser.Get()
 	if !ok {
+		_ = newReader.Close()
 		return
 	}
 
@@ -70,6 +77,7 @@ func (s *BaseStream) StartSubtitleStreamP(stream Stream, playbackCtx context.Con
 
 	if !shouldContinue {
 		s.logger.Debug().Int64("offset", offset).Msg("directstream: Skipping subtitle stream, range already fulfilled")
+		_ = newReader.Close()
 		return
 	}
 
@@ -77,6 +85,9 @@ func (s *BaseStream) StartSubtitleStreamP(stream Stream, playbackCtx context.Con
 	subtitleStream.cleanupFunc = subtitleCtxCancel
 
 	subtitleStreamId := uuid.New().String()
+	subtitleStream.onStop = func() {
+		s.activeSubtitleStreams.Delete(subtitleStreamId)
+	}
 	s.activeSubtitleStreams.Set(subtitleStreamId, subtitleStream)
 
 	subtitleCh, errCh, _ := subtitleStream.parser.ExtractSubtitles(ctx, newReader, offset, backoffBytes)
@@ -138,7 +149,7 @@ func (s *BaseStream) StartSubtitleStreamP(stream Stream, playbackCtx context.Con
 		}(newReader)
 		defer func() {
 			onFirstEventSent()
-			subtitleStream.cleanupFunc()
+			subtitleStream.Stop(subtitleStream.completed)
 		}()
 
 		// Keep track if channels are active to manage loop termination

@@ -367,6 +367,8 @@ func (m *Manager) PlayDebridStream(ctx context.Context, filepath string, opts Pl
 	}
 
 	go func() {
+		m.playbackMu.Lock()
+		defer m.playbackMu.Unlock()
 		m.loadStream(stream)
 	}()
 

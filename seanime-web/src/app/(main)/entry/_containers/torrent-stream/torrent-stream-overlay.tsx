@@ -1,15 +1,18 @@
 import { Torrentstream_TorrentStatus } from "@/api/generated/types"
 import { useTorrentstreamStopStream } from "@/api/hooks/torrentstream.hooks"
 import { nativePlayer_stateAtom } from "@/app/(main)/_features/native-player/native-player.atoms"
+import { vc_miniPlayer, vc_videoElement } from "@/app/(main)/_features/video-core/video-core-atoms"
 
+import { useWebsocketSender } from "@/app/(main)/_hooks/handle-websockets"
 import { useWebsocketMessageListener } from "@/app/(main)/_hooks/handle-websockets"
+import { clientIdAtom } from "@/app/websocket-provider"
 import { IconButton } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
 import { Spinner } from "@/components/ui/loading-spinner"
 import { Tooltip } from "@/components/ui/tooltip"
 import { WSEvents } from "@/lib/server/ws-events"
 import { atom } from "jotai"
-import { useAtom } from "jotai/react"
+import { useAtom, useAtomValue, useSetAtom } from "jotai/react"
 import React, { useRef, useState } from "react"
 import { BiDownArrow, BiGroup, BiStop, BiUpArrow } from "react-icons/bi"
 
@@ -38,6 +41,10 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
 }) {
 
     const [nativePlayerState, setNativePlayerState] = useAtom(nativePlayer_stateAtom)
+    const clientId = useAtomValue(clientIdAtom)
+    const videoElement = useAtomValue(vc_videoElement)
+    const setMiniPlayer = useSetAtom(vc_miniPlayer)
+    const { sendMessage } = useWebsocketSender()
 
     const [loadingState, setLoadingState] = useAtom(__torrentstream__loadingStateAtom)
     const [isLoaded, setIsLoaded] = useAtom(__torrentstream__isLoadedAtom)
@@ -49,6 +56,41 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
     const { mutate: stop, isPending } = useTorrentstreamStopStream()
 
     const t = useRef<NodeJS.Timeout | null>(null)
+
+    const handleStopStream = React.useCallback(() => {
+        if (nativePlayerState.active && clientId) {
+            if (videoElement) {
+                videoElement.pause()
+            }
+
+            setMiniPlayer(true)
+            setNativePlayerState(draft => {
+                draft.playbackInfo = null
+                draft.playbackError = null
+                draft.loadingState = "Ending stream..."
+                return
+            })
+
+            setTimeout(() => {
+                setNativePlayerState(draft => {
+                    draft.active = false
+                    return
+                })
+            }, 700)
+
+            sendMessage({
+                type: WSEvents.VIDEOCORE,
+                payload: {
+                    clientId,
+                    type: "video-terminated",
+                },
+            })
+
+            return
+        }
+
+        stop()
+    }, [clientId, nativePlayerState.active, sendMessage, setMiniPlayer, setNativePlayerState, stop, videoElement])
 
     useWebsocketMessageListener({
         type: WSEvents.TORRENTSTREAM_STATE,
@@ -144,7 +186,7 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
 
                             {isNativePlayerComponent === "overlay" && <Tooltip
                                 trigger={<IconButton
-                                    onClick={() => stop()}
+                                    onClick={handleStopStream}
                                     loading={isPending}
                                     intent="alert-basic"
                                     icon={<BiStop />}
@@ -207,7 +249,7 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
 
                             <Tooltip
                                 trigger={<IconButton
-                                    onClick={() => stop()}
+                                    onClick={handleStopStream}
                                     loading={isPending}
                                     intent="alert-basic"
                                     icon={<BiStop />}

@@ -242,6 +242,8 @@ type PlayLocalFileOptions struct {
 
 // PlayLocalFile is used by a module to load a new torrent stream.
 func (m *Manager) PlayLocalFile(ctx context.Context, opts PlayLocalFileOptions) error {
+	m.ResetOpenState(opts.ClientId)
+
 	m.playbackMu.Lock()
 	defer m.playbackMu.Unlock()
 

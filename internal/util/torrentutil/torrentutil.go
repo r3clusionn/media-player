@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -19,6 +20,7 @@ const (
 	piecesForHighBefore = int64(2)
 	piecesForNext       = int64(30)
 	piecesForReadahead  = int64(30)
+	defaultUpdateStride = int64(512 * 1024)
 )
 
 // readerInfo tracks information about an active reader
@@ -39,8 +41,9 @@ type priorityManager struct {
 
 // global map to track priority managers per torrent+file combination
 var (
-	priorityManagers   = make(map[string]*priorityManager)
-	priorityManagersMu sync.RWMutex
+	priorityManagers    = make(map[string]*priorityManager)
+	priorityManagersMu  sync.RWMutex
+	priorityCleanupOnce sync.Once
 )
 
 // getPriorityManager gets or creates a priority manager for a torrent+file combination
@@ -62,12 +65,48 @@ func getPriorityManager(t *torrent.Torrent, file *torrent.File, logger *zerolog.
 	}
 	priorityManagers[key] = pm
 
-	// Start cleanup goroutine for the first manager
-	if len(priorityManagers) == 1 {
-		go pm.cleanupStaleReaders()
-	}
+	priorityCleanupOnce.Do(func() {
+		go cleanupStalePriorityManagers()
+	})
 
 	return pm
+}
+
+func cleanupStalePriorityManagers() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for now := range ticker.C {
+		priorityManagersMu.RLock()
+		snapshot := make(map[string]*priorityManager, len(priorityManagers))
+		for key, pm := range priorityManagers {
+			snapshot[key] = pm
+		}
+		priorityManagersMu.RUnlock()
+
+		emptyKeys := make([]string, 0)
+		for key, pm := range snapshot {
+			if pm.cleanupStaleReaders(now) {
+				emptyKeys = append(emptyKeys, key)
+			}
+		}
+
+		if len(emptyKeys) == 0 {
+			continue
+		}
+
+		priorityManagersMu.Lock()
+		for _, key := range emptyKeys {
+			pm, ok := priorityManagers[key]
+			if !ok {
+				continue
+			}
+			if pm.readerCount() == 0 {
+				delete(priorityManagers, key)
+			}
+		}
+		priorityManagersMu.Unlock()
+	}
 }
 
 // registerReader registers a new reader with the priority manager
@@ -93,6 +132,16 @@ func (pm *priorityManager) updateReaderPosition(readerID string, position int64)
 		reader.position = position
 		reader.lastAccess = time.Now()
 		pm.updatePriorities()
+	}
+}
+
+func (pm *priorityManager) touchReader(readerID string, position int64) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	if reader, exists := pm.readers[readerID]; exists {
+		reader.position = position
+		reader.lastAccess = time.Now()
 	}
 }
 
@@ -254,31 +303,34 @@ func (pm *priorityManager) resetAllPriorities() {
 	}
 }
 
-// cleanupStaleReaders periodically removes readers that haven't been accessed recently
-func (pm *priorityManager) cleanupStaleReaders() {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
+// cleanupStaleReaders removes readers that haven't been accessed recently.
+// It returns true when the manager no longer tracks any readers.
+func (pm *priorityManager) cleanupStaleReaders(now time.Time) bool {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
 
-	for range ticker.C {
-		pm.mu.Lock()
-		cutoff := time.Now().Add(-2 * time.Minute)
-
-		for id, reader := range pm.readers {
-			if reader.lastAccess.Before(cutoff) {
-				delete(pm.readers, id)
-				if pm.logger != nil {
-					pm.logger.Debug().Msgf("torrentutil: Cleaned up stale reader %s", id)
-				}
+	cutoff := now.Add(-2 * time.Minute)
+	for id, reader := range pm.readers {
+		if reader.lastAccess.Before(cutoff) {
+			delete(pm.readers, id)
+			if pm.logger != nil {
+				pm.logger.Debug().Msgf("torrentutil: Cleaned up stale reader %s", id)
 			}
 		}
-
-		// Update priorities after cleanup
-		if len(pm.readers) > 0 {
-			pm.updatePriorities()
-		}
-
-		pm.mu.Unlock()
 	}
+
+	if len(pm.readers) == 0 {
+		return true
+	}
+
+	pm.updatePriorities()
+	return false
+}
+
+func (pm *priorityManager) readerCount() int {
+	pm.mu.RLock()
+	defer pm.mu.RUnlock()
+	return len(pm.readers)
 }
 
 // ReadSeeker implements io.ReadSeekCloser for a torrent file being streamed.
@@ -291,6 +343,9 @@ type ReadSeeker struct {
 	reader          torrent.Reader
 	priorityManager *priorityManager
 	logger          *zerolog.Logger
+	position        atomic.Int64
+	lastPriorityPos atomic.Int64
+	updateStride    int64
 }
 
 var _ io.ReadSeekCloser = &ReadSeeker{}
@@ -316,6 +371,7 @@ func NewReadSeeker(t *torrent.Torrent, file *torrent.File, logger ...*zerolog.Lo
 		reader:          tr,
 		priorityManager: pm,
 		logger:          loggerPtr,
+		updateStride:    getPriorityUpdateStride(t),
 	}
 
 	// Register this reader with the priority manager
@@ -325,7 +381,17 @@ func NewReadSeeker(t *torrent.Torrent, file *torrent.File, logger ...*zerolog.Lo
 }
 
 func (rs *ReadSeeker) Read(p []byte) (n int, err error) {
-	return rs.reader.Read(p)
+	n, err = rs.reader.Read(p)
+	if n > 0 {
+		newOffset := rs.position.Add(int64(n))
+		if rs.shouldRefreshPriority(newOffset) {
+			rs.lastPriorityPos.Store(newOffset)
+			rs.priorityManager.updateReaderPosition(rs.id, newOffset)
+		} else {
+			rs.priorityManager.touchReader(rs.id, newOffset)
+		}
+	}
+	return n, err
 }
 
 func (rs *ReadSeeker) Seek(offset int64, whence int) (int64, error) {
@@ -337,10 +403,33 @@ func (rs *ReadSeeker) Seek(offset int64, whence int) (int64, error) {
 		return newOffset, err
 	}
 
+	rs.position.Store(newOffset)
+	rs.lastPriorityPos.Store(newOffset)
 	// Update this reader's position in the priority manager
 	rs.priorityManager.updateReaderPosition(rs.id, newOffset)
 
 	return newOffset, nil
+}
+
+func (rs *ReadSeeker) shouldRefreshPriority(offset int64) bool {
+	lastOffset := rs.lastPriorityPos.Load()
+	if offset < lastOffset {
+		return true
+	}
+	return offset-lastOffset >= rs.updateStride
+}
+
+func getPriorityUpdateStride(t *torrent.Torrent) int64 {
+	if t == nil || t.Info() == nil || t.Info().PieceLength <= 0 {
+		return defaultUpdateStride
+	}
+
+	stride := int64(t.Info().PieceLength) / 2
+	if stride < defaultUpdateStride {
+		return defaultUpdateStride
+	}
+
+	return stride
 }
 
 // Close closes the underlying torrent file reader and unregisters from priority manager.
