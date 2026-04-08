@@ -2,14 +2,19 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"seanime/internal/api/anilist"
 	"seanime/internal/database/db_bridge"
+	"seanime/internal/database/models"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
+	"seanime/internal/library/autodownloader"
 	"seanime/internal/torrent_clients/torrent_client"
+	torrentrepo "seanime/internal/torrents/torrent"
 	"seanime/internal/util"
 
+	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 )
 
@@ -314,8 +319,28 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	if b.MagnetUrl == "" || b.RuleId == 0 {
+	if b.RuleId == 0 || (b.MagnetUrl == "" && b.QueuedItemId == 0) {
 		return h.RespondWithError(c, errors.New("missing parameters"))
+	}
+
+	magnetURL := b.MagnetUrl
+	if magnetURL == "" {
+		item, err := h.App.Database.GetAutoDownloaderItem(b.QueuedItemId)
+		if err != nil {
+			return h.RespondWithError(c, err)
+		}
+
+		magnetURL, err = resolveAutoDownloaderItemMagnet(item, h.App.TorrentRepository)
+		if err != nil {
+			return h.RespondWithError(c, err)
+		}
+
+		if item.Magnet != magnetURL {
+			item.Magnet = magnetURL
+			if err := h.App.Database.UpdateAutoDownloaderItem(item.ID, item); err != nil {
+				h.App.Logger.Warn().Err(err).Uint("queuedItemId", item.ID).Msg("torrent client: Failed to cache resolved queued magnet")
+			}
+		}
 	}
 
 	// Get rule from database
@@ -331,7 +356,7 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 	}
 
 	// try to add torrents to client, on error return error
-	err = h.App.TorrentClientRepository.AddMagnets([]string{b.MagnetUrl}, rule.Destination)
+	err = h.App.TorrentClientRepository.AddMagnets([]string{magnetURL}, rule.Destination)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -343,4 +368,50 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 
 	return h.RespondWithData(c, true)
 
+}
+
+func resolveAutoDownloaderItemMagnet(item *models.AutoDownloaderItem, torrentRepository *torrentrepo.Repository) (string, error) {
+	if item == nil {
+		return "", errors.New("queued item not found")
+	}
+
+	if item.Magnet != "" {
+		return item.Magnet, nil
+	}
+
+	fallbackHash := item.Hash
+	var resolveErr error
+
+	if len(item.TorrentData) > 0 {
+		var storedTorrent autodownloader.NormalizedTorrent
+		if err := json.Unmarshal(item.TorrentData, &storedTorrent); err != nil {
+			resolveErr = err
+		} else if storedTorrent.AnimeTorrent != nil {
+			if fallbackHash == "" {
+				fallbackHash = storedTorrent.AnimeTorrent.InfoHash
+			}
+
+			if storedTorrent.AnimeTorrent.Provider == "" && storedTorrent.ExtensionID != "" {
+				storedTorrent.AnimeTorrent.Provider = storedTorrent.ExtensionID
+			}
+
+			if torrentRepository != nil {
+				magnet, err := torrentRepository.ResolveMagnetLink(storedTorrent.AnimeTorrent)
+				if err == nil && magnet != "" {
+					return magnet, nil
+				}
+				resolveErr = err
+			}
+		}
+	}
+
+	if fallbackHash != "" {
+		return fmt.Sprintf("magnet:?xt=urn:btih:%s", fallbackHash), nil
+	}
+
+	if resolveErr != nil {
+		return "", resolveErr
+	}
+
+	return "", errors.New("magnet link not found")
 }

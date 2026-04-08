@@ -665,6 +665,7 @@ func (ad *AutoDownloader) handleDelayedItem(
 
 		storedItem.Link = bestCandidate.Torrent.Link
 		storedItem.Hash = bestCandidate.Torrent.InfoHash
+		storedItem.Magnet = bestCandidate.Torrent.MagnetLink
 		storedItem.TorrentName = bestCandidate.Torrent.Name
 		storedItem.Score = bestCandidate.Score
 		// Do NOT reset DelayUntil, keep the original timer
@@ -899,6 +900,7 @@ func (ad *AutoDownloader) queueTorrentForDelay(isSimulation bool, rule *anime.Au
 		Episode:     episode,
 		Link:        candidate.Torrent.Link,
 		Hash:        candidate.Torrent.InfoHash,
+		Magnet:      candidate.Torrent.MagnetLink,
 		TorrentName: candidate.Torrent.Name,
 		Downloaded:  false,
 		IsDelayed:   true,

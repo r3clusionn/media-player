@@ -1250,7 +1250,7 @@ func TestDelayIntegration(t *testing.T) {
 		{
 			name: "Queue item for delay",
 			torrents: []*hibiketorrent.AnimeTorrent{
-				{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1", Seeders: 100},
+				{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1", MagnetLink: "magnet:?xt=urn:btih:hash1", Seeders: 100},
 			},
 			profile: &anime.AutoDownloaderProfile{
 				Conditions:     []anime.AutoDownloaderCondition{{Term: "1080p", Action: anime.AutoDownloaderProfileRuleFormatActionScore, Score: 10}},
@@ -1263,6 +1263,7 @@ func TestDelayIntegration(t *testing.T) {
 				assert.True(t, items[0].IsDelayed)   // MUST be true
 				assert.False(t, items[0].Downloaded) // will always be false
 				assert.Equal(t, "hash1", items[0].Hash)
+				assert.Equal(t, "magnet:?xt=urn:btih:hash1", items[0].Magnet)
 			},
 		},
 		{
@@ -1312,7 +1313,7 @@ func TestDelayIntegration(t *testing.T) {
 		{
 			name: "Upgrade delayed item",
 			torrents: []*hibiketorrent.AnimeTorrent{
-				{Name: "[BetterGroup] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash_better", Seeders: 100}, // Score 20
+				{Name: "[BetterGroup] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash_better", MagnetLink: "magnet:?xt=urn:btih:hash_better", Seeders: 100}, // Score 20
 			},
 			existingItems: []*models.AutoDownloaderItem{
 				{
@@ -1320,6 +1321,7 @@ func TestDelayIntegration(t *testing.T) {
 					MediaID:     mediaId,
 					Episode:     1,
 					Hash:        "hash_bad",
+					Magnet:      "magnet:?xt=urn:btih:hash_bad",
 					Score:       10,
 					IsDelayed:   true,
 					DelayUntil:  time.Now().Add(5 * time.Minute), // Not expired
@@ -1339,6 +1341,7 @@ func TestDelayIntegration(t *testing.T) {
 				require.Len(t, items, 1)
 				assert.True(t, items[0].IsDelayed)
 				assert.Equal(t, "hash_better", items[0].Hash) // Updated hash
+				assert.Equal(t, "magnet:?xt=urn:btih:hash_better", items[0].Magnet)
 				assert.Equal(t, 20, items[0].Score)
 			},
 		},
