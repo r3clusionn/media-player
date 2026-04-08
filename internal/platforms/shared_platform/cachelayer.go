@@ -326,6 +326,10 @@ func (c *CacheLayer) checkAndUpdateWorkingState(err error) {
 		if strings.Contains(err.Error(), "404") {
 			return
 		}
+		// skip 429 errors
+		if strings.Contains(err.Error(), "429") {
+			return
+		}
 
 		errStr := strings.ToLower(err.Error())
 		// handle invalid token
