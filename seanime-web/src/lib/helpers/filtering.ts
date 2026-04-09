@@ -22,6 +22,8 @@ type BaseCollectionSorting =
     | "END_DATE_DESC"
     | "SCORE"
     | "SCORE_DESC"
+    | "AUDIENCE_SCORE"
+    | "AUDIENCE_SCORE_DESC"
     | "RELEASE_DATE"
     | "RELEASE_DATE_DESC"
     | "PROGRESS"
@@ -36,9 +38,9 @@ type CollectionSorting<T extends CollectionType> = BaseCollectionSorting | (T ex
     | "AIRDATE"
     | "AIRDATE_DESC"
     : T extends "manga" ?
-        "PROGRESS"
-        | "PROGRESS_DESC"
-        : never)
+    "PROGRESS"
+    | "PROGRESS_DESC"
+    : never)
 
 
 type ContinueWatchingSorting =
@@ -76,6 +78,8 @@ export const COLLECTION_SORTING_OPTIONS = [
     { label: "Lowest score", value: "SCORE" },
     { label: "Title", value: "TITLE" },
     { label: "Title (Z-A)", value: "TITLE_DESC" },
+    { label: "Highest audience score", value: "AUDIENCE_SCORE_DESC" },
+    { label: "Lowest audience score", value: "AUDIENCE_SCORE" },
     { label: "Highest progress", value: "PROGRESS_DESC" },
     { label: "Lowest progress", value: "PROGRESS" },
     { label: "Started recently", value: "START_DATE_DESC" },
@@ -239,6 +243,11 @@ export function filterListEntries<T extends AL_MangaCollection_MediaListCollecti
         arr = sortBy(arr, n => n?.score || 999999)
     if (getParamValue(params.sorting) === "SCORE_DESC")
         arr = sortBy(arr, n => n?.score || 0).reverse()
+
+    if (getParamValue(params.sorting) === "AUDIENCE_SCORE")
+        arr = sortBy(arr, n => n?.media?.meanScore || 999999)
+    if (getParamValue(params.sorting) === "AUDIENCE_SCORE_DESC")
+        arr = sortBy(arr, n => n?.media?.meanScore || 0).reverse()
 
     // Sort by start date
     // if (getParamValue(params.sorting) === "START_DATE" || getParamValue(params.sorting) === "START_DATE_DESC") {
