@@ -53,7 +53,7 @@ func GetScheduleItems(animeSchedule *anilist.AnimeAiringSchedule, animeCollectio
 		t := time.Unix(int64(node.GetAiringAt()), 0)
 		item := &ScheduleItem{
 			MediaId:        entry.GetMedia().GetID(),
-			Title:          entry.GetMedia().GetTitleSafe(),
+			Title:          entry.GetMedia().GetPreferredTitle(),
 			Time:           t.UTC().Format("15:04"),
 			DateTime:       t.UTC(),
 			Image:          entry.GetMedia().GetCoverImageSafe(),
