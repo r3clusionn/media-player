@@ -1,8 +1,8 @@
 import { cn } from "@/components/ui/core/styling"
 import { useDraggableScroll } from "@/hooks/use-draggable-scroll"
+import React, { useRef, useState } from "react"
 import { MdChevronLeft } from "react-icons/md"
 import { MdChevronRight } from "react-icons/md"
-import React, { useRef, useState } from "react"
 import { useIsomorphicLayoutEffect, useUpdateEffect } from "react-use"
 
 interface SliderProps {
@@ -16,7 +16,7 @@ export const Slider: React.FC<SliderProps> = (props) => {
 
     const { children, onSlideEnd, ...rest } = props
 
-    const ref = useRef<HTMLDivElement>() as React.MutableRefObject<HTMLInputElement>
+    const ref = useRef<HTMLDivElement>(null) as React.MutableRefObject<HTMLDivElement>
     const { events } = useDraggableScroll(ref, {
         decayRate: 0.96,
         safeDisplacement: 15,

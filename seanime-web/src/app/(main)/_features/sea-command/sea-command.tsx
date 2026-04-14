@@ -31,7 +31,7 @@ export type SeaCommandContextProps = {
     select: (func?: () => void) => void
     command: SeaCommand_ParsedCommandProps
     scrollToTop: () => () => void
-    commandListRef: React.RefObject<HTMLDivElement>
+    commandListRef: React.RefObject<HTMLDivElement | null>
     router: {
         pathname: string
     }

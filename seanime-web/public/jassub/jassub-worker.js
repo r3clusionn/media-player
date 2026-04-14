@@ -2376,7 +2376,7 @@
     });
     _scheduledResize;
     resizeCanvas(width, height) {
-      if (width <= 0 || height <= 0)
+      if (!width || !height)
         return;
       this._scheduledResize = { width, height };
     }
@@ -2390,6 +2390,8 @@
       if (!this.ctx)
         throw new Error("Could not get 2D context");
     }
+    // not supported
+    // https://issues.chromium.org/u/1/issues/40910142
     setColorMatrix(subtitleColorSpace, videoColorSpace) {
     }
     // this is horribly inefficient, but it's a fallback for systems without a GPU, this is the least of their problems
@@ -2673,7 +2675,7 @@ void main() {
     }
     _scheduledResize;
     resizeCanvas(width, height) {
-      if (width <= 0 || height <= 0)
+      if (!width || !height)
         return;
       this._scheduledResize = { width, height };
     }
@@ -3026,7 +3028,7 @@ void main() {
     }
     _scheduledResize;
     resizeCanvas(width, height) {
-      if (width <= 0 || height <= 0)
+      if (!width || !height)
         return;
       this._scheduledResize = { width, height };
     }
@@ -3323,6 +3325,11 @@ void main() {
     }
     ready() {
       return this._ready;
+    }
+    // this passes a string of track data to libass, be it styles, events etc, which it then processes and adds to the track
+    // useful for streaming subtitles
+    processData(events) {
+      this._wasm.processData(events);
     }
     createEvent(event) {
       _applyKeys(event, this._wasm.getEvent(this._wasm.allocEvent()));

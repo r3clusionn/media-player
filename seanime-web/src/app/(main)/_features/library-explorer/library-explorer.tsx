@@ -31,7 +31,8 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { upath } from "@/lib/helpers/upath"
 import { ContextMenuGroup } from "@radix-ui/react-context-menu"
 import { useAtom, useAtomValue, useSetAtom } from "jotai"
-import { pascalCase } from "pascal-case"
+import camelCase from "lodash/camelCase"
+import upperFirst from "lodash/upperFirst"
 import React, { memo } from "react"
 import { BiChevronDown, BiChevronRight, BiFolder, BiListCheck, BiLockOpenAlt, BiSearch } from "react-icons/bi"
 import { FaRegEdit } from "react-icons/fa"
@@ -524,7 +525,7 @@ export function LibraryExplorer() {
                                         "animate-pulse",
                                     )}
                                 >
-                                    Filter: {!!selectedFilter ? pascalCase(selectedFilter) : ""}
+                                    Filter: {!!selectedFilter ? upperFirst(camelCase(selectedFilter)) : ""}
                                 </Button>
                             )}
                             <Button

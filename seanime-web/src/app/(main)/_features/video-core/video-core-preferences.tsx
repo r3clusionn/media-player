@@ -792,7 +792,7 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
 
 export function VideoCoreKeybindingController(props: {
     active: boolean
-    videoRef: React.RefObject<HTMLVideoElement>,
+    videoRef: React.RefObject<HTMLVideoElement | null>,
     chapterCues: VideoCoreChapterCue[],
     introEndTime: number | undefined,
     introStartTime: number | undefined

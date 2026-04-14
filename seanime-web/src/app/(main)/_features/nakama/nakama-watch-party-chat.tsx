@@ -195,13 +195,13 @@ function Content(props: { layout: "fixed" | "videocore" }) {
 function ChatContent(props: {
     messages: ChatMessage[]
     currentUserPeerId: string | null | undefined
-    messagesEndRef: React.RefObject<HTMLDivElement>
-    chatContainerRef: React.RefObject<HTMLDivElement>
+    messagesEndRef: React.RefObject<HTMLDivElement | null>
+    chatContainerRef: React.RefObject<HTMLDivElement | null>
     inputValue: string
     setInputValue: (value: string) => void
     handleKeyPress: (e: React.KeyboardEvent) => void
     isSending: boolean
-    inputRef: React.RefObject<HTMLInputElement>
+    inputRef: React.RefObject<HTMLInputElement | null>
     handleSendMessage: () => void
 }) {
     const {

@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	Version              = "3.6.0"
+	Version              = "3.6.0-alpha.5"
 	VersionName          = "Kagero"
 	GcTime               = time.Minute * 30
 	ConfigFileName       = "config.toml"

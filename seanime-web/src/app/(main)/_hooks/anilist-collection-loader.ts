@@ -1,8 +1,12 @@
 import { Anime_EntryListData, Nullish } from "@/api/generated/types"
 import { useGetAnimeCollection } from "@/api/hooks/anilist.hooks"
 import { __anilist_userAnimeListDataAtom, __anilist_userAnimeMediaAtom } from "@/app/(main)/_atoms/anilist.atoms"
+import { atom } from "jotai"
 import { useAtomValue, useSetAtom } from "jotai/react"
+import { selectAtom } from "jotai/utils"
 import React from "react"
+
+const emptyAnimeListDataAtom = atom<Anime_EntryListData | undefined>(undefined)
 
 /**
  * @description
@@ -46,8 +50,15 @@ export function useAnilistUserAnime() {
     return useAtomValue(__anilist_userAnimeMediaAtom)
 }
 
-export function useAnilistUserAnimeListData(mId: Nullish<number | string>): Anime_EntryListData | undefined {
-    const data = useAtomValue(__anilist_userAnimeListDataAtom)
+export function useAnilistUserAnimeListData(mId: Nullish<number | string>, enabled: boolean = true): Anime_EntryListData | undefined {
+    const mediaId = String(mId)
+    const listDataAtom = React.useMemo(() => {
+        if (!enabled) {
+            return emptyAnimeListDataAtom
+        }
 
-    return data[String(mId)]
+        return selectAtom(__anilist_userAnimeListDataAtom, data => data[mediaId])
+    }, [enabled, mediaId])
+
+    return useAtomValue(listDataAtom)
 }

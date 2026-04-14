@@ -90,5 +90,5 @@ export function useMainTab(): boolean {
         }
     }, [socket])
 
-    return isMainTab
+    return false
 }

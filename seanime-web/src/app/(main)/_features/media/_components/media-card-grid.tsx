@@ -58,7 +58,7 @@ export function MediaCardGrid(props: MediaCardGridProps) {
 type MediaCardLazyGridProps = {
     children: React.ReactNode
     itemCount: number
-    containerRef?: React.RefObject<HTMLElement>
+    containerRef?: React.RefObject<HTMLElement | null>
     maxCol?: number
 } & React.HTMLAttributes<HTMLDivElement>;
 

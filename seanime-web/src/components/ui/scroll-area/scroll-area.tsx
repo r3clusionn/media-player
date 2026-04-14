@@ -47,7 +47,7 @@ export type ScrollAreaProps =
     & ComponentAnatomy<typeof ScrollAreaAnatomy> &
     {
         orientation?: "vertical" | "horizontal",
-        viewportRef?: React.RefObject<HTMLDivElement>
+        viewportRef?: React.RefObject<HTMLDivElement | null>
     }
 
 export const ScrollArea = React.forwardRef<HTMLDivElement, ScrollAreaProps>((props, ref) => {

@@ -52,7 +52,7 @@ export type FormProps<Schema extends z.ZodObject<z.ZodRawShape> = z.ZodObject<z.
     /**
      * Ref to the form element.
      */
-    formRef?: React.RefObject<HTMLFormElement>
+    formRef?: React.RefObject<HTMLFormElement | null>
 
     children?: MaybeRenderProp<UseFormReturn<NoInfer<z.infer<Schema>>>>
     /**
