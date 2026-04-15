@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.6.0
+
+- ⚡️ Anime: Paste magnet link anywhere to stream or download
+- ⚡️ Auto-Select: Improved scoring and comparison logic
+- ⚡️ Manga: Resume page position
+- ⚡️ Playlist: Option to select all episodes for a media
+- ⚡️ Plugins: Added ctx.dom.clipboard API
+- ⚡️ Denshi: Pause video on minimize/hide
+- ⚡️ Transcoder: Refactored to enhance performance and maintanability
+- 🦺 Auto Downloader: Fixed potential duplicate downloads with Debrid
+- 🦺 Debrid Streaming: Fixed HTTP streaming memory leaks
+- 🦺 External Player: Fixed issues with playback status tracking being carried over
+- 🦺 Playlist: Fixed episode selection for anime without metadata
+- 🦺 Schedule Calendar: Fixed potential issues with timezones
+- 🦺 Local Account: Fixed local lists not being uploaded to AniList
+- 🦺 Local Account: Fixed runtime error caused by empty lists
+- 🦺 Local Account: Refresh active media periodically to avoid stale metadata
+  - Note: This can cause rate limiting issues. If you have a lot of media, an AniList account is recommended
+- 🦺 Auto Downloader: Fixed 'Download now' for queued items
+- 🦺 VideoCore: Fixed some streaming logic errors
+- 🦺 VideoCore: Fixed handling of AniSkip chapters
+- 🦺 Media Card: Fixed list data missing from manga cards on certain pages
+- 🦺 Auto downloader: Fixed runtime error caused by faulty extensions
+- 🏗️ Refactored most unit tests, removed outdated tests
+- ⬆️ Migrated to React 19
+- ⬆️ Updated dependencies
+
 ## v3.5.2
 
 - ⚡️ Built-in Player: Improved performance
