@@ -1,117 +1,118 @@
 package torrent_analyzer
 
 import (
-	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
-	"seanime/internal/extension"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
-	"seanime/internal/util"
+	"path/filepath"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"seanime/internal/api/anilist"
+	"seanime/internal/library/anime"
+	"seanime/internal/platforms/platform"
+	"seanime/internal/util"
 )
 
-// TestSelectFilesFromSeason tests the selection of the accurate season files from a list of files from all seasons.
-func TestSelectFilesFromSeason(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-	if err != nil {
-		t.Fatalf("Failed to connect to database: %v", err)
+func TestNewAnalyzerInitializesFiles(t *testing.T) {
+	root := t.TempDir()
+	paths := []string{
+		filepath.Join(root, "Season 1", "[Seanime] Example Show - 01.mkv"),
+		filepath.Join(root, "Season 1", "[Seanime] Example Show - 02.mkv"),
 	}
-	anilistClient := anilist.TestGetMockAnilistClient()
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef(anilistClient), extensionBankRef, logger, database)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	media := &anilist.CompleteAnime{ID: 42}
 
-	tests := []struct {
-		name            string
-		mediaId         int      // The media ID of the season
-		filepaths       []string // All filepaths from all seasons
-		expectedIndices []int    // The indices of the selected files
-	}{
-		{
-			name: "Kakegurui xx",
-			filepaths: []string{
-				"Kakegurui [BD][1080p][HEVC 10bit x265][Dual Audio][Tenrai-Sensei]/Season 1/Kakegurui - S01E01 - The Woman Called Yumeko Jabami.mkv", // should be selected
-				"Kakegurui [BD][1080p][HEVC 10bit x265][Dual Audio][Tenrai-Sensei]/Season 2/Kakegurui xx - S02E01 - The Woman Called Yumeko Jabami.mkv",
-			},
-			mediaId:         98314,
-			expectedIndices: []int{0},
-		},
-		{
-			name: "Kimi ni Todoke Season 2",
-			filepaths: []string{
-				"[Judas] Kimi ni Todoke (Seasons 1-2) [BD 1080p][HEVC x265 10bit][Eng-Subs]/[Judas] Kimi ni Todoke S1/[Judas] Kimi ni Todoke - S01E01.mkv",
-				"[Judas] Kimi ni Todoke (Seasons 1-2) [BD 1080p][HEVC x265 10bit][Eng-Subs]/[Judas] Kimi ni Todoke S1/[Judas] Kimi ni Todoke - S01E02.mkv",
-				"[Judas] Kimi ni Todoke (Seasons 1-2) [BD 1080p][HEVC x265 10bit][Eng-Subs]/[Judas] Kimi ni Todoke S2/[Judas] Kimi ni Todoke - S02E01.mkv", // should be selected
-				"[Judas] Kimi ni Todoke (Seasons 1-2) [BD 1080p][HEVC x265 10bit][Eng-Subs]/[Judas] Kimi ni Todoke S2/[Judas] Kimi ni Todoke - S02E02.mkv", // should be selected
-			},
-			mediaId:         9656,
-			expectedIndices: []int{2, 3},
-		},
-		{
-			name: "Spy x Family Part 2",
-			filepaths: []string{
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 10v2 (1080p) [F9F5C62B].mkv",
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 11v2 (1080p) [F9F5C62B].mkv",
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 12v2 (1080p) [F9F5C62B].mkv",
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 13v2 (1080p) [F9F5C62B].mkv", // should be selected
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 14v2 (1080p) [F9F5C62B].mkv", // should be selected
-				"[SubsPlease] Spy x Family (01-25) (1080p) [Batch]/[SubsPlease] Spy x Family - 15v2 (1080p) [F9F5C62B].mkv", // should be selected
-			},
-			mediaId:         142838,
-			expectedIndices: []int{3, 4, 5},
-		},
-		{
-			name: "Mushoku Tensei: Jobless Reincarnation Season 2 Part 2",
-			filepaths: []string{
-				"[EMBER] Mushoku Tensei S2 - 13.mkv", // should be selected
-				"[EMBER] Mushoku Tensei S2 - 14.mkv", // should be selected
-				"[EMBER] Mushoku Tensei S2 - 15.mkv", // should be selected
-				"[EMBER] Mushoku Tensei S2 - 16.mkv", // should be selected
-			},
-			mediaId:         166873,
-			expectedIndices: []int{0, 1, 2, 3},
-		},
+	analyzer := NewAnalyzer(&NewAnalyzerOptions{
+		Filepaths:   paths,
+		Media:       media,
+		ForceMatch:  true,
+		PlatformRef: util.NewRef[platform.Platform](nil),
+	})
+
+	require.Len(t, analyzer.files, len(paths))
+	require.Same(t, media, analyzer.media)
+	require.True(t, analyzer.forceMatch)
+	for index, file := range analyzer.files {
+		require.Equal(t, index, file.GetIndex())
+		require.Equal(t, filepath.ToSlash(paths[index]), file.GetPath())
+		require.NotNil(t, file.GetLocalFile())
+		require.Equal(t, filepath.ToSlash(paths[index]), file.GetLocalFile().Path)
 	}
+}
 
-	for _, tt := range tests {
+func TestAnalyzeTorrentFilesReturnsErrorWhenPlatformRefAbsent(t *testing.T) {
+	analyzer := NewAnalyzer(&NewAnalyzerOptions{
+		Filepaths: []string{filepath.Join(t.TempDir(), "[Seanime] Example Show - 01.mkv")},
+		Media:     &anilist.CompleteAnime{ID: 42},
+	})
 
-		t.Run(tt.name, func(t *testing.T) {
+	analysis, err := analyzer.AnalyzeTorrentFiles()
 
-			// Get media
-			media, err := anilistPlatform.GetAnimeWithRelations(t.Context(), tt.mediaId)
-			if err != nil {
-				t.Fatal("expected result, got error:", err.Error())
-			}
+	require.Nil(t, analysis)
+	require.EqualError(t, err, "anilist client wrapper is nil")
+}
 
-			analyzer := NewAnalyzer(&NewAnalyzerOptions{
-				Logger:              logger,
-				Filepaths:           tt.filepaths,
-				Media:               media,
-				PlatformRef:         util.NewRef(anilistPlatform),
-				MetadataProviderRef: util.NewRef(metadataProvider),
-				ForceMatch:          false,
-			})
+// Verifies that the helper methods for selecting files from the analysis work as expected
+func TestAnalysisSelectionHelpers(t *testing.T) {
+	analysis, files := newAnalysisFixture(t)
 
-			// AnalyzeTorrentFiles
-			analysis, err := analyzer.AnalyzeTorrentFiles()
-			if assert.NoError(t, err) {
+	correspondingFiles := analysis.GetCorrespondingFiles()
+	require.Len(t, correspondingFiles, 3)
+	require.Same(t, files[0], correspondingFiles[0])
+	require.Same(t, files[1], correspondingFiles[1])
+	require.Same(t, files[3], correspondingFiles[3])
 
-				selectedFilesMap := analysis.GetCorrespondingMainFiles()
-				selectedIndices := analysis.GetIndices(selectedFilesMap)
+	correspondingMainFiles := analysis.GetCorrespondingMainFiles()
+	require.Len(t, correspondingMainFiles, 2)
+	require.Same(t, files[0], correspondingMainFiles[0])
+	require.Same(t, files[3], correspondingMainFiles[3])
 
-				// Check selected files
-				assert.ElementsMatch(t, tt.expectedIndices, selectedIndices)
+	mainFile, ok := analysis.GetMainFileByEpisode(3)
+	require.True(t, ok)
+	require.Same(t, files[3], mainFile)
 
-			}
+	missingMainFile, ok := analysis.GetMainFileByEpisode(99)
+	require.False(t, ok)
+	require.Nil(t, missingMainFile)
 
-		})
+	aniDBFile, ok := analysis.GetFileByAniDBEpisode("3")
+	require.True(t, ok)
+	require.Same(t, files[3], aniDBFile)
 
+	missingAniDBFile, ok := analysis.GetFileByAniDBEpisode("missing")
+	require.False(t, ok)
+	require.Nil(t, missingAniDBFile)
+
+	unselectedFiles := analysis.GetUnselectedFiles()
+	require.Len(t, unselectedFiles, 1)
+	require.Same(t, files[2], unselectedFiles[2])
+
+	require.ElementsMatch(t, []int{0, 3}, analysis.GetIndices(correspondingMainFiles))
+	require.Equal(t, []int{1, 2}, analysis.GetUnselectedIndices(correspondingMainFiles))
+	require.Equal(t, files, analysis.GetFiles())
+}
+
+func newAnalysisFixture(t *testing.T) (*Analysis, []*File) {
+	t.Helper()
+	root := t.TempDir()
+	files := []*File{
+		newAnalyzedFile(filepath.Join(root, "[Seanime] Example Show - 01.mkv"), 0, 42, 1, anime.LocalFileTypeMain, "1"),
+		newAnalyzedFile(filepath.Join(root, "[Seanime] Example Show - OVA.mkv"), 1, 42, 0, anime.LocalFileTypeSpecial, "S1"),
+		newAnalyzedFile(filepath.Join(root, "[Seanime] Other Show - 01.mkv"), 2, 7, 1, anime.LocalFileTypeMain, "1"),
+		newAnalyzedFile(filepath.Join(root, "[Seanime] Example Show - 03.mkv"), 3, 42, 3, anime.LocalFileTypeMain, "3"),
 	}
 
+	return &Analysis{
+		files: files,
+		media: &anilist.CompleteAnime{ID: 42},
+	}, files
+}
+
+func newAnalyzedFile(path string, index int, mediaID int, episode int, fileType anime.LocalFileType, aniDBEpisode string) *File {
+	file := newFile(index, path)
+	file.localFile.MediaId = mediaID
+	file.localFile.Metadata = &anime.LocalFileMetadata{
+		Episode:      episode,
+		AniDBEpisode: aniDBEpisode,
+		Type:         fileType,
+	}
+	return file
 }

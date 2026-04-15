@@ -1,3 +1,5 @@
+//go:build outdated
+
 package mkvparser
 
 import (

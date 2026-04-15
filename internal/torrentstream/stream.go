@@ -12,6 +12,7 @@ import (
 	"seanime/internal/library/playbackmanager"
 	"seanime/internal/util"
 	"seanime/internal/videocore"
+	"sync"
 	"time"
 
 	"github.com/anacrolix/torrent"
@@ -60,8 +61,22 @@ func (r *Repository) StartStream(ctx context.Context, opts *StartStreamOptions) 
 		r.wsEventManager.SendEvent(events.HideIndefiniteLoader, "torrentstream")
 	}()
 
+	var readyCh chan struct{}
+	var readyChOnce sync.Once
+	closeReadyCh := func() {
+		if readyCh == nil {
+			return
+		}
+		readyChOnce.Do(func() {
+			close(readyCh)
+		})
+	}
+
 	if opts.PlaybackType == PlaybackTypeNativePlayer {
-		r.directStreamManager.PrepareNewStream(opts.ClientId, "Selecting torrent...")
+		r.directStreamManager.BeginOpen(opts.ClientId, "Selecting torrent...", func() {
+			closeReadyCh()
+			_ = r.StopStream(true)
+		})
 	}
 
 	//
@@ -182,7 +197,7 @@ func (r *Repository) StartStream(ctx context.Context, opts *StartStreamOptions) 
 		// Direct stream
 		//
 		case PlaybackTypeNativePlayer:
-			readyCh, err := r.directStreamManager.PlayTorrentStream(ctx, directstream.PlayTorrentStreamOptions{
+			readyCh, err = r.directStreamManager.PlayTorrentStream(ctx, directstream.PlayTorrentStreamOptions{
 				ClientId:      opts.ClientId,
 				EpisodeNumber: opts.EpisodeNumber,
 				AnidbEpisode:  opts.AniDBEpisode,
@@ -198,13 +213,24 @@ func (r *Repository) StartStream(ctx context.Context, opts *StartStreamOptions) 
 				r.sendStateEvent(eventLoadingFailed)
 				return
 			}
+			if !r.directStreamManager.IsOpenActive(opts.ClientId) {
+				closeReadyCh()
+				return
+			}
 
 			if opts.PlaybackType == PlaybackTypeNativePlayer {
-				r.directStreamManager.PrepareNewStream(opts.ClientId, "Downloading metadata...")
+				if !r.directStreamManager.UpdateOpenStep(opts.ClientId, "Downloading metadata...") {
+					closeReadyCh()
+					return
+				}
 			}
 
 			// Make sure the client is ready and the torrent is partially downloaded
 			for {
+				if !r.directStreamManager.IsOpenActive(opts.ClientId) {
+					closeReadyCh()
+					return
+				}
 				if r.client.readyToStream() {
 					break
 				}
@@ -215,7 +241,9 @@ func (r *Repository) StartStream(ctx context.Context, opts *StartStreamOptions) 
 				r.logger.Debug().Msg("torrentstream: Waiting for playable threshold to be reached")
 				time.Sleep(3 * time.Second) // Wait for 3 secs before checking again
 			}
-			close(readyCh)
+			readyChOnce.Do(func() {
+				close(readyCh)
+			})
 		}
 	}()
 
@@ -348,6 +376,9 @@ func (r *Repository) StopStream(fromNativePlayer ...bool) error {
 		}
 	}()
 	r.logger.Info().Msg("torrentstream: Stopping stream")
+	if r.directStreamManager != nil {
+		r.directStreamManager.CloseOpen("")
+	}
 
 	// Stop the client
 	// This will stop the stream and close the server

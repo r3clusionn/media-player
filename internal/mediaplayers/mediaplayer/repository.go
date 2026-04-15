@@ -656,6 +656,7 @@ func (m *Repository) StartTrackingTorrentStream() {
 				}
 
 				trackingStarted = true
+				retries = 0
 				ok := m.processStreamStatus(m.Default, status)
 
 				if !ok {
@@ -677,6 +678,10 @@ func (m *Repository) StartTrackingTorrentStream() {
 					m.streamingTrackingStarted(m.currentPlaybackStatus)
 					filename = m.currentPlaybackStatus.Filename
 					completed = false
+					// Skip completion check on this iteration to avoid stale CompletionPercentage
+					// from the previous stream triggering a false "completed" event
+					m.streamingPlaybackStatus(m.currentPlaybackStatus)
+					continue
 				}
 
 				// Stream completed \/
@@ -799,6 +804,7 @@ func (m *Repository) StartTracking() {
 				}
 
 				gotFirstStatus = true
+				retries = 0
 
 				ok := m.processStatus(m.Default, status)
 
@@ -821,6 +827,10 @@ func (m *Repository) StartTracking() {
 					m.trackingStarted(m.currentPlaybackStatus)
 					filename = m.currentPlaybackStatus.Filename
 					completed = false
+					// Skip completion check on this iteration to avoid stale CompletionPercentage
+					// from the previous file triggering a false "completed" event
+					m.playbackStatus(m.currentPlaybackStatus)
+					continue
 				}
 
 				// Video completed \/
@@ -923,6 +933,17 @@ func (m *Repository) getStatus() (interface{}, error) {
 	return nil, errors.New("unsupported media player")
 }
 
+// clampPercentage ensures CompletionPercentage stays within [0, 1]
+func clampPercentage(v float64) float64 {
+	if v < 0 {
+		return 0
+	}
+	if v > 1 {
+		return 1
+	}
+	return v
+}
+
 func (m *Repository) processStatus(player string, status interface{}) bool {
 	m.currentPlaybackStatus.PlaybackType = PlaybackTypeFile
 	switch player {
@@ -933,7 +954,7 @@ func (m *Repository) processStatus(player string, status interface{}) bool {
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position)
 		m.currentPlaybackStatus.Playing = st.State == "playing"
 		m.currentPlaybackStatus.Filename = st.Information.Category["meta"].Filename
 		m.currentPlaybackStatus.Duration = int(st.Length * 1000)
@@ -949,7 +970,7 @@ func (m *Repository) processStatus(player string, status interface{}) bool {
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = st.State == 2
 		m.currentPlaybackStatus.Filename = st.File
 		m.currentPlaybackStatus.Duration = int(st.Duration)
@@ -966,7 +987,7 @@ func (m *Repository) processStatus(player string, status interface{}) bool {
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = !st.Paused
 		m.currentPlaybackStatus.Filename = st.Filename
 		m.currentPlaybackStatus.Duration = int(st.Duration)
@@ -983,7 +1004,7 @@ func (m *Repository) processStatus(player string, status interface{}) bool {
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = !st.Paused
 		m.currentPlaybackStatus.Filename = st.Filename
 		m.currentPlaybackStatus.Duration = int(st.Duration)
@@ -1008,7 +1029,7 @@ func (m *Repository) processStreamStatus(player string, status interface{}) bool
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position)
 		m.currentPlaybackStatus.Playing = st.State == "playing"
 		m.currentPlaybackStatus.Filename = st.Information.Category["meta"].Filename
 		m.currentPlaybackStatus.Duration = int(st.Length * 1000)
@@ -1025,7 +1046,7 @@ func (m *Repository) processStreamStatus(player string, status interface{}) bool
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = st.State == 2
 		m.currentPlaybackStatus.Filename = st.File
 		m.currentPlaybackStatus.Duration = int(st.Duration)
@@ -1042,7 +1063,7 @@ func (m *Repository) processStreamStatus(player string, status interface{}) bool
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = !st.Paused
 		m.currentPlaybackStatus.Filename = st.Filename
 		m.currentPlaybackStatus.Duration = int(st.Duration)
@@ -1059,7 +1080,7 @@ func (m *Repository) processStreamStatus(player string, status interface{}) bool
 			return false
 		}
 
-		m.currentPlaybackStatus.CompletionPercentage = st.Position / st.Duration
+		m.currentPlaybackStatus.CompletionPercentage = clampPercentage(st.Position / st.Duration)
 		m.currentPlaybackStatus.Playing = !st.Paused
 		m.currentPlaybackStatus.Filename = st.Filename
 		m.currentPlaybackStatus.Duration = int(st.Duration)

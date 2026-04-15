@@ -299,6 +299,14 @@ function setupAppProtocol() {
     }
 }
 
+/////////////////
+// Cast
+/////////////////
+
+const __CAST_ENABLED__ = false
+const CastSender = __CAST_ENABLED__ ? require("./cast/sender").CastSender : null
+let castSender = null
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Startup logs
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -859,6 +867,12 @@ function cleanupAndExit() {
     console.log("[Main] Cleaning up and exiting")
     isShutdown = true
 
+    // Clean up cast
+    if (__CAST_ENABLED__ && castSender) {
+        castSender.destroy()
+        castSender = null
+    }
+
     // Kill server process first
     if (serverProcess) {
         console.log("[Main] Killing server process")
@@ -1159,6 +1173,18 @@ app.whenReady().then(async () => {
 
     // Watch for window events to notify renderer
     if (mainWindow) {
+        mainWindow.on("minimize", () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send("window:minimized")
+            }
+        })
+
+        mainWindow.on("hide", () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                mainWindow.webContents.send("window:hidden")
+            }
+        })
+
         mainWindow.on("maximize", () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
                 mainWindow.webContents.send("window:maximized")
@@ -1233,6 +1259,133 @@ app.whenReady().then(async () => {
 
         return { ...denshiSettings }
     })
+
+    // Chromecast
+
+    if (__CAST_ENABLED__) {
+
+        function ensureCastSender() {
+            if (!castSender) {
+                castSender = new CastSender()
+
+                // Forward events to the renderer
+                castSender.on("deviceFound", (device) => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send("cast:deviceFound", device)
+                    }
+                })
+                castSender.on("sessionUpdate", (state) => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send("cast:sessionUpdate", state)
+                    }
+                })
+                castSender.on("mediaStatus", (status) => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send("cast:mediaStatus", status)
+                    }
+                })
+                castSender.on("receiverReady", () => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send("cast:receiverReady")
+                    }
+                })
+                castSender.on("error", (err) => {
+                    log.error("[Cast] Error:", err)
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        mainWindow.webContents.send("cast:error", err)
+                    }
+                })
+            }
+            return castSender
+        }
+
+        ipcMain.handle("cast:discover", async () => {
+            const sender = ensureCastSender()
+            sender.startDiscovery()
+        })
+
+        ipcMain.handle("cast:stopDiscovery", async () => {
+            if (castSender) castSender.stopDiscovery()
+        })
+
+        ipcMain.handle("cast:getDevices", async () => {
+            if (!castSender) return []
+            return castSender.getDevices()
+        })
+
+        ipcMain.handle("cast:connect", async (_, deviceId) => {
+            const sender = ensureCastSender()
+            return await sender.connect(deviceId)
+        })
+
+        ipcMain.handle("cast:disconnect", async () => {
+            if (castSender) castSender.disconnect()
+        })
+
+        ipcMain.handle("cast:getStatus", async () => {
+            if (!castSender) return { connected: false, device: null, sessionId: null, mediaStatus: null }
+            return castSender.getStatus()
+        })
+
+        ipcMain.handle("cast:loadMedia", async (_, opts) => {
+            if (!castSender) throw new Error("Cast sender not initialized")
+            return castSender.loadMedia(opts)
+        })
+
+        ipcMain.handle("cast:play", async () => {
+            if (castSender) castSender.play()
+        })
+
+        ipcMain.handle("cast:pause", async () => {
+            if (castSender) castSender.pause()
+        })
+
+        ipcMain.handle("cast:seek", async (_, time) => {
+            if (castSender) castSender.seek(time)
+        })
+
+        ipcMain.handle("cast:stop", async () => {
+            if (castSender) castSender.stop()
+        })
+
+        ipcMain.handle("cast:setVolume", async (_, level) => {
+            if (castSender) castSender.setVolume(level)
+        })
+
+        ipcMain.handle("cast:setMuted", async (_, muted) => {
+            if (castSender) castSender.setMuted(muted)
+        })
+
+        ipcMain.handle("cast:sendSubtitleEvents", async (_, events) => {
+            if (castSender) castSender.sendSubtitleEvents(events)
+        })
+
+        ipcMain.handle("cast:sendSubtitleTracks", async (_, tracks) => {
+            if (castSender) castSender.sendSubtitleTracks(tracks)
+        })
+
+        ipcMain.handle("cast:switchSubtitleTrack", async (_, trackNumber) => {
+            if (castSender) castSender.switchSubtitleTrack(trackNumber)
+        })
+
+        ipcMain.handle("cast:sendFonts", async (_, fontUrls, serverPort) => {
+            if (castSender) castSender.sendFonts(fontUrls, serverPort)
+        })
+
+        ipcMain.handle("cast:sendSubtitleHeader", async (_, header) => {
+            if (castSender) castSender.sendSubtitleHeader(header)
+        })
+
+        ipcMain.handle("cast:disableSubtitles", async () => {
+            if (castSender) castSender.disableSubtitles()
+        })
+
+        ipcMain.handle("cast:getLanIP", async () => {
+            const sender = ensureCastSender()
+            return sender.getLanIP()
+        })
+
+    }
 
     app.on("window-all-closed", () => {
         if (process.platform !== "darwin") {

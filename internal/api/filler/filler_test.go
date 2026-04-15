@@ -1,17 +1,18 @@
-package filler
+package filler_test
 
 import (
+	"seanime/internal/api/filler"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 func TestAnimeFillerList_Search(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.Live())
 
-	af := NewAnimeFillerList(util.NewLogger())
+	af := filler.NewAnimeFillerList(util.NewLogger())
 
-	opts := SearchOptions{
+	opts := filler.SearchOptions{
 		Titles: []string{"Hunter x Hunter (2011)"},
 	}
 
@@ -20,5 +21,5 @@ func TestAnimeFillerList_Search(t *testing.T) {
 		t.Error(err)
 	}
 
-	spew.Dump(ret)
+	util.Spew(ret)
 }

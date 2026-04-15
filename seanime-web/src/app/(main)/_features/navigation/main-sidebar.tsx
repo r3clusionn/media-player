@@ -11,7 +11,7 @@ import { UpdateModal } from "@/app/(main)/_features/update/update-modal"
 import { useAutoDownloaderQueueCount } from "@/app/(main)/_hooks/autodownloader-queue-count"
 import { useWebsocketMessageListener } from "@/app/(main)/_hooks/handle-websockets"
 import { useMissingEpisodeCount } from "@/app/(main)/_hooks/missing-episodes-loader"
-import { useCurrentUser, useServerStatus, useSetServerStatus } from "@/app/(main)/_hooks/use-server-status"
+import { useCurrentUser, useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { ConfirmationDialog, useConfirmationDialog } from "@/components/shared/confirmation-dialog"
 import { SeaLink } from "@/components/shared/sea-link"
 import { AppSidebar, useAppSidebarContext } from "@/components/ui/app-layout"
@@ -57,14 +57,7 @@ export function MainSidebar() {
     const containerRef = React.useRef<HTMLDivElement>(null)
 
     // Logout
-    const setServerStatus = useSetServerStatus()
-    const { mutate: logout, data, isPending } = useLogout()
-
-    React.useEffect(() => {
-        if (!isPending) {
-            setServerStatus(data)
-        }
-    }, [isPending, data])
+    const { mutate: logout } = useLogout()
 
 
     const handleExpandSidebar = () => {
@@ -117,7 +110,7 @@ export function MainSidebar() {
 }
 
 
-function SidebarNavigation({ isCollapsed, containerRef }: { isCollapsed: boolean, containerRef: React.RefObject<HTMLDivElement> }) {
+function SidebarNavigation({ isCollapsed, containerRef }: { isCollapsed: boolean, containerRef: React.RefObject<HTMLDivElement | null> }) {
     const ctx = useAppSidebarContext()
     const ts = useThemeSettings()
     const router = useRouter()
@@ -266,7 +259,7 @@ function SidebarNavigation({ isCollapsed, containerRef }: { isCollapsed: boolean
 
     // Overflow logic
     const [autoUnpinnedIds, setAutoUnpinnedIds] = React.useState<string[]>([])
-    const overflowCheckTimeoutRef = React.useRef<NodeJS.Timeout>()
+    const overflowCheckTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
 
     React.useEffect(() => {
         const handleResize = () => setAutoUnpinnedIds([])

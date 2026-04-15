@@ -17,6 +17,7 @@ func RunJobs(app *core.App) {
 	}
 
 	refreshAnilistTicker := time.NewTicker(10 * time.Minute)
+	refreshAnilistSimulatedTicker := time.NewTicker(30 * time.Minute)
 	refreshLocalDataTicker := time.NewTicker(30 * time.Minute)
 	refetchReleaseTicker := time.NewTicker(1 * time.Hour)
 	refetchAnnouncementsTicker := time.NewTicker(10 * time.Minute)
@@ -25,11 +26,23 @@ func RunJobs(app *core.App) {
 		for {
 			select {
 			case <-refreshAnilistTicker.C:
-				if app.IsOffline() {
+				if app.IsOffline() || app.GetUser().IsSimulated {
 					continue
 				}
 				RefreshAnilistDataJob(ctx)
 				app.SyncAnilistToSimulatedCollection()
+			}
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-refreshAnilistSimulatedTicker.C:
+				if app.IsOffline() || !app.GetUser().IsSimulated {
+					continue
+				}
+				RefreshAnilistDataJob(ctx)
 			}
 		}
 	}()

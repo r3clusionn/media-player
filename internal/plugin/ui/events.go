@@ -231,6 +231,8 @@ const (
 	ServerDOMManipulateEvent      ServerEventType = "dom:manipulate"   // When the server manipulates a DOM element
 	ServerDOMObserveInViewEvent   ServerEventType = "dom:observe-in-view"
 	ServerDOMGetViewportSizeEvent ServerEventType = "dom:get-viewport-size"
+
+	ServerDOMClipboardWriteEvent ServerEventType = "dom:clipboard:write"
 )
 
 type ServerTrayUpdatedEventPayload struct {
@@ -369,6 +371,10 @@ type ServerCommandPaletteSetInputEventPayload struct {
 }
 
 type ServerScreenGetCurrentEventPayload struct{}
+
+type ServerDOMClipboardWriteEventPayload struct {
+	Text string `json:"text"`
+}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

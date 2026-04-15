@@ -746,9 +746,14 @@ func (vc *VideoCore) listenToClientEvents() {
 			marshaled, _ := json.Marshal(clientEvent.Payload)
 			// Unmarshal the player event
 			if err := json.Unmarshal(marshaled, &playerEvent); err == nil {
+				eventClientID := playerEvent.ClientId
+				if eventClientID == "" {
+					eventClientID = clientEvent.ClientID
+				}
+
 				// Validate that the event is from the current client
 				currentState, hasState := vc.GetPlaybackState()
-				if hasState && clientEvent.ClientID != "" && clientEvent.ClientID != currentState.ClientId {
+				if hasState && eventClientID != "" && eventClientID != currentState.ClientId {
 					continue
 				}
 
@@ -939,8 +944,17 @@ func (vc *VideoCore) listenToClientEvents() {
 						})
 					}
 				case PlayerEventVideoTerminated:
-					// No payload
-					vc.PushEvent(&VideoTerminatedEvent{})
+					event := &VideoTerminatedEvent{}
+					if state, ok := vc.GetPlaybackState(); ok {
+						event.identify(state.PlaybackInfo.Id, state.ClientId, state.PlayerType, state.PlaybackInfo.PlaybackType)
+					} else if eventClientID != "" {
+						event.identify("", eventClientID, NativePlayer, "")
+					}
+					select {
+					case vc.eventBus <- event:
+					default:
+						vc.logger.Warn().Msg("videcore: Event bus full, dropping video terminated event")
+					}
 					vc.clearPlayback()
 				case PlayerEventSubtitleFileUploaded:
 					payload := &clientSubtitleFileUploadedPayload{}

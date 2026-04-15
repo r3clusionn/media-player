@@ -1,14 +1,9 @@
 package scanner
 
 import (
-	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
 	"seanime/internal/events"
-	"seanime/internal/extension"
 	"seanime/internal/library/anime"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/platforms/platform"
 	"seanime/internal/util"
 	"testing"
 )
@@ -16,20 +11,9 @@ import (
 //----------------------------------------------------------------------------------------------------------------------
 
 func TestScanner_Scan(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	anilistClientRef := util.NewRef(anilistClient)
-	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
-	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerFixtureHarness(t)
 	wsEventManager := events.NewMockWSEventManager(util.NewLogger())
-	dir := "E:/Anime"
+	dir := harness.LibraryDir
 
 	tests := []struct {
 		name  string
@@ -63,8 +47,8 @@ func TestScanner_Scan(t *testing.T) {
 			scanner := &Scanner{
 				DirPath:             dir,
 				Enhanced:            false,
-				PlatformRef:         util.NewRef(anilistPlatform),
-				MetadataProviderRef: util.NewRef(metadataProvider),
+				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
+				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
 				Logger:              util.NewLogger(),
 				WSEventManager:      wsEventManager,
 				ExistingLocalFiles:  existingLfs,

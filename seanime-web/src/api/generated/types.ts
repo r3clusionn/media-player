@@ -5414,7 +5414,6 @@ export type Chapter = {
  * - Package: videofile
  */
 export type MediaInfo = {
-    ready: any
     sha: string
     path: string
     extension: string
@@ -5475,5 +5474,9 @@ export type Video = {
     width: number
     height: number
     bitrate: number
+    pixFmt: string
+    colorSpace: string
+    colorTransfer: string
+    colorPrimaries: string
 }
 

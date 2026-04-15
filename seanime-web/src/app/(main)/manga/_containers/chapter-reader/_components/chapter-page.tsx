@@ -94,7 +94,7 @@ export const IMAGE_STATUS = {
     ERROR: "error",
 }
 
-const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement>) => {
+const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement | null>) => {
     const [imageStatus, setImageStatus] = React.useState(IMAGE_STATUS.LOADING)
     const retries = React.useRef(0)
 
@@ -108,11 +108,12 @@ const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement>) => {
     const retry = React.useCallback(() => {
         retries.current = 0
         setImageStatus(IMAGE_STATUS.LOADING)
-        const imgSrc = imageRef.current?.src
-        if (!imgSrc) {
+        const image = imageRef.current
+        const imgSrc = image?.src
+        if (!image || !imgSrc) {
             return
         }
-        imageRef.current.src = imgSrc
+        image.src = imgSrc
     }, [])
 
     React.useEffect(() => {

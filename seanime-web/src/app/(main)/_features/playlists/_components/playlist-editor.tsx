@@ -24,7 +24,9 @@ import { toast } from "sonner"
 
 export function playlist_isSameEpisode(a: Nullish<Anime_PlaylistEpisode>, b: Nullish<Anime_PlaylistEpisode>) {
     if (!a || !b) return false
-    return a.episode?.aniDBEpisode === b.episode?.aniDBEpisode && a.episode?.baseAnime?.id === b.episode?.baseAnime?.id
+    return a.episode?.aniDBEpisode === b.episode?.aniDBEpisode
+        && a.episode?.baseAnime?.id === b.episode?.baseAnime?.id
+        && a.episode?.episodeNumber === b.episode?.episodeNumber
 }
 
 export function playlist_getEpisodeKey(a: Anime_PlaylistEpisode) {
@@ -37,6 +39,8 @@ type PlaylistEditorProps = {
     setEpisodes: (episodes: Anime_PlaylistEpisode[]) => void
     libraryCollection?: Anime_LibraryCollection
 }
+
+const MAX_PLAYLIST_EPISODES = 20
 
 export function PlaylistEditor(props: PlaylistEditorProps) {
 
@@ -450,7 +454,7 @@ function EntryEpisodeList(props: EntryEpisodeListProps) {
                 if (prev.find(n => playlist_isSameEpisode(n, ep))) {
                     return prev.filter(n => !playlist_isSameEpisode(n, ep))
                 }
-                if (prev.length >= 20) {
+                if (prev.length >= MAX_PLAYLIST_EPISODES) {
                     toast.error("You can't add more than 20 episodes to a playlist")
                     return prev
                 }
@@ -459,11 +463,48 @@ function EntryEpisodeList(props: EntryEpisodeListProps) {
         })
     }
 
+    const episodes = data?.filter(n => !!n.episode)?.sort((a, b) => a.episode!.progressNumber - b.episode!.progressNumber) ?? []
+    const allSelectedFn = (episodes: Anime_PlaylistEpisode[],
+        selectedEpisodes: Anime_PlaylistEpisode[],
+    ) => episodes?.every(ep => selectedEpisodes.findIndex(n => playlist_isSameEpisode(n, ep)) !== -1)
+    const allSelected = episodes?.every(ep => selectedEpisodes.findIndex(n => playlist_isSameEpisode(n, ep)) !== -1)
+
     return (
         <div className="flex flex-col gap-2 overflow-auto p-1">
+            <div>
+                <Button
+                    intent="gray-link"
+                    className="px-0"
+                    onClick={() => {
+                        React.startTransition(() => {
+                            setSelectedEpisodes(prev => {
+                                if (allSelectedFn(episodes, prev)) {
+                                    return prev.filter(n => n.episode?.baseAnime?.id !== entry.mediaId)
+                                }
+
+                                const episodesToAdd = episodes.filter(ep => !prev.find(n => playlist_isSameEpisode(n, ep)))
+                                const availableSlots = Math.max(0, MAX_PLAYLIST_EPISODES - prev.length)
+
+                                if (availableSlots === 0) {
+                                    toast.error("You can't add more than 20 episodes to a playlist")
+                                    return prev
+                                }
+
+                                if (episodesToAdd.length > availableSlots) {
+                                    toast.error("You can't add more than 20 episodes to a playlist")
+                                }
+
+                                return [...prev, ...episodesToAdd.slice(0, availableSlots)]
+                            })
+                        })
+                    }}
+                >
+                    {allSelected ? "Deselect all" : "Select all"}
+                </Button>
+            </div>
             {isLoading && <LoadingSpinner />}
             {data?.length === 0 && <p className="text-center text-sm text-[--muted]">No episodes found</p>}
-            {data?.filter(n => !!n.episode)?.sort((a, b) => a.episode!.progressNumber - b.episode!.progressNumber)?.map(ep => {
+            {episodes?.map(ep => {
                 return (
                     <div
                         key={playlist_getEpisodeKey(ep)}

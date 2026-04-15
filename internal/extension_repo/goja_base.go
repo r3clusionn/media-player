@@ -75,7 +75,7 @@ func initializeProviderBase(
 		providerBase.store.Bind(vm, providerBase.scheduler)
 		// Bind the shared bindings
 		ShareBinds(vm, logger, ext, wsEventManager)
-		goja_bindings.BindFetch(vm)
+		goja_bindings.BindFetch(ext.ID, vm)
 		gojautil.BindMutable(vm)
 		BindUserConfig(vm, ext, logger)
 		return vm

@@ -71,9 +71,70 @@ declare global {
                 get: () => Promise<DenshiSettings>;
                 set: (settings: DenshiSettings) => Promise<DenshiSettings>;
             };
+            cast?: {
+                discover: () => Promise<void>;
+                stopDiscovery: () => Promise<void>;
+                getDevices: () => Promise<CastDevice[]>;
+                connect: (deviceId: string) => Promise<CastSessionState>;
+                disconnect: () => Promise<void>;
+                getStatus: () => Promise<CastStatus>;
+                loadMedia: (opts: CastLoadMediaOptions) => Promise<number>;
+                play: () => Promise<void>;
+                pause: () => Promise<void>;
+                seek: (time: number) => Promise<void>;
+                stop: () => Promise<void>;
+                setVolume: (level: number) => Promise<void>;
+                setMuted: (muted: boolean) => Promise<void>;
+                sendSubtitleEvents: (events: any[]) => Promise<void>;
+                sendSubtitleTracks: (tracks: any[]) => Promise<void>;
+                switchSubtitleTrack: (trackNumber: number) => Promise<void>;
+                sendFonts: (fontUrls: string[], serverPort?: number) => Promise<void>;
+                sendSubtitleHeader: (header: string) => Promise<void>;
+                disableSubtitles: () => Promise<void>;
+                getLanIP: () => Promise<string>;
+            };
         };
 
         __isElectronDesktop__?: boolean;
+    }
+
+    interface CastDevice {
+        id: string;
+        name: string;
+        host: string;
+        port: number;
+    }
+
+    interface CastSessionState {
+        connected: boolean;
+        device: CastDevice | null;
+        sessionId: string | null;
+    }
+
+    interface CastStatus {
+        connected: boolean;
+        device: CastDevice | null;
+        sessionId: string | null;
+        mediaStatus: CastMediaStatus | null;
+    }
+
+    interface CastMediaStatus {
+        mediaSessionId: number;
+        playerState: "IDLE" | "BUFFERING" | "PLAYING" | "PAUSED";
+        currentTime: number;
+        duration?: number;
+        volume?: { level: number; muted: boolean };
+        idleReason?: string;
+    }
+
+    interface CastLoadMediaOptions {
+        streamUrl: string;
+        contentType: string;
+        title?: string;
+        subtitle?: string;
+        imageUrl?: string;
+        duration?: number;
+        serverPort?: number;
     }
 
     interface DenshiSettings {

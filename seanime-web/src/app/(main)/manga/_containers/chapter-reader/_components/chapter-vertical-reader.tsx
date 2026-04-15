@@ -76,6 +76,11 @@ export function MangaVerticalReader({ pageContainer }: MangaVerticalReaderProps)
         pageDiv?.scrollIntoView()
     }, [scrollSignal])
 
+    useUpdateEffect(() => {
+        const pageDiv = containerRef.current?.querySelector(`#page-${currentPageIndex}`)
+        pageDiv?.scrollIntoView()
+    }, [pageContainer?.pages])
+
     /**
      * Function to handle scroll event
      *
@@ -197,7 +202,7 @@ export function MangaVerticalReader({ pageContainer }: MangaVerticalReaderProps)
                         onFinishedLoading={() => {
                             // If the first page is loaded, set the current page index to 0
                             // This is to avoid the current page index to remain incorrect when multiple pages are loading
-                            if (index === 0) {
+                            if (index === 0 && currentPageIndex === 0) {
                                 setCurrentPageIndex(0)
                             }
                             handlePageLoad(index)

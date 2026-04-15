@@ -7,7 +7,6 @@ import (
 	"seanime/internal/extension"
 	"seanime/internal/library/anime"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
 	"seanime/internal/util"
 	"testing"
 
@@ -17,13 +16,12 @@ import (
 // TestNewAnimeEntry tests /library/entry endpoint.
 // /!\ MAKE SURE TO HAVE THE MEDIA ADDED TO YOUR LIST TEST ACCOUNT LISTS
 func TestNewAnimeEntry(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
 	logger := util.NewLogger()
 
 	database, err := db.NewDatabase(t.TempDir(), "test", logger)
 	assert.NoError(t, err)
 
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	metadataProvider := metadata_provider.NewTestProvider(t, database)
 
 	tests := []struct {
 		name                              string
@@ -36,14 +34,19 @@ func TestNewAnimeEntry(t *testing.T) {
 		{
 			name:    "Sousou no Frieren",
 			mediaId: 154587,
-			localFiles: anime.MockHydratedLocalFiles(
-				anime.MockGenerateHydratedLocalFileGroupOptions("E:/Anime", "E:\\Anime\\Sousou no Frieren\\[SubsPlease] Sousou no Frieren - %ep (1080p) [F02B9CEE].mkv", 154587, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-					{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 3, MetadataAniDbEpisode: "3", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 4, MetadataAniDbEpisode: "4", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 5, MetadataAniDbEpisode: "5", MetadataType: anime.LocalFileTypeMain},
-				}),
+			localFiles: anime.NewTestLocalFiles(
+				anime.TestLocalFileGroup{
+					LibraryPath:      "E:/Anime",
+					FilePathTemplate: "E:\\Anime\\Sousou no Frieren\\[SubsPlease] Sousou no Frieren - %ep (1080p) [F02B9CEE].mkv",
+					MediaID:          154587,
+					Episodes: []anime.TestLocalFileEpisode{
+						{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+						{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+						{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+						{Episode: 4, AniDBEpisode: "4", Type: anime.LocalFileTypeMain},
+						{Episode: 5, AniDBEpisode: "5", Type: anime.LocalFileTypeMain},
+					},
+				},
 			),
 			currentProgress:                   4,
 			expectedNextEpisodeNumber:         5,
@@ -52,22 +55,27 @@ func TestNewAnimeEntry(t *testing.T) {
 		{
 			name:    "Mushoku Tensei II Isekai Ittara Honki Dasu",
 			mediaId: 146065,
-			localFiles: anime.MockHydratedLocalFiles(
-				anime.MockGenerateHydratedLocalFileGroupOptions("E:/Anime", "E:/Anime/Mushoku Tensei II Isekai Ittara Honki Dasu/[SubsPlease] Mushoku Tensei S2 - 00 (1080p) [9C362DC3].mkv", 146065, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-					{MetadataEpisode: 0, MetadataAniDbEpisode: "S1", MetadataType: anime.LocalFileTypeMain}, // Special episode
-					{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 3, MetadataAniDbEpisode: "3", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 4, MetadataAniDbEpisode: "4", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 5, MetadataAniDbEpisode: "5", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 6, MetadataAniDbEpisode: "6", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 7, MetadataAniDbEpisode: "7", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 8, MetadataAniDbEpisode: "8", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 9, MetadataAniDbEpisode: "9", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 10, MetadataAniDbEpisode: "10", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 11, MetadataAniDbEpisode: "11", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 12, MetadataAniDbEpisode: "12", MetadataType: anime.LocalFileTypeMain},
-				}),
+			localFiles: anime.NewTestLocalFiles(
+				anime.TestLocalFileGroup{
+					LibraryPath:      "E:/Anime",
+					FilePathTemplate: "E:/Anime/Mushoku Tensei II Isekai Ittara Honki Dasu/[SubsPlease] Mushoku Tensei S2 - 00 (1080p) [9C362DC3].mkv",
+					MediaID:          146065,
+					Episodes: []anime.TestLocalFileEpisode{
+						{Episode: 0, AniDBEpisode: "S1", Type: anime.LocalFileTypeMain},
+						{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+						{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+						{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+						{Episode: 4, AniDBEpisode: "4", Type: anime.LocalFileTypeMain},
+						{Episode: 5, AniDBEpisode: "5", Type: anime.LocalFileTypeMain},
+						{Episode: 6, AniDBEpisode: "6", Type: anime.LocalFileTypeMain},
+						{Episode: 7, AniDBEpisode: "7", Type: anime.LocalFileTypeMain},
+						{Episode: 8, AniDBEpisode: "8", Type: anime.LocalFileTypeMain},
+						{Episode: 9, AniDBEpisode: "9", Type: anime.LocalFileTypeMain},
+						{Episode: 10, AniDBEpisode: "10", Type: anime.LocalFileTypeMain},
+						{Episode: 11, AniDBEpisode: "11", Type: anime.LocalFileTypeMain},
+						{Episode: 12, AniDBEpisode: "12", Type: anime.LocalFileTypeMain},
+					},
+				},
 			),
 			currentProgress:                   0,
 			expectedNextEpisodeNumber:         0,
@@ -75,7 +83,7 @@ func TestNewAnimeEntry(t *testing.T) {
 		},
 	}
 
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef(anilistClient), util.NewRef(extension.NewUnifiedBank()), logger, database)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), false)
 	if err != nil {
@@ -86,7 +94,7 @@ func TestNewAnimeEntry(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			anilist.TestModifyAnimeCollectionEntry(animeCollection, tt.mediaId, anilist.TestModifyAnimeCollectionEntryInput{
+			anilist.PatchAnimeCollectionEntry(animeCollection, tt.mediaId, anilist.AnimeCollectionEntryPatch{
 				Progress: new(tt.currentProgress), // Mock progress
 			})
 

@@ -1,4 +1,5 @@
 import { MKVParser_ChapterInfo } from "@/api/generated/types"
+import { normalizeAniSkipData } from "@/app/(main)/_features/video-core/_lib/aniskip.utils"
 import { VideoCoreChapterCue } from "@/app/(main)/_features/video-core/video-core"
 import { vc_videoElement } from "@/app/(main)/_features/video-core/video-core-atoms"
 import { vc_videoSize } from "@/app/(main)/_features/video-core/video-core-atoms"
@@ -343,74 +344,70 @@ export function vc_createChaptersFromAniSkip(
     duration: number,
     mediaFormat?: string,
 ): Array<MKVParser_ChapterInfo> {
-    if (!aniSkipData?.op?.interval || duration <= 0) {
+    const { op, ed } = normalizeAniSkipData(aniSkipData)
+
+    if (!op?.interval || duration <= 0) {
         return []
     }
 
-    let chapters: MKVParser_ChapterInfo[] = []
+    const clampToDuration = (time: number) => Math.min(duration, Math.max(0, time))
+    const openingStart = op.interval.startTime > 5 ? clampToDuration(op.interval.startTime) : 0
+    const openingEnd = clampToDuration(op.interval.endTime)
 
-    if (aniSkipData?.op?.interval) {
-        chapters.push({
-            uid: 91,
-            start: aniSkipData.op.interval.startTime > 5 ? aniSkipData.op.interval.startTime : 0,
-            end: aniSkipData.op.interval.endTime,
-            text: "Opening",
-        })
+    if (openingEnd <= openingStart) {
+        return []
     }
 
-    if (aniSkipData?.ed?.interval) {
-        chapters.push({
-            uid: 92,
-            start: aniSkipData.ed.interval.startTime,
-            end: aniSkipData.ed.interval.endTime,
-            text: "Ending",
-        })
-    }
+    const endingStart = ed?.interval ? clampToDuration(ed.interval.startTime) : null
+    const endingEnd = ed?.interval ? clampToDuration(ed.interval.endTime) : null
 
-    if (chapters.length === 0) return []
+    const chapters: MKVParser_ChapterInfo[] = []
 
-    // Add beginning chapter
-    if (aniSkipData.op?.interval?.startTime > 5) {
+    if (openingStart > 0) {
         chapters.push({
             uid: 90,
             start: 0,
-            end: aniSkipData.op.interval.startTime,
-            // text: aniSkipData.op.interval.startTime > 1.5 * 60 ? "Intro" : "Recap",
+            end: openingStart,
             text: "Prologue",
         })
     }
 
-    // Add middle chapter
     chapters.push({
-        uid: 93,
-        start: aniSkipData.op?.interval?.endTime || 0,
-        end: aniSkipData.ed?.interval?.startTime || duration,
-        text: mediaFormat !== "MOVIE" ? "Episode" : "Movie",
+        uid: 91,
+        start: openingStart,
+        end: openingEnd,
+        text: "Opening",
     })
 
-    // Add ending chapter
-    if (aniSkipData.ed?.interval?.endTime && aniSkipData.ed.interval.endTime < duration - 5) {
+    const middleEnd = endingStart ?? duration
+    if (middleEnd > openingEnd) {
         chapters.push({
-            uid: 94,
-            start: aniSkipData.ed.interval.endTime,
-            end: duration,
-            text: ((duration) - aniSkipData.ed.interval.endTime) > 0.5 * 60 ? "Ending" : "Preview",
+            uid: 93,
+            start: openingEnd,
+            end: middleEnd,
+            text: mediaFormat !== "MOVIE" ? "Episode" : "Movie",
         })
     }
 
-    chapters.sort((a, b) => a.start - b.start)
-    // Make sure last chapter is clamped to the end of the video
-    if (chapters.length > 0) {
-        chapters[chapters.length - 1].end = duration
+    if (endingStart !== null && endingEnd !== null && endingEnd > endingStart) {
+        chapters.push({
+            uid: 92,
+            start: endingStart,
+            end: endingEnd,
+            text: "Ending",
+        })
     }
 
-    chapters = chapters.map((chapter, index) => ({
-        ...chapter,
-        start: chapter.start,
-        end: chapter.end ? index === chapters.length - 1 ? duration : chapter.end : undefined,
-    }))
+    if (endingEnd !== null && endingEnd < duration - 5) {
+        chapters.push({
+            uid: 94,
+            start: endingEnd,
+            end: duration,
+            text: (duration - endingEnd) > 0.5 * 60 ? "Ending" : "Preview",
+        })
+    }
 
-    return chapters
+    return chapters.sort((a, b) => a.start - b.start)
 }
 
 export const vc_formatTime = (seconds: number) => {

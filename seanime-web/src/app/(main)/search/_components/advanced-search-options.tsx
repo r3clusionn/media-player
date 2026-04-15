@@ -70,7 +70,6 @@ export function AdvancedSearchOptions() {
                         draft.sorting = [v] as any
                         return
                     })}
-                    disabled={!!params.title && params.title.length > 0}
                 />
             </div>
             <div

@@ -257,7 +257,11 @@ func (u *Updater) downloadAsset(assetUrl, dest string) (fp string, err error) {
 	fp = u.getFilePath(assetUrl, dest)
 
 	// Get the data
-	resp, err := http.Get(assetUrl)
+	client := u.client
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Get(assetUrl)
 	if err != nil {
 		return "", err
 	}

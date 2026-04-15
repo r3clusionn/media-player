@@ -98,19 +98,13 @@ func (r *Repository) findBestTorrentFromManualSelection(t *hibiketorrent.AnimeTo
 
 	r.logger.Debug().Msgf("torrentstream: Analyzing torrent from %s for %s", t.Link, media.GetTitleSafe())
 
-	// Get the torrent's provider extension
-	providerExtension, ok := r.torrentRepository.GetAnimeProviderExtension(t.Provider)
-	if !ok {
-		r.logger.Error().Str("provider", t.Provider).Msg("torrentstream: provider extension not found")
-		return nil, fmt.Errorf("provider extension not found")
-	}
-
 	// First, add the torrent
-	magnet, err := providerExtension.GetProvider().GetTorrentMagnetLink(t)
+	magnet, err := r.torrentRepository.ResolveMagnetLink(t)
 	if err != nil {
 		r.logger.Error().Err(err).Msgf("torrentstream: Error scraping magnet link for %s", t.Link)
 		return nil, fmt.Errorf("could not get magnet link from %s", t.Link)
 	}
+	t.MagnetLink = magnet
 	selectedTorrent, err := r.client.AddTorrent(magnet)
 	if err != nil {
 		r.logger.Error().Err(err).Msgf("torrentstream: Error adding torrent %s", t.Link)

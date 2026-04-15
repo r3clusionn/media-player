@@ -45,6 +45,7 @@ type Fetch struct {
 	allowedDomains []string // empty = allow all domains
 	rules          []accessRule
 	anilistToken   string
+	extensionId    string
 }
 
 func (f *Fetch) SetAnilistToken(token string) {
@@ -80,12 +81,13 @@ var whitelistedDomains = []string{
 	"*.googleapis.com",
 }
 
-func NewFetch(vm *goja.Runtime, allowedDomains []string) *Fetch {
+func NewFetch(extensionId string, vm *goja.Runtime, allowedDomains []string) *Fetch {
 	f := &Fetch{
 		vm:             vm,
 		fetchSem:       make(chan struct{}, maxConcurrentRequests),
 		vmResponseCh:   make(chan func(), maxConcurrentRequests),
 		allowedDomains: allowedDomains,
+		extensionId:    extensionId,
 	}
 	f.allowedDomains = lo.Uniq(append(f.allowedDomains, whitelistedDomains...))
 	f.compileRules()
@@ -172,7 +174,7 @@ type fetchResult struct {
 }
 
 // BindFetch binds the fetch function to the VM
-func BindFetch(vm *goja.Runtime, allowedDomains ...[]string) *Fetch {
+func BindFetch(extensionId string, vm *goja.Runtime, allowedDomains ...[]string) *Fetch {
 
 	ad := []string{"*"}
 	if len(allowedDomains) > 0 {
@@ -180,7 +182,7 @@ func BindFetch(vm *goja.Runtime, allowedDomains ...[]string) *Fetch {
 	}
 
 	// Create a new Fetch instance
-	f := NewFetch(vm, ad)
+	f := NewFetch(extensionId, vm, ad)
 	_ = vm.Set("fetch", f.Fetch)
 
 	go func() {
@@ -273,7 +275,7 @@ func (f *Fetch) isURLAllowed(urlStr string) bool {
 func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Warn().Msgf("extension: fetch panic: %v", r)
+			log.Warn().Str("id", f.extensionId).Msgf("extension: fetch panic: %v", r)
 		}
 	}()
 
@@ -349,26 +351,28 @@ func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 	}
 
 	if options.Body != nil && !goja.IsUndefined(options.Body) {
-		switch v := options.Body.Export().(type) {
-		case string:
-			reqBody = v
-		case io.Reader:
-			reqBody = v
-		case []byte:
-			reqBody = v
-		case *goja.ArrayBuffer:
-			reqBody = v.Bytes()
-		case goja.ArrayBuffer:
-			reqBody = v.Bytes()
-		case *formData:
-			body, mp := v.GetBuffer()
+		if fd, ok := getFormDataFromValue(f.vm, options.Body); ok {
+			body, mp := fd.GetBuffer()
 			reqBody = body
 			reqContentType = mp.FormDataContentType()
-		case map[string]interface{}:
-			reqBody = v
-			reqContentType = "application/json"
-		default:
-			reqBody = options.Body.String()
+		} else {
+			switch v := options.Body.Export().(type) {
+			case string:
+				reqBody = v
+			case io.Reader:
+				reqBody = v
+			case []byte:
+				reqBody = v
+			case *goja.ArrayBuffer:
+				reqBody = v.Bytes()
+			case goja.ArrayBuffer:
+				reqBody = v.Bytes()
+			case map[string]interface{}:
+				reqBody = v
+				reqContentType = "application/json"
+			default:
+				reqBody = options.Body.String()
+			}
 		}
 	}
 
@@ -397,7 +401,7 @@ func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 			}
 		}
 
-		log.Trace().Str("url", url).Str("method", options.Method).Msgf("extension: Network request")
+		log.Trace().Str("id", f.extensionId).Str("url", url).Str("method", options.Method).Msgf("extension: Network request")
 
 		var client *req.Client
 		if options.NoCloudFlareBypass {

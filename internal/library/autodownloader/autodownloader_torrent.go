@@ -6,6 +6,7 @@ import (
 	"seanime/internal/extension"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
+	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"sync"
 	"time"
@@ -93,6 +94,11 @@ func (ad *AutoDownloader) fetchTorrentsFromProviders(
 		wg.Add(1)
 		go func(pExt extension.AnimeTorrentProviderExtension) {
 			defer wg.Done()
+			defer util.HandlePanicInModuleThen("autodownloader/fetchTorrentsFromProviders/provider", func() {
+				ad.logger.Error().
+					Str("providerId", pExt.GetID()).
+					Msg("autodownloader: Recovered from torrent provider panic")
+			})
 
 			// Set up a rate limiter for a single provider
 			rateLimiter := limiter.NewLimiter(time.Second, 2) // 2 reqs per sec
@@ -171,6 +177,12 @@ func (ad *AutoDownloader) fetchTorrentsFromProviders(
 			for releaseGroup, resolutions := range releaseGroupToResolutions {
 				go func(rg string, res []string) {
 					defer pWg.Done()
+					defer util.HandlePanicInModuleThen("autodownloader/fetchTorrentsFromProviders/search", func() {
+						ad.logger.Error().
+							Str("providerId", pExt.GetID()).
+							Str("releaseGroup", rg).
+							Msg("autodownloader: Recovered from torrent provider search panic")
+					})
 					foundForGroup := false
 
 					// For each release group, search with a specific resolution

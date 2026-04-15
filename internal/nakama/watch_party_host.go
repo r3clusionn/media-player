@@ -300,8 +300,8 @@ func (wpm *WatchPartyManager) hostPlaybackHandleStatus(opts hostPlaybackHandleSt
 	}
 }
 
-// listenToPlaybackManager listens to playback events from the host.
-// It handles starting a new watch party session and sending playback status updates to peers.
+// listenToPlaybackManager listens to player events from the host.
+// It handles starting a new watch party session and sending player status updates to peers.
 func (wpm *WatchPartyManager) listenToPlaybackAsHost() {
 	id := "nakama:watch-party:host"
 	playbackSubscriber := wpm.manager.playbackManager.SubscribeToPlaybackStatus(id)
@@ -627,7 +627,7 @@ func (wpm *WatchPartyManager) handleWatchPartyBufferUpdateEvent(payload *WatchPa
 	wpm.sendSessionStateToClient()
 }
 
-// checkAndManageBuffering manages playback based on peer buffering states
+// checkAndManageBuffering manages player based on peer buffering states
 // NOTE: This function should NOT be called while holding wpm.mu as it may need to acquire bufferMu
 func (wpm *WatchPartyManager) checkAndManageBuffering() {
 	session, ok := wpm.currentSession.Get()
@@ -635,8 +635,13 @@ func (wpm *WatchPartyManager) checkAndManageBuffering() {
 		return
 	}
 
+	player := wpm.player()
+	if player == nil {
+		return
+	}
+
 	// Get current playback status
-	playbackStatus, hasPlayback := wpm.manager.genericPlayer.PullStatus()
+	playbackStatus, hasPlayback := player.PullStatus()
 	if !hasPlayback {
 		return
 	}
@@ -673,7 +678,7 @@ func (wpm *WatchPartyManager) checkAndManageBuffering() {
 				Int("totalPeers", totalPeers).
 				Msg("nakama: Pausing playback due to peer buffering")
 
-			wpm.manager.genericPlayer.Pause()
+			player.Pause()
 			wpm.isWaitingForBuffers = true
 			wpm.bufferWaitStart = time.Now()
 		}
@@ -694,13 +699,13 @@ func (wpm *WatchPartyManager) checkAndManageBuffering() {
 				Bool("maxWaitExceeded", waitTime > maxWaitTime).
 				Msg("nakama: Resuming playback after buffer wait")
 
-			wpm.manager.genericPlayer.Resume()
+			player.Resume()
 			wpm.isWaitingForBuffers = false
 		}
 	}
 }
 
-// waitForPeersReady waits for peers to be ready before resuming playback
+// waitForPeersReady waits for peers to be ready before resuming player
 func (wpm *WatchPartyManager) waitForPeersReady(onReady func()) {
 	session, ok := wpm.currentSession.Get()
 	if !ok {
@@ -916,7 +921,7 @@ func (wpm *WatchPartyManager) handleWatchPartyRelayModeOriginStreamStartedEvent(
 
 }
 
-// handleWatchPartyRelayModeOriginPlaybackStatusEvent is called when the relay origin sends us (the host) a playback status update
+// handleWatchPartyRelayModeOriginPlaybackStatusEvent is called when the relay origin sends us (the host) a player status update
 func (wpm *WatchPartyManager) handleWatchPartyRelayModeOriginPlaybackStatusEvent(payload *WatchPartyRelayModeOriginPlaybackStatusPayload) {
 	wpm.mu.Lock()
 	defer wpm.mu.Unlock()
@@ -938,7 +943,7 @@ func (wpm *WatchPartyManager) handleWatchPartyRelayModeOriginPlaybackStatusEvent
 	})
 }
 
-// handleWatchPartyRelayModeOriginPlaybackStoppedEvent is called when the relay origin sends us (the host) a playback stopped event
+// handleWatchPartyRelayModeOriginPlaybackStoppedEvent is called when the relay origin sends us (the host) a player stopped event
 func (wpm *WatchPartyManager) handleWatchPartyRelayModeOriginPlaybackStoppedEvent() {
 	wpm.mu.Lock()
 	defer wpm.mu.Unlock()

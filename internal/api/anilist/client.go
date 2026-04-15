@@ -11,6 +11,7 @@ import (
 	"seanime/internal/events"
 	"seanime/internal/util"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -259,7 +260,231 @@ func (ac *AnilistClientImpl) AnimeAiringScheduleRaw(ctx context.Context, ids []*
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var sentRateLimitWarningTime = time.Now().Add(-10 * time.Second)
+type requestRateBlocker interface {
+	Wait(ctx context.Context, sleep requestSleepFunc) error
+	BlockUntil(until time.Time) bool
+}
+
+type requestSleepFunc func(ctx context.Context, delay time.Duration) error
+
+type aniListRateBlocker struct {
+	mu           sync.Mutex
+	blockedUntil time.Time
+	now          func() time.Time
+}
+
+func newAniListRateBlocker() *aniListRateBlocker {
+	return &aniListRateBlocker{now: time.Now}
+}
+
+func (b *aniListRateBlocker) Wait(ctx context.Context, sleep requestSleepFunc) error {
+	if sleep == nil {
+		sleep = sleepWithContext
+	}
+
+	for {
+		b.mu.Lock()
+		blockedUntil := b.blockedUntil
+		now := b.currentTime()
+		b.mu.Unlock()
+
+		if blockedUntil.IsZero() || !now.Before(blockedUntil) {
+			return nil
+		}
+
+		if err := sleep(ctx, blockedUntil.Sub(now)); err != nil {
+			return err
+		}
+	}
+}
+
+func (b *aniListRateBlocker) BlockUntil(until time.Time) bool {
+	if until.IsZero() {
+		return false
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	now := b.currentTime()
+	if !until.After(now) || !until.After(b.blockedUntil) {
+		return false
+	}
+
+	b.blockedUntil = until
+	return true
+}
+
+func (b *aniListRateBlocker) currentTime() time.Time {
+	if b.now != nil {
+		return b.now()
+	}
+	return time.Now()
+}
+
+func parseResponseDate(headers http.Header) (time.Time, bool) {
+	raw := headers.Get("Date")
+	if raw == "" {
+		return time.Time{}, false
+	}
+
+	parsed, err := http.ParseTime(raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return parsed, true
+}
+
+func parseAniListRateLimitResetTime(headers http.Header, now time.Time) (time.Time, bool) {
+	if resetAt, ok := parseRetryAfterTime(headers, now); ok {
+		return resetAt, true
+	}
+
+	raw := headers.Get("X-RateLimit-Reset")
+	if raw == "" {
+		return time.Time{}, false
+	}
+
+	if unixSeconds, err := strconv.ParseInt(raw, 10, 64); err == nil && unixSeconds > 0 {
+		return time.Unix(unixSeconds, 0), true
+	}
+
+	parsed, err := http.ParseTime(raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return parsed, true
+}
+
+func parseRetryAfterTime(headers http.Header, now time.Time) (time.Time, bool) {
+	raw := headers.Get("Retry-After")
+	if raw == "" {
+		return time.Time{}, false
+	}
+
+	if retryAfterSeconds, err := strconv.Atoi(raw); err == nil {
+		return now.Truncate(time.Second).Add(time.Duration(retryAfterSeconds+1) * time.Second), true
+	}
+
+	parsed, err := http.ParseTime(raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return parsed, true
+}
+
+var (
+	sentRateLimitWarningTime                    = time.Now().Add(-10 * time.Second)
+	sharedAniListRateBlocker requestRateBlocker = newAniListRateBlocker()
+)
+
+func doAniListRequestWithRetries(
+	client *http.Client,
+	req *http.Request,
+	rateBlocker requestRateBlocker,
+	sleep requestSleepFunc,
+	onRateLimited func(waitSeconds int),
+) (resp *http.Response, rlRemainingStr string, err error) {
+	if client == nil {
+		client = http.DefaultClient
+	}
+	if sleep == nil {
+		sleep = sleepWithContext
+	}
+
+	const retryCount = 2
+
+	for i := 0; i < retryCount; i++ {
+		if err := req.Context().Err(); err != nil {
+			return nil, rlRemainingStr, err
+		}
+
+		if rateBlocker != nil {
+			if err := rateBlocker.Wait(req.Context(), sleep); err != nil {
+				return nil, rlRemainingStr, err
+			}
+		}
+
+		if i > 0 && req.Body != nil {
+			if req.GetBody == nil {
+				return nil, rlRemainingStr, errors.New("failed to retry request: request body is not replayable")
+			}
+
+			newBody, err := req.GetBody()
+			if err != nil {
+				return nil, rlRemainingStr, fmt.Errorf("failed to get request body: %w", err)
+			}
+			req.Body = newBody
+		}
+
+		resp, err = client.Do(req)
+		if err != nil {
+			return nil, rlRemainingStr, fmt.Errorf("request failed: %w", err)
+		}
+
+		rlRemainingStr = resp.Header.Get("X-Ratelimit-Remaining")
+		responseTime := time.Now()
+		if responseDate, ok := parseResponseDate(resp.Header); ok {
+			responseTime = responseDate
+		}
+		if resetAt, ok := parseAniListRateLimitResetTime(resp.Header, responseTime); ok {
+			if rateBlocker == nil || rateBlocker.BlockUntil(resetAt) {
+				if onRateLimited != nil {
+					waitSeconds := int(resetAt.Sub(responseTime).Round(time.Second) / time.Second)
+					if waitSeconds < 1 {
+						waitSeconds = 1
+					}
+					onRateLimited(waitSeconds)
+				}
+			}
+			closeAniListResponseBody(resp)
+			continue
+		}
+
+		return resp, rlRemainingStr, nil
+	}
+
+	return resp, rlRemainingStr, nil
+}
+
+func closeAniListResponseBody(resp *http.Response) {
+	if resp == nil || resp.Body == nil {
+		return
+	}
+
+	_ = resp.Body.Close()
+	resp.Body = nil
+}
+
+func sleepWithContext(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
+
+func notifyAniListRateLimit(logger *zerolog.Logger, waitSeconds int) {
+	if logger != nil {
+		logger.Warn().Msgf("anilist: Rate limited, retrying in %d seconds", waitSeconds)
+	}
+
+	if time.Since(sentRateLimitWarningTime) <= 10*time.Second {
+		return
+	}
+
+	if events.GlobalWSEventManager != nil {
+		events.GlobalWSEventManager.SendEvent(events.WarningToast, "anilist: Rate limited, retrying in "+strconv.Itoa(waitSeconds)+" seconds")
+	}
+	sentRateLimitWarningTime = time.Now()
+}
 
 // customDoFunc is a custom request interceptor function that handles rate limiting and retries.
 func (ac *AnilistClientImpl) customDoFunc(ctx context.Context, req *http.Request, gqlInfo *clientv2.GQLRequestInfo, res interface{}) (err error) {
@@ -280,60 +505,18 @@ func (ac *AnilistClientImpl) customDoFunc(ctx context.Context, req *http.Request
 		}
 	}()
 
-	client := http.DefaultClient
 	var resp *http.Response
-
-	retryCount := 2
-
-	for i := 0; i < retryCount; i++ {
-
-		// Reset response body for retry
-		if resp != nil && resp.Body != nil {
-			resp.Body.Close()
-		}
-
-		// Recreate the request body if it was read in a previous attempt
-		if req.GetBody != nil {
-			newBody, err := req.GetBody()
-			if err != nil {
-				return fmt.Errorf("failed to get request body: %w", err)
-			}
-			req.Body = newBody
-		}
-
-		resp, err = client.Do(req)
-		if err != nil {
-			return fmt.Errorf("request failed: %w", err)
-		}
-
-		rlRemainingStr = resp.Header.Get("X-Ratelimit-Remaining")
-		rlRetryAfterStr := resp.Header.Get("Retry-After")
-		//println("Remaining:", rlRemainingStr, " | RetryAfter:", rlRetryAfterStr)
-
-		// If we have a rate limit, sleep for the time
-		rlRetryAfter, err := strconv.Atoi(rlRetryAfterStr)
-		if err == nil {
-			ac.logger.Warn().Msgf("anilist: Rate limited, retrying in %d seconds", rlRetryAfter+1)
-			if time.Since(sentRateLimitWarningTime) > 10*time.Second {
-				if events.GlobalWSEventManager != nil {
-					events.GlobalWSEventManager.SendEvent(events.WarningToast, "anilist: Rate limited, retrying in "+strconv.Itoa(rlRetryAfter+1)+" seconds")
-				}
-				sentRateLimitWarningTime = time.Now()
-			}
-			select {
-			case <-time.After(time.Duration(rlRetryAfter+1) * time.Second):
-				continue
-			}
-		}
-
-		if rlRemainingStr == "" {
-			select {
-			case <-time.After(5 * time.Second):
-				continue
-			}
-		}
-
-		break
+	resp, rlRemainingStr, err = doAniListRequestWithRetries(
+		http.DefaultClient,
+		req,
+		sharedAniListRateBlocker,
+		sleepWithContext,
+		func(waitSeconds int) {
+			notifyAniListRateLimit(ac.logger, waitSeconds)
+		},
+	)
+	if err != nil {
+		return err
 	}
 
 	defer resp.Body.Close()

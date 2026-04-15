@@ -17,6 +17,7 @@ import { useChangelogTourListener } from "@/app/(main)/_features/tour/changelog-
 
 import { useAnimeCollectionLoader } from "@/app/(main)/_hooks/anilist-collection-loader"
 import { useAnimeLibraryCollectionLoader } from "@/app/(main)/_hooks/anime-library-collection-loader"
+import { useMangaCollectionLoader } from "@/app/(main)/_hooks/manga-collection-loader"
 import { useMissingEpisodesLoader } from "@/app/(main)/_hooks/missing-episodes-loader"
 import { useAnimeCollectionListener } from "@/app/(main)/_listeners/anilist-collection.listeners"
 import { useAuthEventListeners } from "@/app/(main)/_listeners/auth.listeners.ts"
@@ -100,6 +101,7 @@ function Loader() {
      */
     useAnimeLibraryCollectionLoader()
     useAnimeCollectionLoader()
+    useMangaCollectionLoader()
     useMissingEpisodesLoader()
 
     /**

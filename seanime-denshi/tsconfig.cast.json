@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "outDir": "./dist/cast",
+    "rootDir": "./src/cast",
+    "declaration": true
+  },
+  "include": [
+    "src/cast/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "src/cast/receiver"
+  ]
+}

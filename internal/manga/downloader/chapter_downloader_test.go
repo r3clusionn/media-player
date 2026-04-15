@@ -1,29 +1,32 @@
 package chapter_downloader
 
 import (
+	"bytes"
+	"image"
+	"image/color"
+	"image/png"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"testing"
+
 	"seanime/internal/database/db"
 	"seanime/internal/events"
 	hibikemanga "seanime/internal/extension/hibike/manga"
-	"seanime/internal/test_utils"
-	"seanime/internal/util"
-	"testing"
-	"time"
+	"seanime/internal/testutil"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/goccy/go-json"
+	"github.com/stretchr/testify/require"
 )
 
-func TestQueue(t *testing.T) {
-	test_utils.InitTestProvider(t)
+func newTestDownloader(t *testing.T) (*Downloader, *db.Database, string) {
+	t.Helper()
 
-	tempDir := t.TempDir()
-
-	logger := util.NewLogger()
-	database, err := db.NewDatabase(tempDir, test_utils.ConfigData.Database.Name, logger)
-	if err != nil {
-		t.Fatalf("Failed to create database: %v", err)
-	}
-
-	downloadDir := t.TempDir()
+	env := testutil.NewTestEnv(t)
+	logger := env.Logger()
+	database := env.MustNewDatabase(logger)
+	downloadDir := env.MustMkdir("downloads")
 
 	downloader := NewDownloader(&NewDownloaderOptions{
 		Logger:         logger,
@@ -32,81 +35,107 @@ func TestQueue(t *testing.T) {
 		DownloadDir:    downloadDir,
 	})
 
-	downloader.Start()
+	return downloader, database, downloadDir
+}
 
-	tests := []struct {
-		name         string
-		providerName string
-		provider     hibikemanga.Provider
-		mangaId      string
-		mediaId      int
-		chapterIndex uint
-	}{
-		{
-			//providerName: manga_providers.REPLACE,
-			//provider:     manga_providers.REPLACE(util.NewLogger()),
-			//name:         "Jujutsu Kaisen",
-			//mangaId:      "TA22I5O7",
-			//chapterIndex: 258,
-			//mediaId:      101517,
-		},
-		{
-			//providerName: manga_providers.REPLACE,
-			//provider:     manga_providers.REPLACE(util.NewLogger()),
-			//name:         "Jujutsu Kaisen",
-			//mangaId:      "TA22I5O7",
-			//chapterIndex: 259,
-			//mediaId:      101517,
-		},
+func newTestPNG(t *testing.T) []byte {
+	t.Helper()
+
+	var buf bytes.Buffer
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{R: 255, G: 128, B: 64, A: 255})
+	require.NoError(t, png.Encode(&buf, img))
+
+	return buf.Bytes()
+}
+
+func TestQueueAddsItemToDatabase(t *testing.T) {
+	downloader, database, _ := newTestDownloader(t)
+
+	pages := []*hibikemanga.ChapterPage{{
+		Index: 0,
+		URL:   "https://example.com/01.png",
+	}}
+	id := DownloadID{
+		Provider:      "test-provider",
+		MediaId:       101517,
+		ChapterId:     "chapter-1",
+		ChapterNumber: "1",
 	}
 
-	for _, tt := range tests {
+	err := downloader.AddToQueue(DownloadOptions{
+		DownloadID: id,
+		Pages:      pages,
+		StartNow:   false,
+	})
+	require.NoError(t, err)
 
-		t.Run(tt.name, func(t *testing.T) {
+	next, err := database.GetNextChapterDownloadQueueItem()
+	require.NoError(t, err)
+	require.NotNil(t, next)
+	require.Equal(t, id.Provider, next.Provider)
+	require.Equal(t, id.MediaId, next.MediaID)
+	require.Equal(t, id.ChapterId, next.ChapterID)
+	require.Equal(t, id.ChapterNumber, next.ChapterNumber)
+	require.Equal(t, string(QueueStatusNotStarted), next.Status)
+	require.NotEmpty(t, next.PageData)
+}
 
-			// SETUP
-			chapters, err := tt.provider.FindChapters(tt.mangaId)
-			if assert.NoError(t, err, "comick.FindChapters() error") {
+func TestDownloadChapterImagesWritesRegistry(t *testing.T) {
+	downloader, database, downloadDir := newTestDownloader(t)
 
-				assert.NotEmpty(t, chapters, "chapters is empty")
+	imageData := newTestPNG(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write(imageData)
+	}))
+	defer server.Close()
 
-				var chapterInfo *hibikemanga.ChapterDetails
-				for _, chapter := range chapters {
-					if chapter.Index == tt.chapterIndex {
-						chapterInfo = chapter
-						break
-					}
-				}
-
-				if assert.NotNil(t, chapterInfo, "chapter not found") {
-					pages, err := tt.provider.FindChapterPages(chapterInfo.ID)
-					if assert.NoError(t, err, "provider.FindChapterPages() error") {
-						assert.NotEmpty(t, pages, "pages is empty")
-
-						//
-						// TEST
-						//
-						err := downloader.AddToQueue(DownloadOptions{
-							DownloadID: DownloadID{
-								Provider:      string(tt.providerName),
-								MediaId:       tt.mediaId,
-								ChapterId:     chapterInfo.ID,
-								ChapterNumber: chapterInfo.Chapter,
-							},
-							Pages:    pages,
-							StartNow: true,
-						})
-						if err != nil {
-							t.Fatalf("Failed to download chapter: %v", err)
-						}
-
-					}
-				}
-			}
-
-		})
-
+	pages := []*hibikemanga.ChapterPage{{
+		Index: 0,
+		URL:   server.URL + "/page.png",
+	}}
+	id := DownloadID{
+		Provider:      "test-provider",
+		MediaId:       101517,
+		ChapterId:     "chapter-1",
+		ChapterNumber: "1",
 	}
 
-	time.Sleep(10 * time.Second)
+	err := downloader.AddToQueue(DownloadOptions{
+		DownloadID: id,
+		Pages:      pages,
+		StartNow:   false,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, database.UpdateChapterDownloadQueueItemStatus(id.Provider, id.MediaId, id.ChapterId, string(QueueStatusDownloading)))
+	downloader.queue.current = &QueueInfo{
+		DownloadID: id,
+		Pages:      pages,
+		Status:     QueueStatusDownloading,
+	}
+
+	err = downloader.downloadChapterImages(downloader.queue.current)
+	require.NoError(t, err)
+
+	chapterDir := filepath.Join(downloadDir, FormatChapterDirName(id.Provider, id.MediaId, id.ChapterId, id.ChapterNumber))
+	registryPath := filepath.Join(chapterDir, "registry.json")
+	registryBytes, err := os.ReadFile(registryPath)
+	require.NoError(t, err)
+
+	var registry Registry
+	require.NoError(t, json.Unmarshal(registryBytes, &registry))
+	require.Len(t, registry, 1)
+	pageInfo, ok := registry[0]
+	require.True(t, ok)
+	require.Equal(t, "01.png", pageInfo.Filename)
+	require.Equal(t, server.URL+"/page.png", pageInfo.OriginalURL)
+
+	_, err = os.Stat(filepath.Join(chapterDir, pageInfo.Filename))
+	require.NoError(t, err)
+
+	queueItems, err := database.GetChapterDownloadQueue()
+	require.NoError(t, err)
+	require.Empty(t, queueItems)
 }

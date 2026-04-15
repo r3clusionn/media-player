@@ -8,6 +8,7 @@ import { MediaEpisodeInfoModal } from "@/app/(main)/_features/media/_components/
 import { EpisodePillsGrid } from "@/app/(main)/_features/video-core/_components/episode-pills-grid"
 import { useIsCodecSupported } from "@/app/(main)/_features/video-core/_lib/hooks"
 import { VideoCore, VideoCoreProvider } from "@/app/(main)/_features/video-core/video-core"
+import { vc_isFullscreen } from "@/app/(main)/_features/video-core/video-core-atoms.ts"
 import {
     VideoCoreInlineHelpers,
     VideoCoreInlineHelperUpdateProgressButton,
@@ -24,6 +25,7 @@ import { PageWrapper } from "@/components/shared/page-wrapper"
 
 import { Alert } from "@/components/ui/alert"
 import { Button, IconButton } from "@/components/ui/button"
+import { cn } from "@/components/ui/core/styling.ts"
 import { Modal } from "@/components/ui/modal"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -45,8 +47,9 @@ const log = logger("MEDIASTREAM")
 const __mediastream_episodeViewModeAtom = atomWithStorage<"list" | "grid">("sea-mediastream-episode-view-mode", "list")
 
 export default function Page() {
+    const vc_fullscreen = useAtomValue(vc_isFullscreen)
     return (
-        <PageWrapper className="px-4">
+        <PageWrapper className={cn("px-4", vc_fullscreen && "z-[100]")}>
             <MediastreamPage />
         </PageWrapper>
     )
@@ -105,11 +108,13 @@ function MediastreamPage() {
     const [subsToken, setSubsToken] = React.useState("")
     const [attToken, setAttToken] = React.useState("")
     const [directToken, setDirectToken] = React.useState("")
+    const [transcodeToken, setTranscodeToken] = React.useState("")
     React.useEffect(() => {
         (async () => {
             setSubsToken(await getHMACTokenQueryParam("/api/v1/mediastream/subs", "?"))
             setAttToken(await getHMACTokenQueryParam("/api/v1/mediastream/att", "?"))
             setDirectToken(await getHMACTokenQueryParam("/api/v1/mediastream/direct", "?"))
+            setTranscodeToken(await getHMACTokenQueryParam("/api/v1/mediastream/transcode", "?"))
         })()
     }, [getHMACTokenQueryParam])
 
@@ -188,6 +193,8 @@ function MediastreamPage() {
             // Append HMAC token for direct play URLs
             if (mediaContainer.streamType === "direct" && directToken) {
                 _newUrl += directToken
+            } else if (mediaContainer.streamType === "transcode" && transcodeToken) {
+                _newUrl += transcodeToken
             }
             log.info("Setting stream URL", _newUrl)
             changeUrl(_newUrl)

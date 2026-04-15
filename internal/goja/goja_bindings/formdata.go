@@ -14,19 +14,58 @@ import (
 // formData
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+const formDataInternalProperty = "__seanimeFormData"
+
 func BindFormData(vm *goja.Runtime) error {
 	err := vm.Set("FormData", func(call goja.ConstructorCall) *goja.Object {
 		fd := newFormData(vm)
+		instance := call.This
+		_ = instance.DefineDataProperty(formDataInternalProperty, vm.ToValue(fd), goja.FLAG_FALSE, goja.FLAG_FALSE, goja.FLAG_FALSE)
+		setFormDataObjectProperties(instance, fd)
 
-		instanceValue := vm.ToValue(fd).(*goja.Object)
-		instanceValue.SetPrototype(call.This.Prototype())
-
-		return instanceValue
+		return instance
 	})
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func getFormDataFromValue(vm *goja.Runtime, value goja.Value) (*formData, bool) {
+	if value == nil || goja.IsUndefined(value) || goja.IsNull(value) {
+		return nil, false
+	}
+
+	if fd, ok := value.Export().(*formData); ok {
+		return fd, true
+	}
+
+	obj := value.ToObject(vm)
+	if obj == nil {
+		return nil, false
+	}
+
+	internal := obj.Get(formDataInternalProperty)
+	if internal == nil || goja.IsUndefined(internal) || goja.IsNull(internal) {
+		return nil, false
+	}
+
+	fd, ok := internal.Export().(*formData)
+	return fd, ok
+}
+
+func setFormDataObjectProperties(obj *goja.Object, fd *formData) {
+	_ = obj.Set("append", fd.Append)
+	_ = obj.Set("delete", fd.Delete)
+	_ = obj.Set("entries", fd.Entries)
+	_ = obj.Set("get", fd.Get)
+	_ = obj.Set("getAll", fd.GetAll)
+	_ = obj.Set("has", fd.Has)
+	_ = obj.Set("keys", fd.Keys)
+	_ = obj.Set("set", fd.Set)
+	_ = obj.Set("values", fd.Values)
+	_ = obj.Set("getContentType", fd.GetContentType)
+	_ = obj.Set("getBuffer", fd.GetBuffer)
 }
 
 type formData struct {

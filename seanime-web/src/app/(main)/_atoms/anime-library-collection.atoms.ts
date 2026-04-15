@@ -1,6 +1,7 @@
-import { Anime_LibraryCollection } from "@/api/generated/types"
+import { Anime_LibraryCollection, Anime_LibraryCollectionEntry } from "@/api/generated/types"
 import { atom } from "jotai"
 import { derive } from "jotai-derive"
+import { atomFamily } from "jotai-family"
 
 export const animeLibraryCollectionAtom = atom<Anime_LibraryCollection | undefined>(undefined)
 export const animeLibraryCollectionWithoutStreamsAtom = derive([animeLibraryCollectionAtom], (animeLibraryCollection) => {
@@ -16,12 +17,20 @@ export const animeLibraryCollectionWithoutStreamsAtom = derive([animeLibraryColl
     } as Anime_LibraryCollection
 })
 
-export const getAtomicLibraryEntryAtom = atom(get => get(animeLibraryCollectionAtom)?.lists?.length,
-    (get, set, payload: number) => {
-        const lists = get(animeLibraryCollectionAtom)?.lists
-        if (!lists) {
-            return undefined
-        }
-        return lists.flatMap(n => n.entries)?.filter(Boolean).find(n => n.mediaId === payload)
-    },
-)
+const animeLibraryEntryIndexAtom = atom<Record<number, Anime_LibraryCollectionEntry>>((get) => {
+    const index: Record<number, Anime_LibraryCollectionEntry> = {}
+
+    get(animeLibraryCollectionAtom)?.lists?.forEach(list => {
+        list.entries?.forEach(entry => {
+            if (!entry) {
+                return
+            }
+
+            index[entry.mediaId] = entry
+        })
+    })
+
+    return index
+})
+
+export const getAnimeLibraryEntryAtom = atomFamily((mediaId: number) => atom((get) => get(animeLibraryEntryIndexAtom)[mediaId]))

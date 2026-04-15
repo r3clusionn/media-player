@@ -43,6 +43,7 @@ import { vc_skipOpeningTime } from "@/app/(main)/_features/video-core/video-core
 import { vc_skipEndingTime } from "@/app/(main)/_features/video-core/video-core-atoms"
 import { VideoCoreAudioManager } from "@/app/(main)/_features/video-core/video-core-audio"
 import { VideoCoreAudioMenu } from "@/app/(main)/_features/video-core/video-core-audio-menu"
+import { CastPlaybackControls, useCastSubtitleRelay, vc_isCasting, VideoCoreCastButton } from "@/app/(main)/_features/video-core/video-core-cast"
 import {
     VideoCoreControlBar,
     VideoCoreFullscreenButton,
@@ -128,7 +129,7 @@ import { Button, IconButton } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { logger } from "@/lib/helpers/debug"
-import { __isDesktop__ } from "@/types/constants"
+import { __isDesktop__, __isElectronDesktop__ } from "@/types/constants"
 import { useQueryClient } from "@tanstack/react-query"
 import { ErrorData } from "hls.js"
 import { atom } from "jotai"
@@ -314,6 +315,10 @@ const PlayerContent = React.memo<PlayerContentProps>(({
     const [autoPlay] = useAtom(vc_autoPlayVideoAtom)
     const [muted] = useAtom(vc_storedMutedAtom)
     const showStats = useAtomValue(vc_showStatsForNerdsAtom)
+    const isCastingActive = useAtomValue(vc_isCasting)
+
+    // Relay subtitles to Chromecast when casting
+    useCastSubtitleRelay()
 
     return (
         <>
@@ -522,6 +527,15 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                             </div>
                         )}
 
+                        {isCastingActive && (
+                            <div
+                                data-vc-element="cast-overlay"
+                                className="absolute bottom-20 left-4 right-4 z-[60]"
+                            >
+                                <CastPlaybackControls />
+                            </div>
+                        )}
+
                         {!isMobile ? <VideoCoreControlBar
                             timeRange={<VideoCoreTimeRange chapterCues={chapterCues ?? []} />}
                         >
@@ -536,6 +550,7 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                             <VideoCoreResolutionMenu state={state} onVideoSourceChange={onVideoSourceChange} />
                             <VideoCoreSubtitleMenu inline={inline} />
                             <VideoCoreAudioMenu />
+                            <VideoCoreCastButton />
                             <VideoCorePipButton />
                             <VideoCoreFullscreenButton />
                         </VideoCoreControlBar> : <VideoCoreMobileControlBar
@@ -548,6 +563,7 @@ const PlayerContent = React.memo<PlayerContentProps>(({
                                 <VideoCoreResolutionMenu state={state} onVideoSourceChange={onVideoSourceChange} />
                                 <VideoCoreSubtitleMenu inline={inline} />
                                 <VideoCoreAudioMenu />
+                                <VideoCoreCastButton />
                                 <VideoCorePipButton />
                                 <VideoCoreVolumeButton />
                             </>}
@@ -734,6 +750,24 @@ export function VideoCore(props: VideoCoreProps) {
 
     React.useEffect(() => {
         setIsMiniPlayer(false)
+    }, [])
+
+    React.useEffect(() => {
+        if (!__isElectronDesktop__ || !window.electron?.on) return
+
+        const pausePlayback = () => {
+            if (videoRef.current && !videoRef.current.paused && !videoRef.current.ended) {
+                videoRef.current.pause()
+            }
+        }
+
+        const removeMinimizedListener = window.electron.on("window:minimized", pausePlayback)
+        const removeHiddenListener = window.electron.on("window:hidden", pausePlayback)
+
+        return () => {
+            removeMinimizedListener?.()
+            removeHiddenListener?.()
+        }
     }, [])
 
     // Track if this player should dispatch terminated event on unmount

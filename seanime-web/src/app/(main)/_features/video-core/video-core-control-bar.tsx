@@ -251,7 +251,7 @@ export function VideoCoreMobileControlBar(props: {
     const [, setHoveringControlBar] = useAtom(vc_hoveringControlBar)
 
     const [isSwipingDebounced, setIsSwipingDebounced] = React.useState(false)
-    const sieT = React.useRef<NodeJS.Timeout>()
+    const sieT = React.useRef<ReturnType<typeof setTimeout> | null>(null)
     React.useEffect(() => {
         if (isSwiping) {
             setIsSwipingDebounced(true)

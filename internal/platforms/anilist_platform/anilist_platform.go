@@ -24,6 +24,7 @@ type (
 		logger                 *zerolog.Logger
 		username               mo.Option[string]
 		anilistClient          anilist.AnilistClient
+		useFixtureCollections  bool
 		animeCollection        mo.Option[*anilist.AnimeCollection]
 		rawAnimeCollection     mo.Option[*anilist.AnimeCollection]
 		mangaCollection        mo.Option[*anilist.MangaCollection]
@@ -37,17 +38,20 @@ type (
 )
 
 func NewAnilistPlatform(anilistClientRef *util.Ref[anilist.AnilistClient], extensionBankRef *util.Ref[*extension.UnifiedBank], logger *zerolog.Logger, db *db.Database, logoutFunc ...func()) platform.Platform {
+	_, useFixtureCollections := anilistClientRef.Get().(*anilist.FixtureAnilistClient)
+
 	ap := &AnilistPlatform{
-		anilistClient:      shared_platform.NewCacheLayer(anilistClientRef, logoutFunc...),
-		logger:             logger,
-		username:           mo.None[string](),
-		animeCollection:    mo.None[*anilist.AnimeCollection](),
-		rawAnimeCollection: mo.None[*anilist.AnimeCollection](),
-		mangaCollection:    mo.None[*anilist.MangaCollection](),
-		rawMangaCollection: mo.None[*anilist.MangaCollection](),
-		extensionBankRef:   extensionBankRef,
-		helper:             shared_platform.NewPlatformHelper(extensionBankRef, db, logger),
-		db:                 db,
+		anilistClient:         shared_platform.NewCacheLayer(anilistClientRef, logoutFunc...),
+		logger:                logger,
+		username:              mo.None[string](),
+		useFixtureCollections: useFixtureCollections,
+		animeCollection:       mo.None[*anilist.AnimeCollection](),
+		rawAnimeCollection:    mo.None[*anilist.AnimeCollection](),
+		mangaCollection:       mo.None[*anilist.MangaCollection](),
+		rawMangaCollection:    mo.None[*anilist.MangaCollection](),
+		extensionBankRef:      extensionBankRef,
+		helper:                shared_platform.NewPlatformHelper(extensionBankRef, db, logger),
+		db:                    db,
 	}
 
 	return ap
@@ -74,6 +78,17 @@ func (ap *AnilistPlatform) SetUsername(username string) {
 func (ap *AnilistPlatform) SetAnilistClient(client anilist.AnilistClient) {
 	// Set the AnilistClient for the AnilistPlatform
 	ap.anilistClient = client
+}
+
+func (ap *AnilistPlatform) getUsername() (*string, bool) {
+	if ap.username.IsPresent() {
+		return ap.username.ToPointer(), true
+	}
+	if ap.useFixtureCollections {
+		return nil, true
+	}
+
+	return nil, false
 }
 
 func (ap *AnilistPlatform) UpdateEntry(ctx context.Context, mediaID int, status *anilist.MediaListStatus, scoreRaw *int, progress *int, startedAt *anilist.FuzzyDateInput, completedAt *anilist.FuzzyDateInput) error {
@@ -337,7 +352,7 @@ func (ap *AnilistPlatform) GetAnimeCollection(ctx context.Context, bypassCache b
 		return event.AnimeCollection, nil
 	}
 
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -368,7 +383,7 @@ func (ap *AnilistPlatform) GetRawAnimeCollection(ctx context.Context, bypassCach
 		return event.AnimeCollection, nil
 	}
 
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -389,7 +404,7 @@ func (ap *AnilistPlatform) GetRawAnimeCollection(ctx context.Context, bypassCach
 }
 
 func (ap *AnilistPlatform) RefreshAnimeCollection(ctx context.Context) (*anilist.AnimeCollection, error) {
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -418,12 +433,13 @@ func (ap *AnilistPlatform) RefreshAnimeCollection(ctx context.Context) (*anilist
 }
 
 func (ap *AnilistPlatform) refreshAnimeCollection(ctx context.Context) error {
-	if ap.username.IsAbsent() {
+	userName, ok := ap.getUsername()
+	if !ok {
 		return errors.New("anilist: Username is not set")
 	}
 
 	// Else, get the collection from Anilist
-	collection, err := ap.anilistClient.AnimeCollection(ctx, ap.username.ToPointer())
+	collection, err := ap.anilistClient.AnimeCollection(ctx, userName)
 	if err != nil {
 		return err
 	}
@@ -450,11 +466,12 @@ func (ap *AnilistPlatform) refreshAnimeCollection(ctx context.Context) error {
 func (ap *AnilistPlatform) GetAnimeCollectionWithRelations(ctx context.Context) (*anilist.AnimeCollectionWithRelations, error) {
 	ap.logger.Trace().Msg("anilist platform: Fetching anime collection with relations")
 
-	if ap.username.IsAbsent() {
+	userName, ok := ap.getUsername()
+	if !ok {
 		return nil, nil
 	}
 
-	ret, err := ap.anilistClient.AnimeCollectionWithRelations(ctx, ap.username.ToPointer())
+	ret, err := ap.anilistClient.AnimeCollectionWithRelations(ctx, userName)
 	if err != nil {
 		return nil, err
 	}
@@ -474,7 +491,7 @@ func (ap *AnilistPlatform) GetMangaCollection(ctx context.Context, bypassCache b
 		return event.MangaCollection, nil
 	}
 
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -508,7 +525,7 @@ func (ap *AnilistPlatform) GetRawMangaCollection(ctx context.Context, bypassCach
 		return event.MangaCollection, nil
 	}
 
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -529,7 +546,7 @@ func (ap *AnilistPlatform) GetRawMangaCollection(ctx context.Context, bypassCach
 }
 
 func (ap *AnilistPlatform) RefreshMangaCollection(ctx context.Context) (*anilist.MangaCollection, error) {
-	if ap.username.IsAbsent() {
+	if _, ok := ap.getUsername(); !ok {
 		return nil, nil
 	}
 
@@ -558,11 +575,12 @@ func (ap *AnilistPlatform) RefreshMangaCollection(ctx context.Context) (*anilist
 }
 
 func (ap *AnilistPlatform) refreshMangaCollection(ctx context.Context) error {
-	if ap.username.IsAbsent() {
+	userName, ok := ap.getUsername()
+	if !ok {
 		return errors.New("anilist: Username is not set")
 	}
 
-	collection, err := ap.anilistClient.MangaCollection(ctx, ap.username.ToPointer())
+	collection, err := ap.anilistClient.MangaCollection(ctx, userName)
 	if err != nil {
 		return err
 	}

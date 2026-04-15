@@ -83,6 +83,20 @@ func (r *Repository) listenToNativePlayerEvents() {
 			if e.GetPlayerType() != videocore.NativePlayer {
 				continue
 			}
+			if !e.IsTorrent() {
+				continue
+			}
+
+			playbackID, clientID, ok := r.directStreamManager.GetCurrentPlaybackIdentity()
+			if !ok {
+				continue
+			}
+			if clientID != "" && e.GetClientId() != "" && e.GetClientId() != clientID {
+				continue
+			}
+			if playbackID != "" && e.GetPlaybackId() != "" && e.GetPlaybackId() != playbackID {
+				continue
+			}
 
 			switch event := e.(type) {
 			case *videocore.VideoLoadedEvent:
@@ -113,19 +127,6 @@ func (r *Repository) listenToNativePlayerEvents() {
 			case *videocore.VideoTerminatedEvent:
 				r.logger.Debug().Msg("torrentstream: Native player terminated event received")
 				r.playback.currentVideoDuration = 0
-				// Only handle the event if we actually have a current torrent to avoid unnecessary cleanup
-				if r.client.currentTorrent.IsPresent() {
-					go func() {
-						defer func() {
-							if rec := recover(); rec != nil {
-								r.logger.Error().Msg("torrentstream: Recovered from panic in VideoTerminatedEvent handler")
-							}
-						}()
-						r.logger.Debug().Msg("torrentstream: Stopping stream due to native player termination")
-						// Stop the stream
-						_ = r.StopStream()
-					}()
-				}
 			}
 
 		}

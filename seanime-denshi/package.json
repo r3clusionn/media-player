@@ -1,6 +1,6 @@
 {
   "name": "seanime-denshi",
-  "version": "3.5.2",
+  "version": "3.6.0",
   "description": "Electron-based Desktop client for Seanime",
   "main": "src/main.js",
   "author": "5rahim <talkwithrahim@gmail.com>",
@@ -12,8 +12,10 @@
     "build:linux": "electron-builder build --linux --x64"
   },
   "dependencies": {
+    "castv2": "^0.1.10",
     "electron-log": "^5.4.3",
     "electron-updater": "^6.7.3",
+    "mdns-js": "^1.0.3",
     "mime-types": "^2.1.35",
     "strip-ansi": "^7.1.0"
   },

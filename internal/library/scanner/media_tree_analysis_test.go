@@ -3,9 +3,6 @@ package scanner
 import (
 	"context"
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
-	"seanime/internal/test_utils"
 	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
@@ -16,18 +13,9 @@ import (
 )
 
 func TestMediaTreeAnalysis(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-
-	anilistRateLimiter := limiter.NewAnilistLimiter()
-	tree := anilist.NewCompleteAnimeRelationTree()
-
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, util.NewLogger())
-	if err != nil {
-		t.Fatal(err)
-	}
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerLiveHarness(t)
+	anilistClient := harness.AnilistClient
+	anilistRateLimiter := harness.AnilistRateLimiter
 
 	tests := []struct {
 		name                          string
@@ -64,6 +52,7 @@ func TestMediaTreeAnalysis(t *testing.T) {
 				t.Fatal("expected media, got not found")
 			}
 			media := mediaF.GetMedia()
+			tree := anilist.NewCompleteAnimeRelationTree()
 
 			// +---------------------+
 			// |     MediaTree       |
@@ -87,7 +76,7 @@ func TestMediaTreeAnalysis(t *testing.T) {
 
 			mta, err := NewMediaTreeAnalysis(&MediaTreeAnalysisOptions{
 				tree:                tree,
-				metadataProviderRef: util.NewRef(metadataProvider),
+				metadataProviderRef: util.NewRef(harness.MetadataProvider),
 				rateLimiter:         limiter.NewLimiter(time.Minute, 25),
 			})
 			if err != nil {
@@ -113,16 +102,9 @@ func TestMediaTreeAnalysis(t *testing.T) {
 }
 
 func TestMediaTreeAnalysis2(t *testing.T) {
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	anilistRateLimiter := limiter.NewAnilistLimiter()
-	tree := anilist.NewCompleteAnimeRelationTree()
-
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, util.NewLogger())
-	if err != nil {
-		t.Fatal(err)
-	}
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	harness := newScannerLiveHarness(t)
+	anilistClient := harness.AnilistClient
+	anilistRateLimiter := harness.AnilistRateLimiter
 
 	tests := []struct {
 		name    string
@@ -142,6 +124,7 @@ func TestMediaTreeAnalysis2(t *testing.T) {
 			if err != nil {
 				t.Fatal("expected media, got error:", err.Error())
 			}
+			tree := anilist.NewCompleteAnimeRelationTree()
 
 			// +---------------------+
 			// |     MediaTree       |
@@ -165,7 +148,7 @@ func TestMediaTreeAnalysis2(t *testing.T) {
 
 			mta, err := NewMediaTreeAnalysis(&MediaTreeAnalysisOptions{
 				tree:                tree,
-				metadataProviderRef: util.NewRef(metadataProvider),
+				metadataProviderRef: util.NewRef(harness.MetadataProvider),
 				rateLimiter:         limiter.NewLimiter(time.Minute, 25),
 			})
 			if err != nil {

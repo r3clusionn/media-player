@@ -18,8 +18,7 @@ func (h *Handler) OptionalAuthMiddleware(next echo.HandlerFunc) echo.HandlerFunc
 
 		// Allow the following paths to be accessed by anyone
 		if path == "/api/v1/status" || // public but restricted
-			path == "/events" || // for server events (auth handled by websocket handler)
-			strings.HasPrefix(path, "/api/v1/mediastream/transcode/") { // HLS segments (TODO: secure later)
+			path == "/events" { // for server events (auth handled by websocket handler)
 
 			if path == "/api/v1/status" {
 				// allow status requests by all clients but mark as unauthenticated

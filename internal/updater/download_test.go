@@ -7,9 +7,11 @@ import (
 	"testing"
 
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/require"
 )
 
 func TestUpdater_DownloadLatestRelease(t *testing.T) {
+	newUpdaterTestFixture(t)
 
 	updater := New("0.2.0", util.NewLogger(), nil)
 
@@ -17,9 +19,7 @@ func TestUpdater_DownloadLatestRelease(t *testing.T) {
 
 	// Get the latest release
 	release, err := updater.GetLatestRelease("github")
-	if err != nil {
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	// Find the asset (zip file)
 	asset, ok := lo.Find(release.Assets, func(asset ReleaseAsset) bool {
@@ -31,10 +31,7 @@ func TestUpdater_DownloadLatestRelease(t *testing.T) {
 
 	// Download the asset
 	folderPath, err := updater.DownloadLatestRelease(asset.BrowserDownloadUrl, tempDir)
-	if err != nil {
-		t.Log("Downloaded to:", folderPath)
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	t.Log("Downloaded to:", folderPath)
 
@@ -67,10 +64,7 @@ func TestUpdater_DownloadLatestRelease(t *testing.T) {
 
 	// Download the asset
 	folderPath2, err := updater.DownloadLatestRelease(asset2.BrowserDownloadUrl, tempDir)
-	if err != nil {
-		t.Log("Downloaded to:", folderPath2)
-		t.Fatal(err)
-	}
+	require.NoError(t, err)
 
 	t.Log("Downloaded to:", folderPath2)
 

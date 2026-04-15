@@ -5,9 +5,9 @@ import (
 	"seanime/internal/api/anilist"
 	"seanime/internal/database/db_bridge"
 	"seanime/internal/database/models"
+	"seanime/internal/debrid/debrid"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/library/anime"
-	"seanime/internal/test_utils"
 	"seanime/internal/torrent_clients/torrent_client"
 	"seanime/internal/util"
 	"testing"
@@ -233,14 +233,26 @@ func TestGetRuleProfiles(t *testing.T) {
 	}
 }
 
+func TestBuildExistingTorrentHashes(t *testing.T) {
+	hashes := buildExistingTorrentHashes(
+		[]*torrent_client.Torrent{{Hash: " hash1 "}, {Hash: "HASH2"}},
+		[]*debrid.TorrentItem{{Hash: "hash3"}, {Hash: "HaSh4"}, {Hash: ""}},
+	)
+
+	assert.Len(t, hashes, 4)
+	assert.Contains(t, hashes, "hash1")
+	assert.Contains(t, hashes, "hash2")
+	assert.Contains(t, hashes, "hash3")
+	assert.Contains(t, hashes, "hash4")
+}
+
 func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 	ad := &AutoDownloader{}
 
-	existingTorrents := []*torrent_client.Torrent{
-		{Hash: "hash1"},
-		{Hash: "hash2"},
-		{Hash: "hash3"},
-	}
+	existingTorrentHashes := buildExistingTorrentHashes(
+		[]*torrent_client.Torrent{{Hash: "hash1"}, {Hash: "hash2"}},
+		[]*debrid.TorrentItem{{Hash: "hash3"}},
+	)
 
 	tests := []struct {
 		name     string
@@ -250,7 +262,14 @@ func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 		{
 			name: "torrent exists",
 			torrent: &NormalizedTorrent{
-				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: "hash2"},
+				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: " HASH2 "},
+			},
+			expected: true,
+		},
+		{
+			name: "torrent exists in debrid hashes",
+			torrent: &NormalizedTorrent{
+				AnimeTorrent: &hibiketorrent.AnimeTorrent{InfoHash: "hash3"},
 			},
 			expected: true,
 		},
@@ -265,7 +284,7 @@ func TestIsTorrentAlreadyDownloaded(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ad.isTorrentAlreadyDownloaded(tt.torrent, existingTorrents)
+			result := ad.isTorrentAlreadyDownloaded(tt.torrent, existingTorrentHashes)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -953,9 +972,7 @@ func TestIsProfileValidChecks(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	require.NoError(t, err)
 
@@ -1139,15 +1156,15 @@ func TestIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new fake
-			fake := &Fake{
+			harness := &TestHarness{
 				GetLatestResults: tt.torrents,
 				SearchResults:    tt.torrents,
 			}
-			ad := fake.New(t)
+			ad := harness.New(t)
 			ad.SetAnimeCollection(animeCollection)
 
 			// Add local files to the database
-			_, err = fake.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+			_, err = harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 			require.NoError(t, err)
 
 			// Set user progress
@@ -1193,13 +1210,17 @@ func TestIntegration(t *testing.T) {
 }
 
 func TestDelayIntegration(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
 	require.NoError(t, err)
 
 	mediaId := 154587 // Sousou no Frieren
+	testAnimeCollection := animeCollection.Copy()
+	require.NotNil(t, testAnimeCollection)
+	entry, found := testAnimeCollection.GetListEntryFromAnimeId(mediaId)
+	require.True(t, found)
+	progress := 0
+	entry.Progress = &progress
 
 	tests := []struct {
 		name                 string
@@ -1229,7 +1250,7 @@ func TestDelayIntegration(t *testing.T) {
 		{
 			name: "Queue item for delay",
 			torrents: []*hibiketorrent.AnimeTorrent{
-				{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1", Seeders: 100},
+				{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1", MagnetLink: "magnet:?xt=urn:btih:hash1", Seeders: 100},
 			},
 			profile: &anime.AutoDownloaderProfile{
 				Conditions:     []anime.AutoDownloaderCondition{{Term: "1080p", Action: anime.AutoDownloaderProfileRuleFormatActionScore, Score: 10}},
@@ -1242,6 +1263,7 @@ func TestDelayIntegration(t *testing.T) {
 				assert.True(t, items[0].IsDelayed)   // MUST be true
 				assert.False(t, items[0].Downloaded) // will always be false
 				assert.Equal(t, "hash1", items[0].Hash)
+				assert.Equal(t, "magnet:?xt=urn:btih:hash1", items[0].Magnet)
 			},
 		},
 		{
@@ -1274,7 +1296,7 @@ func TestDelayIntegration(t *testing.T) {
 					Hash:        "hash1",
 					IsDelayed:   true,
 					DelayUntil:  time.Now().Add(-1 * time.Minute), // Expired
-					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1"}}),
+					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash1"}, ExtensionID: "fake"}),
 				},
 			},
 			profile: &anime.AutoDownloaderProfile{
@@ -1291,7 +1313,7 @@ func TestDelayIntegration(t *testing.T) {
 		{
 			name: "Upgrade delayed item",
 			torrents: []*hibiketorrent.AnimeTorrent{
-				{Name: "[BetterGroup] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash_better", Seeders: 100}, // Score 20
+				{Name: "[BetterGroup] Sousou no Frieren - 01 (1080p).mkv", InfoHash: "hash_better", MagnetLink: "magnet:?xt=urn:btih:hash_better", Seeders: 100}, // Score 20
 			},
 			existingItems: []*models.AutoDownloaderItem{
 				{
@@ -1299,10 +1321,11 @@ func TestDelayIntegration(t *testing.T) {
 					MediaID:     mediaId,
 					Episode:     1,
 					Hash:        "hash_bad",
+					Magnet:      "magnet:?xt=urn:btih:hash_bad",
 					Score:       10,
 					IsDelayed:   true,
 					DelayUntil:  time.Now().Add(5 * time.Minute), // Not expired
-					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "Name", InfoHash: "hash_bad"}}),
+					TorrentData: mustMarshalTorrent(&NormalizedTorrent{AnimeTorrent: &hibiketorrent.AnimeTorrent{Name: "Name", InfoHash: "hash_bad"}, ExtensionID: "fake"}),
 				},
 			},
 			profile: &anime.AutoDownloaderProfile{
@@ -1318,6 +1341,7 @@ func TestDelayIntegration(t *testing.T) {
 				require.Len(t, items, 1)
 				assert.True(t, items[0].IsDelayed)
 				assert.Equal(t, "hash_better", items[0].Hash) // Updated hash
+				assert.Equal(t, "magnet:?xt=urn:btih:hash_better", items[0].Magnet)
 				assert.Equal(t, 20, items[0].Score)
 			},
 		},
@@ -1325,9 +1349,9 @@ func TestDelayIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fake := &Fake{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
+			fake := &TestHarness{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
 			ad := fake.New(t)
-			ad.SetAnimeCollection(animeCollection)
+			ad.SetAnimeCollection(testAnimeCollection.Copy())
 
 			// Setup DB
 			_, _ = fake.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})

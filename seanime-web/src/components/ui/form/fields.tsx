@@ -13,7 +13,6 @@ import { Autocomplete, AutocompleteProps } from "../autocomplete"
 import { BasicFieldOptions } from "../basic-field"
 import { Checkbox, CheckboxGroup, CheckboxGroupProps, CheckboxProps } from "../checkbox"
 import { Combobox, ComboboxProps } from "../combobox"
-import { CurrencyInput, CurrencyInputProps } from "../currency-input"
 import { DatePicker, DatePickerProps, DateRangePicker, DateRangePickerProps } from "../date-picker"
 import { NativeSelect, NativeSelectProps } from "../native-select"
 import { NumberInput, NumberInputProps } from "../number-input"
@@ -352,17 +351,6 @@ const RadioCardsField = React.memo(withControlledInput(forwardRef<HTMLButtonElem
     },
 )))
 
-
-const CurrencyInputField = React.memo(withControlledInput(forwardRef<HTMLInputElement, FieldComponent<CurrencyInputProps>>(
-    ({ onChange, ...props }, ref) => {
-        return <CurrencyInput
-            {...props}
-            onValueChange={onChange}
-            ref={ref}
-        />
-    },
-)))
-
 const AutocompleteField = React.memo(withControlledInput(forwardRef<HTMLInputElement, FieldComponent<AutocompleteProps>>(
     ({ onChange, ...props }, ref) => {
         return <Autocomplete
@@ -498,7 +486,6 @@ export const Field = createPolymorphicComponent<"div", FieldProps, {
     Checkbox: typeof CheckboxField,
     CheckboxGroup: typeof CheckboxGroupField,
     RadioGroup: typeof RadioGroupField,
-    Currency: typeof CurrencyInputField,
     Number: typeof NumberField,
     DatePicker: typeof DatePickerField
     DateRangePicker: typeof DateRangePickerField
@@ -520,7 +507,6 @@ export const Field = createPolymorphicComponent<"div", FieldProps, {
     Checkbox: CheckboxField,
     CheckboxGroup: CheckboxGroupField,
     RadioGroup: RadioGroupField,
-    Currency: CurrencyInputField,
     Number: NumberField,
     DatePicker: DatePickerField,
     DateRangePicker: DateRangePickerField,

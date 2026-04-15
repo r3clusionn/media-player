@@ -35,14 +35,15 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
     const serverStatus = useServerStatus()
     const setServerStatus = useSetServerStatus()
     const password = useAtomValue(serverAuthTokenAtom)
-    const { data: _serverStatus, isLoading, refetch } = useGetStatus()
+    const { data: queryServerStatus, isLoading, refetch } = useGetStatus()
+    const resolvedServerStatus = serverStatus ?? queryServerStatus
 
     React.useEffect(() => {
-        if (_serverStatus) {
-            // logger("SERVER").info("Server status", _serverStatus)
-            setServerStatus(_serverStatus)
+        if (queryServerStatus) {
+            logger("SERVER").info("Server status", queryServerStatus)
+            setServerStatus(queryServerStatus)
         }
-    }, [_serverStatus])
+    }, [queryServerStatus, setServerStatus])
 
     useWebsocketMessageListener({
         type: WSEvents.ANILIST_DATA_LOADED,
@@ -52,26 +53,21 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
         },
     })
 
-    const [authenticated, setAuthenticated] = React.useState(false)
+    const authenticated = !resolvedServerStatus?.serverHasPassword || !!password || pathname === "/public/auth"
 
     React.useEffect(() => {
-        if (serverStatus) {
-            if (serverStatus?.serverHasPassword && !password && pathname !== "/public/auth") {
-                window.location.href = "/public/auth"
-                setAuthenticated(false)
-                console.warn("Redirecting to auth")
-            } else {
-                setAuthenticated(true)
-            }
+        if (resolvedServerStatus?.serverHasPassword && !password && pathname !== "/public/auth") {
+            window.location.href = "/public/auth"
+            console.warn("Redirecting to auth")
         }
-    }, [serverStatus?.serverHasPassword, password, pathname])
+    }, [resolvedServerStatus?.serverHasPassword, password, pathname])
 
     // Refetch the server status every 2 seconds if serverReady is false
     // This is a fallback to the websocket
-    const intervalId = React.useRef<NodeJS.Timeout | null>(null)
+    const intervalId = React.useRef<number | null>(null)
     React.useEffect(() => {
-        if (!serverStatus?.serverReady) {
-            intervalId.current = setInterval(() => {
+        if (!resolvedServerStatus?.serverReady) {
+            intervalId.current = window.setInterval(() => {
                 logger("Data Wrapper").info("Refetching server status")
                 refetch()
             }, 2000)
@@ -79,17 +75,26 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
         return () => {
             logger("Data Wrapper").info("Clearing interval")
             if (intervalId.current) {
-                clearInterval(intervalId.current)
+                window.clearInterval(intervalId.current)
                 intervalId.current = null
             }
         }
-    }, [serverStatus?.serverReady])
+    }, [resolvedServerStatus?.serverReady, refetch])
+
+    logger("SERVER").info("logging server status, ", resolvedServerStatus)
+    logger("SERVER").info("logging server status vars", isLoading || !resolvedServerStatus || !authenticated, {
+        isLoading,
+        serverStatus: resolvedServerStatus,
+        authenticated,
+    })
 
     /**
      * If the server status is loading or doesn't exist, show the loading overlay
      */
-    if (isLoading || !serverStatus || !authenticated) return <LoadingOverlayWithLogo />
-    if (!serverStatus?.serverReady) return <LoadingOverlayWithLogo title="L o a d i n g" />
+    if (isLoading || !resolvedServerStatus || !authenticated) return <LoadingOverlayWithLogo />
+    if (!resolvedServerStatus.serverReady) return <LoadingOverlayWithLogo title="L o a d i n g" />
+
+    const currentServerStatus = resolvedServerStatus
 
     /**
      * If the pathname is /auth/callback, show the callback page
@@ -99,14 +104,14 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
     /**
      * If the server status doesn't have settings, show the getting started page
      */
-    if (!serverStatus?.settings) {
-        return <GettingStartedPage status={serverStatus} />
+    if (!currentServerStatus.settings) {
+        return <GettingStartedPage status={currentServerStatus} />
     }
 
     /**
      * If the app is updating, show a different screen
      */
-    if (serverStatus?.updating) {
+    if (currentServerStatus.updating) {
         return <div className="container max-w-3xl py-10">
             <div className="mb-4 flex justify-center w-full">
                 <img src="/seanime-logo.png" alt="logo" className="w-14 h-auto" />
@@ -121,11 +126,11 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
      * Check feature flag routes
      */
 
-    if (!serverStatus?.mediastreamSettings?.transcodeEnabled && pathname.startsWith("/mediastream")) {
+    if (!currentServerStatus.mediastreamSettings?.transcodeEnabled && pathname.startsWith("/mediastream")) {
         return <LuffyError title="Transcoding not enabled" />
     }
 
-    if (!serverStatus?.user && host === "127.0.0.1:43211" && !__isDesktop__) {
+    if (!currentServerStatus.user && host === "127.0.0.1:43211" && !__isDesktop__) {
         return <div className="container max-w-3xl py-10">
             <Card className="md:py-10">
                 <AppLayoutStack>
@@ -136,8 +141,8 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
                         <h3>Welcome!</h3>
                         <Button
                             onClick={() => {
-                                const url = serverStatus?.anilistClientId
-                                    ? `https://anilist.co/api/v2/oauth/authorize?client_id=${serverStatus?.anilistClientId}&response_type=token`
+                                const url = currentServerStatus.anilistClientId
+                                    ? `https://anilist.co/api/v2/oauth/authorize?client_id=${currentServerStatus.anilistClientId}&response_type=token`
                                     : ANILIST_OAUTH_URL
                                 window.open(url, "_self")
                             }}
@@ -156,7 +161,7 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
                 </AppLayoutStack>
             </Card>
         </div>
-    } else if (!serverStatus?.user) {
+    } else if (!currentServerStatus.user) {
         return <div className="container max-w-3xl py-10">
             <Card className="md:py-10">
                 <AppLayoutStack>

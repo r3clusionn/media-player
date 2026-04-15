@@ -21,7 +21,7 @@ type (
 )
 
 func (r *Repository) DeselectAndDownload(p *DeselectAndDownloadParams) error {
-	if p.Torrent == nil || r.torrentRepository == nil {
+	if p == nil || p.Torrent == nil || r.torrentRepository == nil {
 		r.logger.Error().Msg("torrent client: torrent is nil (deselect)")
 		return errors.New("torrent is nil")
 	}
@@ -84,6 +84,11 @@ type (
 // If the torrent has not been added yet, set SmartSelect.ShouldAddTorrent to true.
 // The torrent will NOT be removed if the selection fails.
 func (r *Repository) SmartSelect(p *SmartSelectParams) error {
+	if p == nil || p.Torrent == nil {
+		r.logger.Error().Msg("torrent client: torrent is nil (smart select)")
+		return errors.New("torrent is nil")
+	}
+
 	if p.Media == nil || p.PlatformRef.IsAbsent() || r.torrentRepository == nil {
 		r.logger.Error().Msg("torrent client: media or platform is nil (smart select)")
 		return errors.New("media or anilist client wrapper is nil")

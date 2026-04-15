@@ -19,7 +19,6 @@ func newTestAutoSelect() *AutoSelect {
 func TestAutoSelect_Filter(t *testing.T) {
 	s := newTestAutoSelect()
 
-	// Mock Torrents
 	t1 := &hibiketorrent.AnimeTorrent{Name: "[SubsPlease] One Piece - 1000 (1080p).mkv", Seeders: 100, Size: 1024 * 1024 * 1000}                             // 1GB
 	t2 := &hibiketorrent.AnimeTorrent{Name: "[Erai-raws] One Piece - 1000 [720p][Multiple Subtitle].mkv", Seeders: 50, Size: 1024 * 1024 * 500}              // 500MB
 	t3 := &hibiketorrent.AnimeTorrent{Name: "[EMBER] One Piece - 1000 [1080p] [Dual Audio] [HEVC].mkv", Seeders: 200, Size: 1024 * 1024 * 800}               // 800MB
@@ -100,6 +99,14 @@ func TestAutoSelect_Filter(t *testing.T) {
 				PreferredSources: []string{"Web-DL"},
 			},
 			expected: []string{t8.Name}, // assuming habari detects Web-DL properly or fallback check works
+		},
+		{
+			name: "Source token should not match inside another word",
+			profile: &anime.AutoSelectProfile{
+				RequireSource:    true,
+				PreferredSources: []string{"CR"},
+			},
+			expected: []string{},
 		},
 		{
 			name: "Dual audio only",
@@ -241,6 +248,78 @@ func TestAutoSelect_Sort(t *testing.T) {
 			assert.Equal(t, tt.expected, sortedNames)
 		})
 	}
+}
+
+func TestAutoSelect_Filter_SourceTokenDoesNotMatchInsideWord(t *testing.T) {
+	s := newTestAutoSelect()
+
+	torrents := []*hibiketorrent.AnimeTorrent{
+		{Name: "Rooster Fighter - 01 A Rooster Among Cranes 1080p WEB-DL.mkv", Seeders: 50},
+	}
+
+	filtered := s.filter(torrents, &anime.AutoSelectProfile{
+		RequireSource:    true,
+		PreferredSources: []string{"CR"},
+	})
+
+	assert.Empty(t, filtered)
+}
+
+func TestAutoSelect_Sort_OrderedPreferencesBeatSoftBonuses(t *testing.T) {
+	s := newTestAutoSelect()
+
+	preferred := &hibiketorrent.AnimeTorrent{
+		Name:     "[ToonsHub] Show - 01 1080p CR WEB-DL AAC2.0 H.264 (Multi-Subs).mkv",
+		Seeders:  50,
+		Provider: "catnoise",
+	}
+	lowerPriorityButBonusHeavy := &hibiketorrent.AnimeTorrent{
+		Name:          "Show - 01 1080p DSNP WEB-DL DUAL AAC2.0 H.264-VARYG (Dual-Audio, Multi-Subs).mkv",
+		Seeders:       100,
+		Provider:      "catnoise",
+		IsBestRelease: true,
+	}
+
+	torrents := []*hibiketorrent.AnimeTorrent{lowerPriorityButBonusHeavy, preferred}
+	profile := &anime.AutoSelectProfile{
+		Providers:             []string{"catnoise"},
+		ReleaseGroups:         []string{"ToonsHub", "VARYG"},
+		Resolutions:           []string{"1080p"},
+		PreferredCodecs:       []string{"AVC, x264, H.264, H264, H 264"},
+		PreferredSources:      []string{"CR", "DSNP"},
+		BestReleasePreference: anime.AutoSelectPreferencePrefer,
+	}
+
+	s.sort(torrents, profile)
+
+	assert.Equal(t, []string{preferred.Name, lowerPriorityButBonusHeavy.Name}, []string{torrents[0].Name, torrents[1].Name})
+}
+
+func TestAutoSelect_Sort_StrongerPrimaryMatchCanBeatHigherReleaseGroup(t *testing.T) {
+	s := newTestAutoSelect()
+
+	higherReleaseGroupButLowerQuality := &hibiketorrent.AnimeTorrent{
+		Name:     "[ToonsHub] Show - 01 720p CR WEB-DL AAC2.0 H.264.mkv",
+		Seeders:  80,
+		Provider: "catnoise",
+	}
+	lowerReleaseGroupButHigherResolution := &hibiketorrent.AnimeTorrent{
+		Name:     "Show - 01 1080p DSNP WEB-DL AAC2.0 H.264-VARYG.mkv",
+		Seeders:  40,
+		Provider: "catnoise",
+	}
+
+	torrents := []*hibiketorrent.AnimeTorrent{higherReleaseGroupButLowerQuality, lowerReleaseGroupButHigherResolution}
+	profile := &anime.AutoSelectProfile{
+		ReleaseGroups:    []string{"ToonsHub", "VARYG"},
+		Resolutions:      []string{"1080p"},
+		PreferredCodecs:  []string{"AVC, x264, H.264, H264, H 264"},
+		PreferredSources: []string{"CR", "DSNP"},
+	}
+
+	s.sort(torrents, profile)
+
+	assert.Equal(t, []string{lowerReleaseGroupButHigherResolution.Name, higherReleaseGroupButLowerQuality.Name}, []string{torrents[0].Name, torrents[1].Name})
 }
 
 func TestAutoSelect_SmartCachedPrioritization(t *testing.T) {

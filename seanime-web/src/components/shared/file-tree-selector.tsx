@@ -83,7 +83,7 @@ export type FileTreeSelectorProps = {
     getFileValue: (filePreview: any) => string | number
     hasLikelyMatch: boolean
     hasOneLikelyMatch: boolean
-    likelyMatchRef: React.RefObject<HTMLDivElement>
+    likelyMatchRef: React.RefObject<HTMLDivElement | null>
 }
 
 type FileTreeNodeProps = {
@@ -93,7 +93,7 @@ type FileTreeNodeProps = {
     getFileValue: (filePreview: any) => string | number
     hasLikelyMatch: boolean
     hasOneLikelyMatch: boolean
-    likelyMatchRef: React.RefObject<HTMLDivElement>
+    likelyMatchRef: React.RefObject<HTMLDivElement | null>
     level?: number
 }
 

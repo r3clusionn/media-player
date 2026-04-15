@@ -20,7 +20,7 @@ func TestGojaTorrentUtils(t *testing.T) {
 	gojabuffer.Enable(vm)
 	BindTorrentUtils(vm)
 	BindConsole(vm, util.NewLogger())
-	BindFetch(vm)
+	BindFetch("test", vm)
 
 	_, err := vm.RunString(`
 async function run() {

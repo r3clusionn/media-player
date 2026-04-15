@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld(
             const validChannels = [
                 "message",
                 "crash",
+                "window:minimized",
+                "window:hidden",
                 "window:maximized",
                 "window:unmaximized",
                 "window:fullscreen",
@@ -43,6 +45,11 @@ contextBridge.exposeInMainWorld(
                 "download-progress",
                 "window:currentWindow",
                 "window:isMainWindow",
+                "cast:deviceFound",
+                "cast:sessionUpdate",
+                "cast:mediaStatus",
+                "cast:receiverReady",
+                "cast:error",
             ]
             if (validChannels.includes(channel)) {
                 // Remove the event listener to avoid memory leaks
@@ -105,6 +112,30 @@ contextBridge.exposeInMainWorld(
         denshiSettings: {
             get: () => ipcRenderer.invoke("denshi:getSettings"),
             set: (settings) => ipcRenderer.invoke("denshi:setSettings", settings),
+        },
+
+        // Chromecast
+        cast: {
+            discover: () => ipcRenderer.invoke("cast:discover"),
+            stopDiscovery: () => ipcRenderer.invoke("cast:stopDiscovery"),
+            getDevices: () => ipcRenderer.invoke("cast:getDevices"),
+            connect: (deviceId) => ipcRenderer.invoke("cast:connect", deviceId),
+            disconnect: () => ipcRenderer.invoke("cast:disconnect"),
+            getStatus: () => ipcRenderer.invoke("cast:getStatus"),
+            loadMedia: (opts) => ipcRenderer.invoke("cast:loadMedia", opts),
+            play: () => ipcRenderer.invoke("cast:play"),
+            pause: () => ipcRenderer.invoke("cast:pause"),
+            seek: (time) => ipcRenderer.invoke("cast:seek", time),
+            stop: () => ipcRenderer.invoke("cast:stop"),
+            setVolume: (level) => ipcRenderer.invoke("cast:setVolume", level),
+            setMuted: (muted) => ipcRenderer.invoke("cast:setMuted", muted),
+            sendSubtitleEvents: (events) => ipcRenderer.invoke("cast:sendSubtitleEvents", events),
+            sendSubtitleTracks: (tracks) => ipcRenderer.invoke("cast:sendSubtitleTracks", tracks),
+            switchSubtitleTrack: (trackNumber) => ipcRenderer.invoke("cast:switchSubtitleTrack", trackNumber),
+            sendFonts: (fontUrls, serverPort) => ipcRenderer.invoke("cast:sendFonts", fontUrls, serverPort),
+            sendSubtitleHeader: (header) => ipcRenderer.invoke("cast:sendSubtitleHeader", header),
+            disableSubtitles: () => ipcRenderer.invoke("cast:disableSubtitles"),
+            getLanIP: () => ipcRenderer.invoke("cast:getLanIP"),
         },
     }
 );

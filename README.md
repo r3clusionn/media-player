@@ -86,7 +86,6 @@ This is a one-person project and may not meet every use case. If it doesn’t fu
 
 ### Not planned
 
-- Android, iOS, AndroidTV, tvOS, ... apps
 - Built-in support for other trackers such as MyAnimeList, Trakt, SIMKL, etc.
 - Built-in support for other media players
 - Built-in localization (translations)

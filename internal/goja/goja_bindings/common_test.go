@@ -24,7 +24,7 @@ func setupTestVM(t *testing.T) *goja.Runtime {
 	logger := util.NewLogger()
 	ext := &extension.Extension{}
 	extension_repo.ShareBinds(vm, util.NewLogger(), ext, events.NewMockWSEventManager(logger))
-	goja_bindings.BindFetch(vm)
+	goja_bindings.BindFetch("test", vm)
 	fm := extension_repo.FieldMapper{}
 	vm.SetFieldNameMapper(fm)
 	return vm
@@ -100,7 +100,7 @@ func TestUserConfig(t *testing.T) {
 		},
 	}
 	extension_repo.ShareBinds(vm, util.NewLogger(), ext, events.NewMockWSEventManager(logger))
-	goja_bindings.BindFetch(vm)
+	goja_bindings.BindFetch("test", vm)
 	extension_repo.BindUserConfig(vm, ext, util.NewLogger())
 
 	vm.RunString(`
@@ -125,7 +125,7 @@ func TestByteSliceToUint8Array(t *testing.T) {
 
 	ext := &extension.Extension{}
 	extension_repo.ShareBinds(vm, util.NewLogger(), ext, events.NewMockWSEventManager(logger))
-	goja_bindings.BindFetch(vm)
+	goja_bindings.BindFetch("test", vm)
 
 	// JavaScript code to verify the type and contents of 'data'
 	jsCode := `
@@ -158,9 +158,6 @@ func TestByteSliceToUint8Array(t *testing.T) {
 }
 
 func TestGojaDocument(t *testing.T) {
-	vm := setupTestVM(t)
-	defer vm.ClearInterrupt()
-
 	tests := []struct {
 		entry string
 	}{
@@ -170,6 +167,9 @@ func TestGojaDocument(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.entry, func(t *testing.T) {
+			vm := setupTestVM(t)
+			defer vm.ClearInterrupt()
+
 			fileB, err := os.ReadFile(tt.entry)
 			require.NoError(t, err)
 

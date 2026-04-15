@@ -21,7 +21,9 @@ export function useInstallLatestUpdate() {
         method: API_ENDPOINTS.RELEASES.InstallLatestUpdate.methods[0],
         mutationKey: [API_ENDPOINTS.RELEASES.InstallLatestUpdate.key],
         onSuccess: async (data) => {
-            setServerStatus(data) // Update server status
+            if (data) {
+                setServerStatus(data)
+            }
             toast.info("Installing update...")
         },
     })

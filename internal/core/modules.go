@@ -141,20 +141,6 @@ func (a *App) initModulesOnce() {
 	a.MangaDownloader.Start()
 
 	// +---------------------+
-	// |    Media Stream     |
-	// +---------------------+
-
-	a.MediastreamRepository = mediastream.NewRepository(&mediastream.NewRepositoryOptions{
-		Logger:         a.Logger,
-		WSEventManager: a.WSEventManager,
-		FileCacher:     a.FileCacher,
-	})
-
-	a.AddCleanupFunction(func() {
-		a.MediastreamRepository.OnCleanup()
-	})
-
-	// +---------------------+
 	// |     Video Core      |
 	// +---------------------+
 
@@ -169,6 +155,21 @@ func (a *App) initModulesOnce() {
 			_, _ = a.RefreshAnimeCollection()
 		},
 		IsOfflineRef: a.IsOfflineRef(),
+	})
+
+	// +---------------------+
+	// |    Media Stream     |
+	// +---------------------+
+
+	a.MediastreamRepository = mediastream.NewRepository(&mediastream.NewRepositoryOptions{
+		Logger:         a.Logger,
+		WSEventManager: a.WSEventManager,
+		FileCacher:     a.FileCacher,
+		VideoCore:      a.VideoCore,
+	})
+
+	a.AddCleanupFunction(func() {
+		a.MediastreamRepository.OnCleanup()
 	})
 
 	// +---------------------+

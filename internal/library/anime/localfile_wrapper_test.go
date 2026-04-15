@@ -2,32 +2,48 @@ package anime_test
 
 import (
 	"cmp"
-	"github.com/stretchr/testify/assert"
 	"seanime/internal/library/anime"
 	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLocalFileWrapperEntry(t *testing.T) {
 
-	lfs := anime.MockHydratedLocalFiles(
-		anime.MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "/mnt/anime/One Piece/One Piece - %ep.mkv", 21, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-			{MetadataEpisode: 1070, MetadataAniDbEpisode: "1070", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1071, MetadataAniDbEpisode: "1071", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1072, MetadataAniDbEpisode: "1072", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1073, MetadataAniDbEpisode: "1073", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1074, MetadataAniDbEpisode: "1074", MetadataType: anime.LocalFileTypeMain},
-		}),
-		anime.MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "/mnt/anime/Blue Lock/Blue Lock - %ep.mkv", 22222, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-			{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 3, MetadataAniDbEpisode: "3", MetadataType: anime.LocalFileTypeMain},
-		}),
-		anime.MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv", 9656, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-			{MetadataEpisode: 0, MetadataAniDbEpisode: "S1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-		}),
+	lfs := anime.NewTestLocalFiles(
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/mnt/anime/",
+			FilePathTemplate: "/mnt/anime/One Piece/One Piece - %ep.mkv",
+			MediaID:          21,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1070, AniDBEpisode: "1070", Type: anime.LocalFileTypeMain},
+				{Episode: 1071, AniDBEpisode: "1071", Type: anime.LocalFileTypeMain},
+				{Episode: 1072, AniDBEpisode: "1072", Type: anime.LocalFileTypeMain},
+				{Episode: 1073, AniDBEpisode: "1073", Type: anime.LocalFileTypeMain},
+				{Episode: 1074, AniDBEpisode: "1074", Type: anime.LocalFileTypeMain},
+			},
+		},
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/mnt/anime/",
+			FilePathTemplate: "/mnt/anime/Blue Lock/Blue Lock - %ep.mkv",
+			MediaID:          22222,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+				{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+			},
+		},
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/mnt/anime/",
+			FilePathTemplate: "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv",
+			MediaID:          9656,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 0, AniDBEpisode: "S1", Type: anime.LocalFileTypeMain},
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+			},
+		},
 	)
 
 	tests := []struct {
@@ -100,17 +116,27 @@ func TestLocalFileWrapperEntry(t *testing.T) {
 
 func TestLocalFileWrapperEntryProgressNumber(t *testing.T) {
 
-	lfs := anime.MockHydratedLocalFiles(
-		anime.MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv", 9656, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-			{MetadataEpisode: 0, MetadataAniDbEpisode: "S1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-		}),
-		anime.MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv", 9656_2, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-			{MetadataEpisode: 1, MetadataAniDbEpisode: "S1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 2, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-			{MetadataEpisode: 3, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-		}),
+	lfs := anime.NewTestLocalFiles(
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/mnt/anime/",
+			FilePathTemplate: "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv",
+			MediaID:          9656,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 0, AniDBEpisode: "S1", Type: anime.LocalFileTypeMain},
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+			},
+		},
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/mnt/anime/",
+			FilePathTemplate: "/mnt/anime/Kimi ni Todoke/Kimi ni Todoke - %ep.mkv",
+			MediaID:          9656_2,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1, AniDBEpisode: "S1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 3, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+			},
+		},
 	)
 
 	tests := []struct {

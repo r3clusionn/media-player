@@ -17,7 +17,7 @@ import (
 func TestComparison(t *testing.T) {
 	database, _ := db.NewDatabase(t.TempDir(), "test", util.NewLogger())
 	ad := AutoDownloader{
-		metadataProviderRef: util.NewRef(metadata_provider.GetFakeProvider(t, database)),
+		metadataProviderRef: util.NewRef(metadata_provider.NewTestProvider(t, database)),
 		settings: &models.AutoDownloaderSettings{
 			EnableSeasonCheck: true,
 		},
@@ -142,7 +142,7 @@ func TestComparison(t *testing.T) {
 func TestComparison2(t *testing.T) {
 	database, _ := db.NewDatabase(t.TempDir(), "test", util.NewLogger())
 	ad := AutoDownloader{
-		metadataProviderRef: util.NewRef(metadata_provider.GetFakeProvider(t, database)),
+		metadataProviderRef: util.NewRef(metadata_provider.NewTestProvider(t, database)),
 		settings: &models.AutoDownloaderSettings{
 			EnableSeasonCheck: true,
 		},
@@ -239,7 +239,7 @@ func TestComparison2(t *testing.T) {
 func TestComparison3(t *testing.T) {
 	database, _ := db.NewDatabase(t.TempDir(), "test", util.NewLogger())
 	ad := AutoDownloader{
-		metadataProviderRef: util.NewRef(metadata_provider.GetFakeProvider(t, database)),
+		metadataProviderRef: util.NewRef(metadata_provider.NewTestProvider(t, database)),
 		settings: &models.AutoDownloaderSettings{
 			EnableSeasonCheck: true,
 		},

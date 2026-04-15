@@ -3,13 +3,12 @@ package mediastream
 import (
 	"errors"
 	"seanime/internal/events"
-	"seanime/internal/mediastream/transcoder"
+	"seanime/internal/mediastream/cassette"
 	"strconv"
 	"strings"
 
-	"github.com/samber/mo"
-
 	"github.com/labstack/echo/v4"
+	"github.com/samber/mo"
 )
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -35,8 +34,10 @@ func (r *Repository) ServeEchoTranscodeStream(c echo.Context, clientId string) e
 		return errors.New("no file has been loaded")
 	}
 
+	token := c.QueryParam("token")
+
 	if path == "master.m3u8" {
-		ret, err := r.transcoder.MustGet().GetMaster(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, clientId)
+		ret, err := r.transcoder.MustGet().GetMaster(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, clientId, token)
 		if err != nil {
 			return err
 		}
@@ -52,12 +53,12 @@ func (r *Repository) ServeEchoTranscodeStream(c echo.Context, clientId string) e
 			return errors.New("invalid index.m3u8 path")
 		}
 
-		quality, err := transcoder.QualityFromString(split[0])
+		quality, err := cassette.QualityFromString(split[0])
 		if err != nil {
 			return err
 		}
 
-		ret, err := r.transcoder.MustGet().GetVideoIndex(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, quality, clientId)
+		ret, err := r.transcoder.MustGet().GetVideoIndex(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, quality, clientId, token)
 		if err != nil {
 			return err
 		}
@@ -78,7 +79,7 @@ func (r *Repository) ServeEchoTranscodeStream(c echo.Context, clientId string) e
 			return err
 		}
 
-		ret, err := r.transcoder.MustGet().GetAudioIndex(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, int32(audio), clientId)
+		ret, err := r.transcoder.MustGet().GetAudioIndex(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, int32(audio), clientId, token)
 		if err != nil {
 			return err
 		}
@@ -94,17 +95,19 @@ func (r *Repository) ServeEchoTranscodeStream(c echo.Context, clientId string) e
 			return errors.New("invalid segments-:chunk.ts path")
 		}
 
-		quality, err := transcoder.QualityFromString(split[0])
+		quality, err := cassette.QualityFromString(split[0])
 		if err != nil {
 			return err
 		}
 
-		segment, err := transcoder.ParseSegment(split[1])
+		segment, err := cassette.ParseSegment(split[1])
 		if err != nil {
 			return err
 		}
 
-		ret, err := r.transcoder.MustGet().GetVideoSegment(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, quality, segment, clientId)
+		ret, err := r.transcoder.MustGet().GetVideoSegment(
+			c.Request().Context(),
+			mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, quality, segment, clientId)
 		if err != nil {
 			return err
 		}
@@ -125,12 +128,14 @@ func (r *Repository) ServeEchoTranscodeStream(c echo.Context, clientId string) e
 			return err
 		}
 
-		segment, err := transcoder.ParseSegment(split[2])
+		segment, err := cassette.ParseSegment(split[2])
 		if err != nil {
 			return err
 		}
 
-		ret, err := r.transcoder.MustGet().GetAudioSegment(mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, int32(audio), segment, clientId)
+		ret, err := r.transcoder.MustGet().GetAudioSegment(
+			c.Request().Context(),
+			mediaContainer.Filepath, mediaContainer.Hash, mediaContainer.MediaInfo, int32(audio), segment, clientId)
 		if err != nil {
 			return err
 		}
@@ -168,7 +173,7 @@ func (r *Repository) ShutdownTranscodeStream(clientId string) {
 	r.transcoder.MustGet().Destroy()
 
 	// Load a new transcoder
-	r.transcoder = mo.None[*transcoder.Transcoder]()
+	r.transcoder = mo.None[*cassette.Cassette]()
 	r.initializeTranscoder(r.settings)
 
 	// Send event

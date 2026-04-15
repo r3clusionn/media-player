@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/continuity"
-	"seanime/internal/database/db"
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/goja/goja_runtime"
@@ -19,7 +19,7 @@ import (
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/plugin"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"testing"
@@ -30,13 +30,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var (
-	testDocumentsDir          = "/Users/rahim/Documents"
-	testDocumentCollectionDir = "/Users/rahim/Documents/collection"
-	testVideoPath             = "/Users/rahim/Documents/collection/Bocchi the Rock/[ASW] Bocchi the Rock! - 01 [1080p HEVC][EDC91675].mkv"
+type pluginTestPaths struct {
+	DocumentsDir  string
+	CollectionDir string
+}
 
-	tempTestDir = "$TEMP/test"
-)
+func newPluginTestPaths(t testing.TB) pluginTestPaths {
+	t.Helper()
+
+	env := testutil.NewTestEnv(t)
+	documentsDir := env.MustMkdir("Documents")
+	collectionDir := env.MustMkdir("Documents", "collection")
+	env.MustWriteFixtureFile("/Documents/collection/fixture.txt", []byte("fixture"))
+
+	return pluginTestPaths{
+		DocumentsDir:  documentsDir,
+		CollectionDir: collectionDir,
+	}
+}
 
 // TestPluginOptions contains options for initializing a test plugin
 type TestPluginOptions struct {
@@ -62,11 +73,9 @@ func DefaultTestPluginOptions() TestPluginOptions {
 
 // InitTestPlugin initializes a test plugin with the given options
 func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog.Logger, *goja_runtime.Manager, *anilist_platform.AnilistPlatform, events.WSEventManagerInterface, error) {
+	env := testutil.NewTestEnv(t)
 	if opts.SetupHooks {
-		test_utils.SetTwoLevelDeep()
-		if tPtr, ok := t.(*testing.T); ok {
-			test_utils.InitTestProvider(tPtr, test_utils.Anilist())
-		}
+		env = testutil.NewTestEnv(t, testutil.Anilist())
 	}
 
 	ext := &extension.Extension{
@@ -85,10 +94,9 @@ func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog
 	ext.Plugin.Permissions.Allow = opts.Permissions.Allow
 
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-	require.NoError(t, err)
+	database := env.MustNewDatabase(logger)
 	wsEventManager := events.NewMockWSEventManager(logger)
-	anilistClientRef := util.NewRef[anilist.AnilistClient](anilist.NewMockAnilistClient())
+	anilistClientRef := util.NewRef[anilist.AnilistClient](anilist.NewFixtureAnilistClient())
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, extensionBankRef, logger, database).(*anilist_platform.AnilistPlatform)
 	anilistPlatformRef := util.NewRef[platform.Platform](anilistPlatform)
@@ -142,7 +150,6 @@ func TestGojaPluginAnime(t *testing.T) {
 		})
 	}
 	`
-
 	opts := DefaultTestPluginOptions()
 	opts.Payload = payload
 	opts.Permissions = extension.PluginPermissions{
@@ -151,9 +158,9 @@ func TestGojaPluginAnime(t *testing.T) {
 			extension.PluginPermissionDatabase,
 		},
 	}
+	env := testutil.NewTestEnv(t, testutil.Anilist())
 	logger := util.NewLogger()
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-	require.NoError(t, err)
+	database := env.MustNewDatabase(logger)
 
 	metadataProvider := metadata_provider.NewProvider(&metadata_provider.NewProviderImplOptions{
 		Logger:           logger,
@@ -185,6 +192,9 @@ func TestGojaPluginAnime(t *testing.T) {
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestGojaPluginMpv(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
+	sampleVideoPath := testutil.RequireSampleVideoPath(t)
+
 	payload := fmt.Sprintf(`
 function init() {
 
@@ -213,7 +223,7 @@ function init() {
 	});
 
 }
-	`, testVideoPath)
+	`, sampleVideoPath)
 
 	playbackManager, _, err := getPlaybackManager(t)
 	require.NoError(t, err)
@@ -243,18 +253,18 @@ function init() {
 // Test that the plugin cannot access paths that are not allowed
 // $os.readDir should throw an error
 func TestGojaPluginPathNotAllowed(t *testing.T) {
+	paths := newPluginTestPaths(t)
+	homeDir, err := os.UserHomeDir()
+	require.NoError(t, err)
+
 	payload := fmt.Sprintf(`
 function init() {
 	$ui.register((ctx) => {
-
-		const tempDir = $os.tempDir();
-		console.log("Temp dir", tempDir);
-
-		const dirPath = "%s";
-		const entries = $os.readDir(dirPath);
+		const dirPath = %q;
+		$os.readDir(dirPath);
 	});
 }
-	`, testDocumentCollectionDir)
+	`, homeDir)
 
 	opts := DefaultTestPluginOptions()
 	opts.Payload = payload
@@ -263,7 +273,7 @@ function init() {
 			extension.PluginPermissionSystem,
 		},
 		Allow: extension.PluginAllowlist{
-			ReadPaths:  []string{"$TEMP/*", testDocumentsDir},
+			ReadPaths:  []string{paths.DocumentsDir},
 			WritePaths: []string{"$TEMP/*"},
 		},
 	}
@@ -279,6 +289,9 @@ function init() {
 
 // Test that the plugin can play a video and listen to events
 func TestGojaPluginPlaybackEvents(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.MediaPlayer(), testutil.Live())
+	sampleVideoPath := testutil.RequireSampleVideoPath(t)
+
 	payload := fmt.Sprintf(`
 function init() {
 
@@ -298,7 +311,7 @@ function init() {
 	});
 
 }
-	`, testVideoPath)
+	`, sampleVideoPath)
 
 	playbackManager, _, err := getPlaybackManager(t)
 	require.NoError(t, err)
@@ -801,24 +814,21 @@ func TestGojaPluginStorage2(t *testing.T) {
 /////////////////////////////////////////////////////////////////////////////////////////////s
 
 func getPlaybackManager(t *testing.T) (*playbackmanager.PlaybackManager, *anilist.AnimeCollection, error) {
+	env := testutil.NewTestEnv(t)
 
 	logger := util.NewLogger()
 
 	wsEventManager := events.NewMockWSEventManager(logger)
 
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-
-	if err != nil {
-		t.Fatalf("error while creating database, %v", err)
-	}
+	database := env.MustNewDatabase(logger)
 
 	filecacher, err := filecache.NewCacher(t.TempDir())
 	require.NoError(t, err)
-	anilistClient := anilist.TestGetMockAnilistClient()
+	anilistClient := anilist.NewTestAnilistClient()
 	anilistClientRef := util.NewRef(anilistClient)
 	anilistPlatform := anilist_platform.NewAnilistPlatform(anilistClientRef, util.NewRef(extension.NewUnifiedBank()), logger, database)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), true)
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
+	metadataProvider := metadata_provider.NewTestProvider(t, database)
 	require.NoError(t, err)
 	continuityManager := continuity.NewManager(&continuity.NewManagerOptions{
 		FileCacher: filecacher,

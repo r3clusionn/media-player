@@ -31,7 +31,7 @@ type EpisodeCardProps = {
     episodeNumber?: number
     progressNumber?: number
     progressTotal?: number
-    mRef?: React.RefObject<HTMLDivElement>
+    mRef?: React.RefObject<HTMLDivElement | null>
     hasDiscrepancy?: boolean
     length?: string | number | null
     imageClass?: string

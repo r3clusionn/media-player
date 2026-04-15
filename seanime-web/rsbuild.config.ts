@@ -58,7 +58,7 @@ export default defineConfig({
             include: /\.(?:jsx|tsx)$/,
             babelLoaderOptions(opts) {
                 opts.plugins ??= []
-                opts.plugins.push(["babel-plugin-react-compiler", { target: "18" }])
+                opts.plugins.push(["babel-plugin-react-compiler"])
             },
         }),
     ].filter(Boolean),

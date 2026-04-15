@@ -8,7 +8,7 @@ import { vc_miniPlayer } from "./video-core-atoms"
 
 interface VideoCoreStatsForNerdsProps {
     playbackInfo: VideoCore_VideoPlaybackInfo | null
-    videoRef: React.RefObject<HTMLVideoElement>
+    videoRef: React.RefObject<HTMLVideoElement | null>
 }
 
 interface PerformanceData {

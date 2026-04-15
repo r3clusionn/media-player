@@ -1,16 +1,17 @@
 package mal
 
 import (
-	"github.com/davecgh/go-spew/spew"
-	"seanime/internal/test_utils"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
 )
 
-func TestGetMangaDetails(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MyAnimeList())
+func TestGetMangaDetailsLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
-	malWrapper := NewWrapper(test_utils.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	res, err := malWrapper.GetMangaDetails(13)
 
@@ -23,10 +24,10 @@ func TestGetMangaDetails(t *testing.T) {
 	t.Log(res.Title)
 }
 
-func TestGetMangaCollection(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MyAnimeList())
+func TestGetMangaCollectionLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.Live())
 
-	malWrapper := NewWrapper(test_utils.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	res, err := malWrapper.GetMangaCollection()
 
@@ -42,10 +43,10 @@ func TestGetMangaCollection(t *testing.T) {
 	}
 }
 
-func TestUpdateMangaListStatus(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.MyAnimeList(), test_utils.MyAnimeListMutation())
+func TestUpdateMangaListStatusLive(t *testing.T) {
+	cfg := testutil.InitTestProvider(t, testutil.MyAnimeList(), testutil.MyAnimeListMutation(), testutil.Live())
 
-	malWrapper := NewWrapper(test_utils.ConfigData.Provider.MalJwt, util.NewLogger())
+	malWrapper := NewWrapper(cfg.Provider.MalJwt, util.NewLogger())
 
 	mId := 13
 	progress := 1000

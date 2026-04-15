@@ -81,13 +81,7 @@ func (h *Handler) HandleDebridAddTorrents(c echo.Context) error {
 	}
 
 	for _, torrent := range b.Torrents {
-		// Get the torrent's provider extension
-		animeTorrentProviderExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(torrent.Provider)
-		if !ok {
-			return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-		}
-
-		magnet, err := animeTorrentProviderExtension.GetProvider().GetTorrentMagnetLink(&torrent)
+		magnet, err := h.App.TorrentRepository.ResolveMagnetLink(&torrent)
 		if err != nil {
 			if len(b.Torrents) == 1 {
 				return h.RespondWithError(c, err)
@@ -103,6 +97,7 @@ func (h *Handler) HandleDebridAddTorrents(c echo.Context) error {
 		// Add the torrent to the debrid service
 		_, err = h.App.DebridClientRepository.AddAndQueueTorrent(debrid.AddTorrentOptions{
 			MagnetLink:   magnet,
+			InfoHash:     torrent.InfoHash,
 			SelectFileId: "all",
 		}, b.Destination, b.Media.ID)
 		if err != nil {
@@ -250,12 +245,7 @@ func (h *Handler) HandleDebridGetTorrentInfo(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	animeTorrentProviderExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(b.Torrent.Provider)
-	if !ok {
-		return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-	}
-
-	magnet, err := animeTorrentProviderExtension.GetProvider().GetTorrentMagnetLink(&b.Torrent)
+	magnet, err := h.App.TorrentRepository.ResolveMagnetLink(&b.Torrent)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -290,12 +280,7 @@ func (h *Handler) HandleDebridGetTorrentFilePreviews(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	animeTorrentProviderExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(b.Torrent.Provider)
-	if !ok {
-		return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-	}
-
-	magnet, err := animeTorrentProviderExtension.GetProvider().GetTorrentMagnetLink(b.Torrent)
+	magnet, err := h.App.TorrentRepository.ResolveMagnetLink(b.Torrent)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -351,12 +336,7 @@ func (h *Handler) HandleDebridStartStream(c echo.Context) error {
 	userAgent := c.Request().Header.Get("User-Agent")
 
 	if b.Torrent != nil {
-		animeTorrentProviderExtension, ok := h.App.TorrentRepository.GetAnimeProviderExtension(b.Torrent.Provider)
-		if !ok {
-			return h.RespondWithError(c, errors.New("provider extension not found for torrent"))
-		}
-
-		magnet, err := animeTorrentProviderExtension.GetProvider().GetTorrentMagnetLink(b.Torrent)
+		magnet, err := h.App.TorrentRepository.ResolveMagnetLink(b.Torrent)
 		if err != nil {
 			return h.RespondWithError(c, err)
 		}

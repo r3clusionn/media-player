@@ -179,15 +179,30 @@ var videoProxyClient = &http.Client{
 		MaxIdleConns:        100,
 		MaxIdleConnsPerHost: 10,
 		IdleConnTimeout:     90 * time.Second,
+		TLSHandshakeTimeout: 10 * time.Second,
 		ForceAttemptHTTP2:   false, // Fixes issues on Linux
 	},
-	Timeout: 60 * time.Second,
+}
+
+// Headers that should not be forwarded to the CDN
+var proxyHopHeaders = map[string]bool{
+	"Host":                true,
+	"Accept":              true,
+	"Accept-Encoding":     true,
+	"Range":               true,
+	"Connection":          true,
+	"Proxy-Connection":    true,
+	"Keep-Alive":          true,
+	"Proxy-Authenticate":  true,
+	"Proxy-Authorization": true,
+	"Te":                  true,
+	"Trailer":             true,
+	"Transfer-Encoding":   true,
+	"Upgrade":             true,
 }
 
 func (s *DebridStream) GetStreamHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		//s.logger.Trace().Str("range", r.Header.Get("Range")).Str("method", r.Method).Msg("directstream(debrid): Stream endpoint hit")
-
 		if s.streamUrl == "" {
 			s.logger.Error().Msg("directstream(debrid): No URL to stream")
 			http.Error(w, "No URL to stream", http.StatusNotFound)
@@ -217,7 +232,9 @@ func (s *DebridStream) GetStreamHandler() http.Handler {
 		if err != nil {
 			s.logger.Error().Err(err).Msg("directstream(debrid): Failed to create reader for stream url")
 			http.Error(w, "Failed to create reader for stream url", http.StatusInternalServerError)
+			return
 		}
+		defer reader.Close()
 
 		if isThumbnailRequest(r) {
 			ra, ok := handleRange(w, r, reader, s.filename, s.contentLength)
@@ -241,11 +258,15 @@ func (s *DebridStream) GetStreamHandler() http.Handler {
 				return
 			}
 			if ra.Start < s.contentLength-1024*1024 {
+				// subReader is closed inside the subtitle goroutine
 				go s.StartSubtitleStreamP(s, s.manager.playbackCtx, subReader, ra.Start, 0)
+			} else {
+				_ = subReader.Close()
 			}
 		}
 
-		req, err := http.NewRequest(http.MethodGet, s.streamUrl, nil)
+		// Use the client's request context so the CDN request is cancelled when the client disconnects
+		req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, s.streamUrl, nil)
 		if err != nil {
 			http.Error(w, "Failed to create request", http.StatusInternalServerError)
 			return
@@ -254,8 +275,11 @@ func (s *DebridStream) GetStreamHandler() http.Handler {
 		req.Header.Set("Accept", "*/*")
 		req.Header.Set("Range", rangeHeader)
 
-		// Copy original request headers to the proxied request
+		// Only forward safe headers to avoid conflicts with the CDN
 		for key, values := range r.Header {
+			if proxyHopHeaders[http.CanonicalHeaderKey(key)] {
+				continue
+			}
 			for _, value := range values {
 				req.Header.Add(key, value)
 			}
@@ -263,10 +287,18 @@ func (s *DebridStream) GetStreamHandler() http.Handler {
 
 		resp, err := videoProxyClient.Do(req)
 		if err != nil {
+			s.logger.Error().Err(err).Str("range", rangeHeader).Msg("directstream(debrid): CDN proxy request failed")
 			http.Error(w, "Failed to proxy request", http.StatusInternalServerError)
 			return
 		}
 		defer resp.Body.Close()
+
+		// Reject non-2xx CDN responses to avoid corrupting the file cache
+		if resp.StatusCode >= 300 {
+			s.logger.Error().Int("status", resp.StatusCode).Str("range", rangeHeader).Msg("directstream(debrid): CDN returned non-2xx status")
+			http.Error(w, fmt.Sprintf("CDN error: %d", resp.StatusCode), resp.StatusCode)
+			return
+		}
 
 		// Copy response headers
 		for key, values := range resp.Header {
@@ -278,7 +310,9 @@ func (s *DebridStream) GetStreamHandler() http.Handler {
 		w.Header().Set("Content-Type", s.LoadContentType()) // overwrite the type
 		w.WriteHeader(resp.StatusCode)
 
-		_ = s.httpStream.WriteAndFlush(resp.Body, w, ra.Start)
+		if err := s.httpStream.WriteAndFlush(resp.Body, w, ra.Start); err != nil {
+			s.logger.Warn().Err(err).Str("range", rangeHeader).Msg("directstream(debrid): WriteAndFlush error")
+		}
 	})
 }
 
@@ -333,6 +367,8 @@ func (m *Manager) PlayDebridStream(ctx context.Context, filepath string, opts Pl
 	}
 
 	go func() {
+		m.playbackMu.Lock()
+		defer m.playbackMu.Unlock()
 		m.loadStream(stream)
 	}()
 

@@ -5,76 +5,38 @@ import (
 	"strings"
 )
 
-type MockHydratedLocalFileOptions struct {
-	FilePath             string
-	LibraryPath          string
-	MediaId              int
-	MetadataEpisode      int
-	MetadataAniDbEpisode string
-	MetadataType         LocalFileType
+type TestLocalFileEpisode struct {
+	Episode      int
+	AniDBEpisode string
+	Type         LocalFileType
 }
 
-func MockHydratedLocalFile(opts MockHydratedLocalFileOptions) *LocalFile {
-	lf := NewLocalFile(opts.FilePath, opts.LibraryPath)
-	lf.MediaId = opts.MediaId
-	lf.Metadata = &LocalFileMetadata{
-		AniDBEpisode: opts.MetadataAniDbEpisode,
-		Episode:      opts.MetadataEpisode,
-		Type:         opts.MetadataType,
-	}
-	return lf
+type TestLocalFileGroup struct {
+	LibraryPath      string
+	FilePathTemplate string
+	MediaID          int
+	Episodes         []TestLocalFileEpisode
 }
 
-// MockHydratedLocalFiles creates a slice of LocalFiles based on the provided options
-//
-// Example:
-//
-//	MockHydratedLocalFiles(
-//		MockHydratedLocalFileOptions{
-//			FilePath:             "/mnt/anime/One Piece/One Piece - 1070.mkv",
-//			LibraryPath:          "/mnt/anime/",
-//			MetadataEpisode:      1070,
-//			MetadataAniDbEpisode: "1070",
-//			MetadataType:         LocalFileTypeMain,
-//		},
-//		MockHydratedLocalFileOptions{
-//			...
-//		},
-//	)
-func MockHydratedLocalFiles(opts ...[]MockHydratedLocalFileOptions) []*LocalFile {
-	lfs := make([]*LocalFile, 0, len(opts))
-	for _, opt := range opts {
-		for _, o := range opt {
-			lfs = append(lfs, MockHydratedLocalFile(o))
+// NewTestLocalFiles expands one or more local-file groups into hydrated LocalFiles.
+// FilePathTemplate replaces each %ep token with the episode number.
+func NewTestLocalFiles(groups ...TestLocalFileGroup) []*LocalFile {
+	localFiles := make([]*LocalFile, 0)
+	for _, group := range groups {
+		for _, episode := range group.Episodes {
+			lf := NewLocalFile(strings.ReplaceAll(group.FilePathTemplate, "%ep", strconv.Itoa(episode.Episode)), group.LibraryPath)
+			if lf.ParsedData != nil && lf.ParsedData.Episode == "" {
+				lf.ParsedData.Episode = strconv.Itoa(episode.Episode)
+			}
+			lf.MediaId = group.MediaID
+			lf.Metadata = &LocalFileMetadata{
+				AniDBEpisode: episode.AniDBEpisode,
+				Episode:      episode.Episode,
+				Type:         episode.Type,
+			}
+			localFiles = append(localFiles, lf)
 		}
 	}
-	return lfs
-}
 
-type MockHydratedLocalFileWrapperOptionsMetadata struct {
-	MetadataEpisode      int
-	MetadataAniDbEpisode string
-	MetadataType         LocalFileType
-}
-
-// MockGenerateHydratedLocalFileGroupOptions generates a slice of MockHydratedLocalFileOptions based on a template string and metadata
-//
-// Example:
-//
-//	MockGenerateHydratedLocalFileGroupOptions("/mnt/anime/", "One Piece/One Piece - %ep.mkv", 21, []MockHydratedLocalFileWrapperOptionsMetadata{
-//		{MetadataEpisode: 1070, MetadataAniDbEpisode: "1070", MetadataType: LocalFileTypeMain},
-//	})
-func MockGenerateHydratedLocalFileGroupOptions(libraryPath string, template string, mId int, m []MockHydratedLocalFileWrapperOptionsMetadata) []MockHydratedLocalFileOptions {
-	opts := make([]MockHydratedLocalFileOptions, 0, len(m))
-	for _, metadata := range m {
-		opts = append(opts, MockHydratedLocalFileOptions{
-			FilePath:             strings.ReplaceAll(template, "%ep", strconv.Itoa(metadata.MetadataEpisode)),
-			LibraryPath:          libraryPath,
-			MediaId:              mId,
-			MetadataEpisode:      metadata.MetadataEpisode,
-			MetadataAniDbEpisode: metadata.MetadataAniDbEpisode,
-			MetadataType:         metadata.MetadataType,
-		})
-	}
-	return opts
+	return localFiles
 }

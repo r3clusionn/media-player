@@ -2,16 +2,17 @@ package anilist
 
 import (
 	"fmt"
+	"seanime/internal/testutil"
+	"seanime/internal/util"
+	"testing"
+
 	"github.com/davecgh/go-spew/spew"
 	"github.com/goccy/go-json"
 	"github.com/stretchr/testify/require"
-	"seanime/internal/test_utils"
-	"seanime/internal/util"
-	"testing"
 )
 
-func TestCompoundQuery(t *testing.T) {
-	test_utils.InitTestProvider(t)
+func TestCompoundQueryLive(t *testing.T) {
+	testutil.InitTestProvider(t, testutil.Anilist(), testutil.Live())
 
 	var ids = []int{171457, 21}
 

@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"seanime/internal/api/anilist"
-	"seanime/internal/database/db"
 	"seanime/internal/extension"
 	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/test_utils"
+	"seanime/internal/platforms/platform"
+	"seanime/internal/testmocks"
+	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"testing"
 	"time"
@@ -16,21 +17,19 @@ import (
 )
 
 func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist.MangaCollection) {
+	env := testutil.NewTestEnv(t)
+	logger := env.Logger()
 
-	logger := util.NewLogger()
-
-	database, err := db.NewDatabase(test_utils.ConfigData.Path.DataDir, test_utils.ConfigData.Database.Name, logger)
-	require.NoError(t, err)
-	anilistClient := anilist.NewAnilistClient(test_utils.ConfigData.Provider.AnilistJwt, "")
+	database := env.MustNewDatabase(logger)
+	anilistClient := anilist.NewTestAnilistClient()
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 	anilistPlatform := anilist_platform.NewAnilistPlatform(util.NewRef[anilist.AnilistClient](anilistClient), extensionBankRef, logger, database)
-	anilistPlatform.SetUsername(test_utils.ConfigData.Provider.AnilistUsername)
 	animeCollection, err := anilistPlatform.GetAnimeCollection(t.Context(), true)
 	require.NoError(t, err)
 	mangaCollection, err := anilistPlatform.GetMangaCollection(t.Context(), true)
 	require.NoError(t, err)
 
-	manager := GetMockManager(t, database)
+	manager := NewTestManager(t, database)
 
 	manager.SetAnimeCollection(animeCollection)
 	manager.SetMangaCollection(mangaCollection)
@@ -39,9 +38,6 @@ func testSetupManager(t *testing.T) (Manager, *anilist.AnimeCollection, *anilist
 }
 
 func TestSync2(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
 	manager, animeCollection, _ := testSetupManager(t)
 
 	err := manager.TrackAnime(130003) // Bocchi the rock
@@ -74,7 +70,7 @@ func TestSync2(t *testing.T) {
 		break
 	}
 
-	anilist.TestModifyAnimeCollectionEntry(animeCollection, 130003, anilist.TestModifyAnimeCollectionEntryInput{
+	anilist.PatchAnimeCollectionEntry(animeCollection, 130003, anilist.AnimeCollectionEntryPatch{
 		Status:   new(anilist.MediaListStatusCompleted),
 		Progress: new(12), // Mock progress
 	})
@@ -98,9 +94,6 @@ func TestSync2(t *testing.T) {
 }
 
 func TestSync(t *testing.T) {
-	test_utils.SetTwoLevelDeep()
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
 	manager, _, _ := testSetupManager(t)
 
 	err := manager.TrackAnime(130003) // Bocchi the rock
@@ -133,4 +126,91 @@ func TestSync(t *testing.T) {
 		break
 	}
 
+}
+
+func TestSynchronizeAnilistDoesNotPanicWithoutLocalCollections(t *testing.T) {
+	manager, _, _ := testSetupManager(t)
+
+	require.NotPanics(t, func() {
+		require.NoError(t, manager.SynchronizeAnilist())
+	})
+}
+
+func TestSynchronizeSimulatedCollectionToAnilistCreatesMissingEntries(t *testing.T) {
+	manager, animeCollection, mangaCollection := testSetupManager(t)
+	managerImpl := manager.(*ManagerImpl)
+
+	animeEntry, found := animeCollection.GetListEntryFromAnimeId(130003)
+	require.True(t, found)
+	mangaEntry, found := mangaCollection.GetListEntryFromMangaId(101517)
+	require.True(t, found)
+
+	manager.SaveSimulatedAnimeCollection(newSingleAnimeCollection(animeEntry))
+	manager.SaveSimulatedMangaCollection(newSingleMangaCollection(mangaEntry))
+
+	manager.SetAnimeCollection(newEmptyAnimeCollection())
+	manager.SetMangaCollection(newEmptyMangaCollection())
+
+	fakePlatform := testmocks.NewFakePlatformBuilder().Build()
+	managerImpl.anilistPlatformRef = util.NewRef[platform.Platform](fakePlatform)
+
+	require.NoError(t, manager.SynchronizeSimulatedCollectionToAnilist())
+
+	updateCalls := fakePlatform.UpdateEntryCalls()
+	require.Len(t, updateCalls, 2)
+	require.Contains(t, []int{updateCalls[0].MediaID, updateCalls[1].MediaID}, 130003)
+	require.Contains(t, []int{updateCalls[0].MediaID, updateCalls[1].MediaID}, 101517)
+
+	for _, call := range updateCalls {
+		switch call.MediaID {
+		case 130003:
+			require.NotNil(t, call.Status)
+			require.Equal(t, animeEntry.GetStatus(), call.Status)
+		case 101517:
+			require.NotNil(t, call.Status)
+			require.Equal(t, mangaEntry.GetStatus(), call.Status)
+		}
+	}
+}
+
+func newEmptyAnimeCollection() *anilist.AnimeCollection {
+	return &anilist.AnimeCollection{
+		MediaListCollection: &anilist.AnimeCollection_MediaListCollection{
+			Lists: []*anilist.AnimeCollection_MediaListCollection_Lists{},
+		},
+	}
+}
+
+func newEmptyMangaCollection() *anilist.MangaCollection {
+	return &anilist.MangaCollection{
+		MediaListCollection: &anilist.MangaCollection_MediaListCollection{
+			Lists: []*anilist.MangaCollection_MediaListCollection_Lists{},
+		},
+	}
+}
+
+func newSingleAnimeCollection(entry *anilist.AnimeListEntry) *anilist.AnimeCollection {
+	return &anilist.AnimeCollection{
+		MediaListCollection: &anilist.AnimeCollection_MediaListCollection{
+			Lists: []*anilist.AnimeCollection_MediaListCollection_Lists{
+				{
+					Status:  entry.Status,
+					Entries: []*anilist.AnimeCollection_MediaListCollection_Lists_Entries{entry},
+				},
+			},
+		},
+	}
+}
+
+func newSingleMangaCollection(entry *anilist.MangaListEntry) *anilist.MangaCollection {
+	return &anilist.MangaCollection{
+		MediaListCollection: &anilist.MangaCollection_MediaListCollection{
+			Lists: []*anilist.MangaCollection_MediaListCollection_Lists{
+				{
+					Status:  entry.Status,
+					Entries: []*anilist.MangaCollection_MediaListCollection_Lists_Entries{entry},
+				},
+			},
+		},
+	}
 }

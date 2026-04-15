@@ -1,89 +1,86 @@
 package anime_test
 
 import (
-	"context"
 	"seanime/internal/api/anilist"
-	"seanime/internal/api/metadata_provider"
-	"seanime/internal/database/db"
 	"seanime/internal/library/anime"
-	"seanime/internal/test_utils"
-	"seanime/internal/util"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-// Test to retrieve accurate missing episodes
-// DEPRECATED
 func TestNewMissingEpisodes(t *testing.T) {
-	t.Skip("Outdated test")
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-	logger := util.NewLogger()
-	database, _ := db.NewDatabase(t.TempDir(), "test", logger)
+	// missing episodes now collapse each show down to the next thing you need,
+	// and anything silenced should be split into its own list.
+	h := newAnimeTestHarness(t)
 
-	metadataProvider := metadata_provider.GetFakeProvider(t, database)
-
-	anilistClient := anilist.TestGetMockAnilistClient()
-	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tests := []struct {
-		name                    string
-		mediaId                 int
-		localFiles              []*anime.LocalFile
-		mediaAiredEpisodes      int
-		currentProgress         int
-		expectedMissingEpisodes int
-	}{
-		{
-			// Sousou no Frieren - 10 currently aired episodes
-			// User has 5 local files from ep 1 to 5, but only watched 4 episodes
-			// So we should expect to see 5 missing episodes
-			name:    "Sousou no Frieren, missing 5 episodes",
-			mediaId: 154587,
-			localFiles: anime.MockHydratedLocalFiles(
-				anime.MockGenerateHydratedLocalFileGroupOptions("E:/Anime", "E:\\Anime\\Sousou no Frieren\\[SubsPlease] Sousou no Frieren - %ep (1080p) [F02B9CEE].mkv", 154587, []anime.MockHydratedLocalFileWrapperOptionsMetadata{
-					{MetadataEpisode: 1, MetadataAniDbEpisode: "1", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 2, MetadataAniDbEpisode: "2", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 3, MetadataAniDbEpisode: "3", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 4, MetadataAniDbEpisode: "4", MetadataType: anime.LocalFileTypeMain},
-					{MetadataEpisode: 5, MetadataAniDbEpisode: "5", MetadataType: anime.LocalFileTypeMain},
-				}),
-			),
-			mediaAiredEpisodes: 10,
-			currentProgress:    4,
-			//expectedMissingEpisodes: 5,
-			expectedMissingEpisodes: 1, // DEVNOTE: Now the value is 1 at most because everything else is merged
+	localFiles := anime.NewTestLocalFiles(
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/Anime",
+			FilePathTemplate: "/Anime/Frieren/%ep.mkv",
+			MediaID:          154587,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+				{Episode: 3, AniDBEpisode: "3", Type: anime.LocalFileTypeMain},
+				{Episode: 4, AniDBEpisode: "4", Type: anime.LocalFileTypeMain},
+				{Episode: 5, AniDBEpisode: "5", Type: anime.LocalFileTypeMain},
+			},
 		},
-	}
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/Anime",
+			FilePathTemplate: "/Anime/Mushoku/%ep.mkv",
+			MediaID:          146065,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 0, AniDBEpisode: "S1", Type: anime.LocalFileTypeMain},
+				{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+				{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+			},
+		},
+		anime.TestLocalFileGroup{
+			LibraryPath:      "/Anime",
+			FilePathTemplate: "/Anime/OnePiece/%ep.mkv",
+			MediaID:          21,
+			Episodes: []anime.TestLocalFileEpisode{
+				{Episode: 1069, AniDBEpisode: "1069", Type: anime.LocalFileTypeMain},
+			},
+		},
+	)
 
-	for _, tt := range tests {
+	// frieren should surface as a normal missing-episodes card.
+	patchAnimeCollectionEntry(t, h.animeCollection, 154587, anilist.AnimeCollectionEntryPatch{
+		Status:            new(anilist.MediaListStatusCurrent),
+		Progress:          new(4),
+		AiredEpisodes:     new(10),
+		NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{Episode: 11},
+	})
+	h.setEpisodeMetadata(t, 154587, []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil)
 
-		t.Run(tt.name, func(t *testing.T) {
+	// mushoku follows the episode-zero discrepancy path, but this one is silenced.
+	patchAnimeCollectionEntry(t, h.animeCollection, 146065, anilist.AnimeCollectionEntryPatch{
+		Status:            new(anilist.MediaListStatusCurrent),
+		Progress:          new(1),
+		AiredEpisodes:     new(6),
+		NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{Episode: 7},
+	})
+	h.setEpisodeMetadata(t, 146065, []int{1, 2, 3, 4, 5}, map[string]int{"S1": 1})
 
-			// Mock Anilist collection
-			anilist.TestModifyAnimeCollectionEntry(animeCollection, tt.mediaId, anilist.TestModifyAnimeCollectionEntryInput{
-				Progress:      new(tt.currentProgress), // Mock progress
-				AiredEpisodes: new(tt.mediaAiredEpisodes),
-				NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{
-					Episode: tt.mediaAiredEpisodes + 1,
-				},
-			})
+	// dropped entries should never show up here.
+	patchAnimeCollectionEntry(t, h.animeCollection, 21, anilist.AnimeCollectionEntryPatch{
+		Status:            new(anilist.MediaListStatusDropped),
+		Progress:          new(1060),
+		AiredEpisodes:     new(1100),
+		NextAiringEpisode: &anilist.BaseAnime_NextAiringEpisode{Episode: 1101},
+	})
 
-		})
+	missing := h.newMissingEpisodes(t, localFiles, []int{146065})
 
-		if assert.NoError(t, err) {
-			missingData := anime.NewMissingEpisodes(&anime.NewMissingEpisodesOptions{
-				AnimeCollection:     animeCollection,
-				LocalFiles:          tt.localFiles,
-				MetadataProviderRef: util.NewRef(metadataProvider),
-			})
+	require.Len(t, missing.Episodes, 1)
+	require.Equal(t, 154587, missing.Episodes[0].BaseAnime.ID)
+	require.Equal(t, 6, missing.Episodes[0].EpisodeNumber)
+	require.Equal(t, "Episode 6 & 4 more", missing.Episodes[0].DisplayTitle)
 
-			assert.Equal(t, tt.expectedMissingEpisodes, len(missingData.Episodes))
-		}
-
-	}
-
+	require.Len(t, missing.SilencedEpisodes, 1)
+	require.Equal(t, 146065, missing.SilencedEpisodes[0].BaseAnime.ID)
+	require.Equal(t, 3, missing.SilencedEpisodes[0].EpisodeNumber)
+	require.Equal(t, "Episode 3 & 2 more", missing.SilencedEpisodes[0].DisplayTitle)
 }

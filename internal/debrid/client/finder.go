@@ -110,13 +110,6 @@ func (r *Repository) findBestTorrentFromManualSelection(provider debrid.Provider
 
 	r.logger.Debug().Msgf("debridstream: Analyzing torrent from %s for %s", t.Link, media.GetTitleSafe())
 
-	// Get the torrent's provider extension
-	providerExtension, ok := r.torrentRepository.GetAnimeProviderExtension(t.Provider)
-	if !ok {
-		r.logger.Error().Str("provider", t.Provider).Msg("debridstream: provider extension not found")
-		return nil, fmt.Errorf("provider extension not found")
-	}
-
 	// Check if the torrent is cached
 	if t.InfoHash != "" {
 		instantAvail := provider.GetInstantAvailability([]string{t.InfoHash})
@@ -127,7 +120,7 @@ func (r *Repository) findBestTorrentFromManualSelection(provider debrid.Provider
 	}
 
 	// Get the magnet link
-	magnet, err := providerExtension.GetProvider().GetTorrentMagnetLink(t)
+	magnet, err := r.torrentRepository.ResolveMagnetLink(t)
 	if err != nil {
 		r.logger.Error().Err(err).Msgf("debridstream: Error scraping magnet link for %s", t.Link)
 		return nil, fmt.Errorf("could not get magnet link from %s", t.Link)

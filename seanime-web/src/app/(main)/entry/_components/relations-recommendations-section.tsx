@@ -8,7 +8,7 @@ import React from "react"
 type RelationsRecommendationsSectionProps = {
     entry: Nullish<Anime_Entry>
     details: Nullish<AL_AnimeDetailsById_Media>
-    containerRef?: React.RefObject<HTMLElement>
+    containerRef?: React.RefObject<HTMLElement | null>
     maxCol?: number
 }
 

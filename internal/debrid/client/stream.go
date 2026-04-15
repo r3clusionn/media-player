@@ -117,7 +117,9 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 	//}()
 
 	if opts.PlaybackType == PlaybackTypeNativePlayer {
-		s.repository.directStreamManager.PrepareNewStream(opts.ClientId, "Selecting torrent...")
+		s.repository.directStreamManager.BeginOpen(opts.ClientId, "Selecting torrent...", func() {
+			s.repository.CancelStream(&CancelStreamOptions{RemoveTorrent: true})
+		})
 	}
 
 	//
@@ -127,6 +129,10 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 	if err != nil {
 		s.repository.wsEventManager.SendEvent(events.HideIndefiniteLoader, "debridstream")
 		return err
+	}
+	if opts.PlaybackType == PlaybackTypeNativePlayer && !s.repository.directStreamManager.IsOpenActive(opts.ClientId) {
+		s.repository.wsEventManager.SendEvent(events.HideIndefiniteLoader, "debridstream")
+		return nil
 	}
 
 	episodeNumber := opts.EpisodeNumber
@@ -205,6 +211,10 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 		s.repository.wsEventManager.SendEvent(events.HideIndefiniteLoader, "debridstream")
 		return fmt.Errorf("debridstream: Failed to start stream, no torrent provided")
 	}
+	if opts.PlaybackType == PlaybackTypeNativePlayer && !s.repository.directStreamManager.IsOpenActive(opts.ClientId) {
+		s.repository.wsEventManager.SendEvent(events.HideIndefiniteLoader, "debridstream")
+		return nil
+	}
 
 	s.repository.wsEventManager.SendEvent(events.DebridStreamState, StreamState{
 		Status:      StreamStatusDownloading,
@@ -271,7 +281,9 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 		go func() {
 			for item := range itemCh {
 				if opts.PlaybackType == PlaybackTypeNativePlayer {
-					s.repository.directStreamManager.PrepareNewStream(opts.ClientId, fmt.Sprintf("Awaiting stream: %d%%", item.CompletionPercentage))
+					if !s.repository.directStreamManager.UpdateOpenStep(opts.ClientId, fmt.Sprintf("Awaiting stream: %d%%", item.CompletionPercentage)) {
+						return
+					}
 				}
 
 				s.repository.wsEventManager.SendEvent(events.DebridStreamState, StreamState{
@@ -295,6 +307,10 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 
 		if ctx.Err() != nil {
 			s.repository.logger.Debug().Msg("debridstream: Context cancelled, stopping stream")
+			ready()
+			return
+		}
+		if opts.PlaybackType == PlaybackTypeNativePlayer && !s.repository.directStreamManager.IsOpenActive(opts.ClientId) {
 			ready()
 			return
 		}
@@ -510,6 +526,9 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 				Message:     "External player link sent",
 			})
 		case PlaybackTypeNativePlayer:
+			if !s.repository.directStreamManager.IsOpenActive(opts.ClientId) {
+				return
+			}
 			err := s.repository.directStreamManager.PlayDebridStream(ctx, filepath, directstream.PlayDebridStreamOptions{
 				StreamUrl:    streamUrl,
 				MediaId:      media.ID,
@@ -555,12 +574,16 @@ func (s *StreamManager) startStream(ctx context.Context, opts *StartStreamOption
 }
 
 func (s *StreamManager) cancelStream(opts *CancelStreamOptions) {
+	if s.repository.directStreamManager != nil {
+		s.repository.directStreamManager.CloseOpen("")
+	}
+
 	if s.downloadCtxCancelFunc != nil {
 		s.downloadCtxCancelFunc()
 		s.downloadCtxCancelFunc = nil
 	}
 
-	s.repository.wsEventManager.SendEvent(events.ShowIndefiniteLoader, "debridstream")
+	s.repository.wsEventManager.SendEvent(events.HideIndefiniteLoader, "debridstream")
 
 	s.currentStreamUrl = ""
 

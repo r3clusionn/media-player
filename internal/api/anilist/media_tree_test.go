@@ -2,17 +2,16 @@ package anilist
 
 import (
 	"context"
-	"github.com/davecgh/go-spew/spew"
-	"github.com/stretchr/testify/assert"
-	"seanime/internal/test_utils"
+	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"testing"
+
+	"github.com/davecgh/go-spew/spew"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
-	test_utils.InitTestProvider(t, test_utils.Anilist())
-
-	anilistClient := TestGetMockAnilistClient()
+	anilistClient := NewTestAnilistClient()
 	lim := limiter.NewAnilistLimiter()
 	completeAnimeCache := NewCompleteAnimeCache()
 
@@ -30,16 +29,6 @@ func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
 				103223, // BSD3
 				141249, // BSD4
 				163263, // BSD5
-			},
-		},
-		{
-			name:    "Re:Zero",
-			mediaId: 21355,
-			edgeIds: []int{
-				21355,  // Re:Zero 1
-				108632, // Re:Zero 2
-				119661, // Re:Zero 2 Part 2
-				163134, // Re:Zero 3
 			},
 		},
 	}
@@ -69,7 +58,7 @@ func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
 					for _, treeId := range tt.edgeIds {
 						a, found := tree.Get(treeId)
 						assert.Truef(t, found, "expected tree to contain %d", treeId)
-						spew.Dump(a.GetTitleSafe())
+						util.Spew(a.GetTitleSafe())
 					}
 
 				}
@@ -79,4 +68,37 @@ func TestBaseAnime_FetchMediaTree_BaseAnime(t *testing.T) {
 
 	}
 
+}
+
+func TestBaseAnime_FetchMediaTree_BaseAnimeLive(t *testing.T) {
+	anilistClient := newLiveAnilistClient(t)
+	lim := limiter.NewAnilistLimiter()
+	completeAnimeCache := NewCompleteAnimeCache()
+	mediaID := 21355
+	edgeIDs := []int{21355, 108632, 119661, 163134}
+
+	mediaF, err := anilistClient.CompleteAnimeByID(context.Background(), &mediaID)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	media := mediaF.GetMedia()
+	tree := NewCompleteAnimeRelationTree()
+
+	err = media.FetchMediaTree(
+		FetchMediaTreeAll,
+		anilistClient,
+		lim,
+		tree,
+		completeAnimeCache,
+	)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	for _, treeID := range edgeIDs {
+		a, found := tree.Get(treeID)
+		assert.Truef(t, found, "expected tree to contain %d", treeID)
+		spew.Dump(a.GetTitleSafe())
+	}
 }
