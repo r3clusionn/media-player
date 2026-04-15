@@ -18,6 +18,8 @@ type TestHarness struct {
 	SearchResults    []*hibiketorrent.AnimeTorrent
 	GetLatestResults []*hibiketorrent.AnimeTorrent
 	Database         *db.Database
+	Providers        map[string]hibiketorrent.AnimeProvider
+	DefaultProvider  string
 }
 
 type TestTorrentProvider struct {
@@ -68,15 +70,22 @@ func (f *TestHarness) New(t *testing.T) *AutoDownloader {
 
 	extensionBankRef := util.NewRef(extension.NewUnifiedBank())
 
-	// Test extension
-	provider := TestTorrentProvider{harness: f}
-	ext := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
-		ID:   "fake",
-		Type: extension.TypeAnimeTorrentProvider,
-		Name: "Test Provider",
-	}, provider)
+	providers := f.Providers
+	if len(providers) == 0 {
+		providers = map[string]hibiketorrent.AnimeProvider{
+			"fake": TestTorrentProvider{harness: f},
+		}
+	}
 
-	extensionBankRef.Get().Set("fake", ext)
+	for id, provider := range providers {
+		ext := extension.NewAnimeTorrentProviderExtension(&extension.Extension{
+			ID:   id,
+			Type: extension.TypeAnimeTorrentProvider,
+			Name: id,
+		}, provider)
+
+		extensionBankRef.Get().Set(id, ext)
+	}
 
 	metadataProvider := metadata_provider.NewProvider(&metadata_provider.NewProviderImplOptions{
 		Logger:           logger,
@@ -92,6 +101,14 @@ func (f *TestHarness) New(t *testing.T) *AutoDownloader {
 	})
 
 	metadataProviderRef := util.NewRef[metadata_provider.Provider](metadataProvider)
+	defaultProvider := f.DefaultProvider
+	if defaultProvider == "" {
+		defaultProvider = "fake"
+		for id := range providers {
+			defaultProvider = id
+			break
+		}
+	}
 	//torrentClientRepository := torrent_client.NewRepository(&torrent_client.NewRepositoryOptions{
 	//	Logger:              logger,
 	//	QbittorrentClient:   &qbittorrent.Client{},
@@ -112,7 +129,7 @@ func (f *TestHarness) New(t *testing.T) *AutoDownloader {
 	})
 
 	ad.SetSettings(&models.AutoDownloaderSettings{
-		Provider:              "fake",
+		Provider:              defaultProvider,
 		Interval:              15,
 		Enabled:               true,
 		DownloadAutomatically: false,
