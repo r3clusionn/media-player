@@ -143,7 +143,7 @@ func TestAbortContextWithFetch(t *testing.T) {
 		}))
 		defer server.Close()
 
-		fetch := BindFetch(vm, []string{"*"})
+		fetch := BindFetch("", vm, []string{"*"})
 		defer fetch.Close()
 
 		val, err := vm.RunString(fmt.Sprintf(`
@@ -183,7 +183,7 @@ func TestAbortContextWithFetch(t *testing.T) {
 		}))
 		defer server.Close()
 
-		fetch := BindFetch(vm, []string{"*"})
+		fetch := BindFetch("", vm, []string{"*"})
 		defer fetch.Close()
 
 		val, err := vm.RunString(fmt.Sprintf(`

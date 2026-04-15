@@ -361,7 +361,7 @@ func TestIsURLAllowed(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := NewFetch(vm, tt.allowedDomains)
+			f := NewFetch("", vm, tt.allowedDomains)
 			result := f.isURLAllowed(tt.url)
 			if result != tt.expected {
 				t.Errorf("isURLAllowed(%q) with domains %v = %v, expected %v",

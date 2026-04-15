@@ -35056,6 +35056,33 @@
         ]
       },
       {
+        "name": "preparingClientID",
+        "jsonName": "preparingClientID",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "preparationCanceled",
+        "jsonName": "preparationCanceled",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "preparationCancelFunc",
+        "jsonName": "preparationCancelFunc",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "currentStreamEpisodeCollection",
         "jsonName": "currentStreamEpisodeCollection",
         "goType": "",
@@ -35775,6 +35802,15 @@
       {
         "name": "cleanupFunc",
         "jsonName": "cleanupFunc",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "onStop",
+        "jsonName": "onStop",
         "goType": "",
         "typescriptType": "any",
         "required": true,
@@ -42086,6 +42122,15 @@
       {
         "name": "anilistToken",
         "jsonName": "anilistToken",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "extensionId",
+        "jsonName": "extensionId",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -49605,6 +49650,26 @@
         "usedTypescriptType": "DB_Database",
         "usedStructName": "db.Database",
         "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Providers",
+        "jsonName": "Providers",
+        "goType": "map[string]hibiketorrent.AnimeProvider",
+        "typescriptType": "Record\u003cstring, HibikeTorrent_AnimeProvider\u003e",
+        "usedTypescriptType": "HibikeTorrent_AnimeProvider",
+        "usedStructName": "hibiketorrent.AnimeProvider",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DefaultProvider",
+        "jsonName": "DefaultProvider",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
         "public": true,
         "comments": []
       }
@@ -72146,17 +72211,6 @@
         ]
       },
       {
-        "name": "anilistRateLimit",
-        "jsonName": "anilistRateLimit",
-        "goType": "limiter.Limiter",
-        "typescriptType": "Limiter",
-        "usedTypescriptType": "Limiter",
-        "usedStructName": "limiter.Limiter",
-        "required": false,
-        "public": false,
-        "comments": []
-      },
-      {
         "name": "helper",
         "jsonName": "helper",
         "goType": "shared_platform.PlatformHelper",
@@ -72174,6 +72228,39 @@
         "typescriptType": "DB_Database",
         "usedTypescriptType": "DB_Database",
         "usedStructName": "db.Database",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "refreshRateLimit",
+        "jsonName": "refreshRateLimit",
+        "goType": "limiter.Limiter",
+        "typescriptType": "Limiter",
+        "usedTypescriptType": "Limiter",
+        "usedStructName": "limiter.Limiter",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "refreshAnimeMetadataCancelFunc",
+        "jsonName": "refreshAnimeMetadataCancelFunc",
+        "goType": "context.CancelFunc",
+        "typescriptType": "CancelFunc",
+        "usedTypescriptType": "CancelFunc",
+        "usedStructName": "context.CancelFunc",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "refreshMangaMetadataCancelFunc",
+        "jsonName": "refreshMangaMetadataCancelFunc",
+        "goType": "context.CancelFunc",
+        "typescriptType": "CancelFunc",
+        "usedTypescriptType": "CancelFunc",
+        "usedStructName": "context.CancelFunc",
         "required": false,
         "public": false,
         "comments": []
@@ -80627,6 +80714,17 @@
         "comments": []
       },
       {
+        "name": "updateEntryCalls",
+        "jsonName": "updateEntryCalls",
+        "goType": "[]FakeUpdateEntryCall",
+        "typescriptType": "Array\u003cFakeUpdateEntryCall\u003e",
+        "usedTypescriptType": "FakeUpdateEntryCall",
+        "usedStructName": "testmocks.FakeUpdateEntryCall",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "updateEntryProgressCalls",
         "jsonName": "updateEntryProgressCalls",
         "goType": "[]FakeUpdateEntryProgressCall",
@@ -80635,6 +80733,76 @@
         "usedStructName": "testmocks.FakeUpdateEntryProgressCall",
         "required": false,
         "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/testmocks/fake_platform.go",
+    "filename": "fake_platform.go",
+    "name": "FakeUpdateEntryCall",
+    "formattedName": "FakeUpdateEntryCall",
+    "package": "testmocks",
+    "fields": [
+      {
+        "name": "MediaID",
+        "jsonName": "MediaID",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Status",
+        "jsonName": "Status",
+        "goType": "anilist.MediaListStatus",
+        "typescriptType": "AL_MediaListStatus",
+        "usedTypescriptType": "AL_MediaListStatus",
+        "usedStructName": "anilist.MediaListStatus",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ScoreRaw",
+        "jsonName": "ScoreRaw",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Progress",
+        "jsonName": "Progress",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "StartedAt",
+        "jsonName": "StartedAt",
+        "goType": "anilist.FuzzyDateInput",
+        "typescriptType": "AL_FuzzyDateInput",
+        "usedTypescriptType": "AL_FuzzyDateInput",
+        "usedStructName": "anilist.FuzzyDateInput",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CompletedAt",
+        "jsonName": "CompletedAt",
+        "goType": "anilist.FuzzyDateInput",
+        "typescriptType": "AL_FuzzyDateInput",
+        "usedTypescriptType": "AL_FuzzyDateInput",
+        "usedStructName": "anilist.FuzzyDateInput",
+        "required": false,
+        "public": true,
         "comments": []
       }
     ],
@@ -90278,6 +90446,37 @@
         "usedTypescriptType": "Logger",
         "usedStructName": "zerolog.Logger",
         "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "position",
+        "jsonName": "position",
+        "goType": "atomic.Int64",
+        "typescriptType": "Int64",
+        "usedTypescriptType": "Int64",
+        "usedStructName": "atomic.Int64",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "lastPriorityPos",
+        "jsonName": "lastPriorityPos",
+        "goType": "atomic.Int64",
+        "typescriptType": "Int64",
+        "usedTypescriptType": "Int64",
+        "usedStructName": "atomic.Int64",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "updateStride",
+        "jsonName": "updateStride",
+        "goType": "int64",
+        "typescriptType": "number",
+        "required": true,
         "public": false,
         "comments": []
       }
