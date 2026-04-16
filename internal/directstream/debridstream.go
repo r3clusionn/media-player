@@ -330,9 +330,6 @@ type PlayDebridStreamOptions struct {
 
 // PlayDebridStream is used by a module to load a new debrid stream.
 func (m *Manager) PlayDebridStream(ctx context.Context, filepath string, opts PlayDebridStreamOptions) error {
-	m.playbackMu.Lock()
-	defer m.playbackMu.Unlock()
-
 	episodeCollection, err := anime.NewEpisodeCollection(anime.NewEpisodeCollectionOptions{
 		AnimeMetadata:       nil,
 		Media:               opts.Media,
@@ -367,8 +364,6 @@ func (m *Manager) PlayDebridStream(ctx context.Context, filepath string, opts Pl
 	}
 
 	go func() {
-		m.playbackMu.Lock()
-		defer m.playbackMu.Unlock()
 		m.loadStream(stream)
 	}()
 

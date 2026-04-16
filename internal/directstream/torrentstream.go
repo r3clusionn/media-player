@@ -202,9 +202,6 @@ type PlayTorrentStreamOptions struct {
 
 // PlayTorrentStream is used by a module to load a new torrent stream.
 func (m *Manager) PlayTorrentStream(ctx context.Context, opts PlayTorrentStreamOptions) (chan struct{}, error) {
-	m.playbackMu.Lock()
-	defer m.playbackMu.Unlock()
-
 	episodeCollection, err := anime.NewEpisodeCollection(anime.NewEpisodeCollectionOptions{
 		AnimeMetadata:       nil,
 		Media:               opts.Media,
@@ -240,8 +237,6 @@ func (m *Manager) PlayTorrentStream(ctx context.Context, opts PlayTorrentStreamO
 
 	go func() {
 		<-stream.streamReadyCh
-		m.playbackMu.Lock()
-		defer m.playbackMu.Unlock()
 		m.loadStream(stream)
 	}()
 

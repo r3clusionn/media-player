@@ -179,6 +179,9 @@ export function NativePlayer() {
     //
 
     function handleTerminateStream() {
+        const playbackId = state.playbackInfo?.id || ""
+        const playbackType = state.playbackInfo?.streamType || ""
+
         // Clean up player first
         if (videoElement) {
             log.info("Cleaning up media")
@@ -205,6 +208,12 @@ export function NativePlayer() {
             payload: {
                 clientId: clientId,
                 type: "video-terminated",
+                payload: {
+                    id: playbackId,
+                    clientId: clientId,
+                    playerType: "native",
+                    playbackType: playbackType,
+                },
             },
         })
     }

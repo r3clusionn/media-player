@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.6.1
+
+- 🦺 In-App Player: Fixed deadlock caused by stream cancellation
+  - Cancelling a stream no longer cause future stream requests to hang (regression)
+  - It is now possible to cancel a stream while metadata is being loaded
+- 🏗️ VideoCore: Refactored stream cancellation logic
+
 ## v3.6.0
 
 - ⚡️ Anime: Paste magnet link anywhere to stream or download

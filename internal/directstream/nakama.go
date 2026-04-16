@@ -286,9 +286,6 @@ type PlayNakamaStreamOptions struct {
 func (m *Manager) PlayNakamaStream(ctx context.Context, opts PlayNakamaStreamOptions) error {
 	m.ResetOpenState(opts.ClientId)
 
-	m.playbackMu.Lock()
-	defer m.playbackMu.Unlock()
-
 	episodeCollection, err := anime.NewEpisodeCollection(anime.NewEpisodeCollectionOptions{
 		AnimeMetadata:       nil,
 		Media:               opts.Media,
@@ -322,8 +319,6 @@ func (m *Manager) PlayNakamaStream(ctx context.Context, opts PlayNakamaStreamOpt
 	}
 
 	go func() {
-		m.playbackMu.Lock()
-		defer m.playbackMu.Unlock()
 		m.loadStream(stream)
 	}()
 

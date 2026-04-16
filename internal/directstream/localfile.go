@@ -244,9 +244,6 @@ type PlayLocalFileOptions struct {
 func (m *Manager) PlayLocalFile(ctx context.Context, opts PlayLocalFileOptions) error {
 	m.ResetOpenState(opts.ClientId)
 
-	m.playbackMu.Lock()
-	defer m.playbackMu.Unlock()
-
 	animeCollection, ok := m.animeCollection.Get()
 	if !ok {
 		return fmt.Errorf("cannot play local file, anime collection is not set")

@@ -222,6 +222,12 @@ type (
 	clientVideoAnime4KPayload struct {
 		Option string `json:"option"`
 	}
+	clientVideoTerminatedPayload struct {
+		ID           string       `json:"id"`
+		ClientId     string       `json:"clientId"`
+		PlayerType   PlayerType   `json:"playerType"`
+		PlaybackType PlaybackType `json:"playbackType"`
+	}
 	clientVideoTextTracksPayload struct {
 		TextTracks []*VideoTextTrack `json:"textTracks"`
 	}

@@ -307,7 +307,12 @@ export function useVideoCoreSetupEvents(id: string,
 
     function dispatchTerminatedEvent() {
         log.trace("Video terminated")
-        sendEvent("video-terminated")
+        sendEvent("video-terminated", {
+            id: state.playbackInfo?.id || "",
+            clientId: clientId,
+            playerType: id === "native-player" ? "native" : "web",
+            playbackType: state.playbackInfo?.playbackType || "",
+        })
     }
 
     function dispatchTranslateTextEvent(text: string) {

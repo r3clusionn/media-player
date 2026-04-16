@@ -944,11 +944,37 @@ func (vc *VideoCore) listenToClientEvents() {
 						})
 					}
 				case PlayerEventVideoTerminated:
+					payload := &clientVideoTerminatedPayload{}
+					_ = playerEvent.UnmarshalAs(payload)
+					if payload.ClientId != "" {
+						eventClientID = payload.ClientId
+					}
+
 					event := &VideoTerminatedEvent{}
 					if state, ok := vc.GetPlaybackState(); ok {
-						event.identify(state.PlaybackInfo.Id, state.ClientId, state.PlayerType, state.PlaybackInfo.PlaybackType)
+						playbackID := state.PlaybackInfo.Id
+						if payload.ID != "" {
+							playbackID = payload.ID
+						}
+						clientID := state.ClientId
+						if eventClientID != "" {
+							clientID = eventClientID
+						}
+						playerType := state.PlayerType
+						if payload.PlayerType != "" {
+							playerType = payload.PlayerType
+						}
+						playbackType := state.PlaybackInfo.PlaybackType
+						if payload.PlaybackType != "" {
+							playbackType = payload.PlaybackType
+						}
+						event.identify(playbackID, clientID, playerType, playbackType)
 					} else if eventClientID != "" {
-						event.identify("", eventClientID, NativePlayer, "")
+						playerType := payload.PlayerType
+						if playerType == "" {
+							playerType = NativePlayer
+						}
+						event.identify(payload.ID, eventClientID, playerType, payload.PlaybackType)
 					}
 					select {
 					case vc.eventBus <- event:

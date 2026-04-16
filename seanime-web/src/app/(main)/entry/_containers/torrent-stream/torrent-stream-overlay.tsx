@@ -59,6 +59,9 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
 
     const handleStopStream = React.useCallback(() => {
         if (nativePlayerState.active && clientId) {
+            const playbackId = nativePlayerState.playbackInfo?.id || ""
+            const playbackType = nativePlayerState.playbackInfo?.streamType || ""
+
             if (videoElement) {
                 videoElement.pause()
             }
@@ -83,6 +86,12 @@ export function TorrentStreamOverlay({ isNativePlayerComponent, show }: {
                 payload: {
                     clientId,
                     type: "video-terminated",
+                    payload: {
+                        id: playbackId,
+                        clientId,
+                        playerType: "native",
+                        playbackType,
+                    },
                 },
             })
 
