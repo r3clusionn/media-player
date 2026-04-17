@@ -424,26 +424,11 @@ func normalizeException(err error) error {
 
 // handlePromiseResult waits for a promise to resolve and returns the appropriate error
 func (p *GojaPlugin) handlePromiseResult(promise *goja.Promise) error {
-	doneCh := make(chan struct{})
-
-	// Wait for the promise to resolve with a timeout
-	go func() {
-		for promise.State() == goja.PromiseStatePending {
-			time.Sleep(10 * time.Millisecond)
-		}
-		close(doneCh)
-	}()
-
 	// force stop after 30 seconds
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	select {
-	case <-doneCh:
-		break
-	case <-timeout.C:
-		break
-	}
+	_ = gojautil.WaitForPromise(ctx, promise)
 
 	return nil
 }

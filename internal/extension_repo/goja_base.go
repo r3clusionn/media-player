@@ -10,7 +10,6 @@ import (
 	"seanime/internal/goja/goja_runtime"
 	"seanime/internal/plugin"
 	gojautil "seanime/internal/util/goja"
-	"time"
 
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/parser"
@@ -95,7 +94,7 @@ func (g *gojaProviderBase) GetExtension() *extension.Extension {
 	return g.ext
 }
 
-func (g *gojaProviderBase) callClassMethod(ctx context.Context, methodName string, args ...interface{}) (goja.Value, error) {
+func (g *gojaProviderBase) callClassMethod(ctx context.Context, methodName string, args ...interface{}) (any, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -157,17 +156,20 @@ func (g *gojaProviderBase) callClassMethod(ctx context.Context, methodName strin
 
 	// g.runtimeManager.PrintBasePoolMetrics()
 
-	return result, nil
+	return g.awaitAndExportValue(ctx, result)
 }
 
 // unmarshalValue unmarshals a Goja value to a target interface
 // This is used to convert the result of a method call to a struct
-func (g *gojaProviderBase) unmarshalValue(value goja.Value, target interface{}) error {
+func (g *gojaProviderBase) unmarshalValue(value any, target interface{}) error {
 	if value == nil {
 		return fmt.Errorf("cannot unmarshal nil value")
 	}
 
-	exported := value.Export()
+	exported := value
+	if gojaValue, ok := value.(goja.Value); ok {
+		exported = gojaValue.Export()
+	}
 	if exported == nil {
 		return fmt.Errorf("exported value is nil")
 	}
@@ -180,39 +182,49 @@ func (g *gojaProviderBase) unmarshalValue(value goja.Value, target interface{}) 
 }
 
 // waitForPromise waits for a promise to resolve and returns the result
-func (g *gojaProviderBase) waitForPromise(value goja.Value) (goja.Value, error) {
-	if value == nil {
-		return nil, fmt.Errorf("cannot wait for nil promise")
+func (g *gojaProviderBase) waitForPromise(value any) (any, error) {
+	return g.awaitAndExportValue(context.Background(), value)
+}
+
+func (g *gojaProviderBase) awaitAndExportValue(ctx context.Context, value any) (any, error) {
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	// If the value is a promise, wait for it to resolve
-	if promise, ok := value.Export().(*goja.Promise); ok {
-		doneCh := make(chan struct{})
-
-		// Wait for the promise to resolve
-		go func() {
-			for promise.State() == goja.PromiseStatePending {
-				time.Sleep(10 * time.Millisecond)
-			}
-			close(doneCh)
-		}()
-
-		<-doneCh
-
-		// If the promise is rejected, return the error
-		if promise.State() == goja.PromiseStateRejected {
-			err := promise.Result()
-			return nil, fmt.Errorf("promise rejected: %v", err)
+	switch v := value.(type) {
+	case nil:
+		return nil, fmt.Errorf("cannot wait for nil promise")
+	case *goja.Promise:
+		if err := gojautil.WaitForPromise(ctx, v); err != nil {
+			return nil, err
 		}
 
-		// If the promise is fulfilled, return the result
-		res := promise.Result()
+		if v.State() == goja.PromiseStateRejected {
+			return nil, fmt.Errorf("promise rejected: %v", exportGojaValue(v.Result()))
+		}
 
-		return res, nil
+		return g.awaitAndExportValue(ctx, v.Result())
+	case goja.Value:
+		if v == nil {
+			return nil, fmt.Errorf("cannot wait for nil promise")
+		}
+
+		if promise, ok := v.Export().(*goja.Promise); ok {
+			return g.awaitAndExportValue(ctx, promise)
+		}
+
+		return exportGojaValue(v), nil
+	default:
+		return value, nil
+	}
+}
+
+func exportGojaValue(value goja.Value) any {
+	if value == nil {
+		return nil
 	}
 
-	// If the value is not a promise, return it as is
-	return value, nil
+	return value.Export()
 }
 
 func (g *gojaProviderBase) PutVM(vm *goja.Runtime) {
