@@ -18,6 +18,7 @@ const (
 	StreamTypeTorrent StreamType = "torrent"
 	StreamTypeFile    StreamType = "localfile"
 	StreamTypeDebrid  StreamType = "debrid"
+	StreamTypeURL     StreamType = "url"
 	StreamTypeNakama  StreamType = "nakama"
 )
 

@@ -6,6 +6,7 @@ import (
 	"seanime/internal/database/db"
 	"seanime/internal/database/models"
 	discordrpc_presence "seanime/internal/discordrpc/presence"
+	"seanime/internal/directstream"
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/library/autodownloader"
@@ -50,6 +51,7 @@ type AppContextModules struct {
 	TorrentstreamRepository         *torrentstream.Repository
 	FillerManager                   *fillermanager.FillerManager
 	VideoCore                       *videocore.VideoCore
+	DirectStreamManager             *directstream.Manager
 	OnRefreshAnilistAnimeCollection func()
 	OnRefreshAnilistMangaCollection func()
 }
@@ -65,6 +67,7 @@ type AppContext interface {
 	Database() mo.Option[*db.Database]
 	PlaybackManager() mo.Option[*playbackmanager.PlaybackManager]
 	VideoCore() mo.Option[*videocore.VideoCore]
+	DirectStreamManager() mo.Option[*directstream.Manager]
 	MediaPlayerRepository() mo.Option[*mediaplayer.Repository]
 	AnilistPlatformRef() mo.Option[*util.Ref[platform.Platform]]
 	WSEventManager() mo.Option[events.WSEventManagerInterface]
@@ -165,6 +168,7 @@ type AppContextImpl struct {
 	onRefreshAnilistAnimeCollection mo.Option[func()]
 	onRefreshAnilistMangaCollection mo.Option[func()]
 	videoCore                       mo.Option[*videocore.VideoCore]
+	directStreamManager             mo.Option[*directstream.Manager]
 	isOfflineRef                    *util.Ref[bool]
 }
 
@@ -192,6 +196,7 @@ func NewAppContext() AppContext {
 		onRefreshAnilistAnimeCollection: mo.None[func()](),
 		onRefreshAnilistMangaCollection: mo.None[func()](),
 		videoCore:                       mo.None[*videocore.VideoCore](),
+		directStreamManager:             mo.None[*directstream.Manager](),
 		isOfflineRef:                    util.NewRef(false),
 	}
 
@@ -216,6 +221,10 @@ func (a *AppContextImpl) PlaybackManager() mo.Option[*playbackmanager.PlaybackMa
 
 func (a *AppContextImpl) VideoCore() mo.Option[*videocore.VideoCore] {
 	return a.videoCore
+}
+
+func (a *AppContextImpl) DirectStreamManager() mo.Option[*directstream.Manager] {
+	return a.directStreamManager
 }
 
 func (a *AppContextImpl) MediaPlayerRepository() mo.Option[*mediaplayer.Repository] {
@@ -317,6 +326,10 @@ func (a *AppContextImpl) SetModulesPartial(modules AppContextModules) {
 
 	if modules.VideoCore != nil {
 		a.videoCore = mo.Some(modules.VideoCore)
+	}
+
+	if modules.DirectStreamManager != nil {
+		a.directStreamManager = mo.Some(modules.DirectStreamManager)
 	}
 }
 
