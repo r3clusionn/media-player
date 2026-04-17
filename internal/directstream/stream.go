@@ -709,12 +709,12 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 			}
 		}
 
-		// If we have content type, return early
-		if contentType != "" {
+		// If we have content type from a successful response, return early
+		if contentType != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return contentType, length, nil
 		}
 
-		m.Logger.Trace().Msg("directstream(debrid): Content type not found in HEAD response headers")
+		m.Logger.Trace().Int("status", resp.StatusCode).Msg("directstream(debrid): HEAD response not usable, falling back to GET")
 	} else {
 		m.Logger.Trace().Err(err).Msg("directstream(debrid): HEAD request failed")
 	}
