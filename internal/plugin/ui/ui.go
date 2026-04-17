@@ -280,6 +280,12 @@ func (u *UI) dispatchClientEvent(clientEvent *ClientPluginEvent) {
 	case ClientActionRenderEpisodeGridItemMenuItemsEvent: // Client wants to update the episode grid item menu items
 		u.context.actionManager.renderEpisodeGridItemMenuItems()
 
+	case ClientDOMEventTriggeredEvent: // A DOM event was triggered on the client
+		var payload ClientDOMEventTriggeredEventPayload
+		if clientEvent.ParsePayloadAs(ClientDOMEventTriggeredEvent, &payload) {
+			u.context.domManager.HandleDOMEvent(payload.ElementId, payload.EventType, payload.Event)
+		}
+
 	case ClientRenderCommandPaletteEvent: // Client wants to render the command palette
 		u.context.commandPaletteManager.renderCommandPaletteScheduled()
 
