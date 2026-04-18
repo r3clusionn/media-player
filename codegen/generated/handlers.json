@@ -9722,6 +9722,28 @@
     }
   },
   {
+    "name": "rejectPrivilegedLocalExecution",
+    "trimmedName": "rejectPrivilegedLocalExecution",
+    "comments": [
+      "rejectPrivilegedLocalExecution prevents unauthorized OS-level execution (like opening file explorer)",
+      "from untrusted origins when running in passwordless mode.",
+      ""
+    ],
+    "filepath": "internal/handlers/settings_security.go",
+    "filename": "settings_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "NewStatus",
     "trimmedName": "NewStatus",
     "comments": [

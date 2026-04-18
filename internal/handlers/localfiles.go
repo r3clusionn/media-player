@@ -68,6 +68,10 @@ func (h *Handler) HandleImportLocalFiles(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictFilesystemPath(c, b.DataFilePath); err != nil {
+		return err
+	}
+
 	contentB, err := os.ReadFile(b.DataFilePath)
 	if err != nil {
 		return h.RespondWithError(c, err)

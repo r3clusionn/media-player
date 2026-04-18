@@ -27,6 +27,8 @@ func (h *Handler) HandleDirectstreamPlayLocalFile(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	b.ClientId = getRequestClientId(c, b.ClientId)
+
 	lfs, _, err := db_bridge.GetLocalFiles(h.App.Database)
 	if err != nil {
 		return h.RespondWithError(c, err)

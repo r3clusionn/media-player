@@ -104,7 +104,15 @@ func (u *Updater) decompressZip(archivePath string, folderName string) (dest str
 	u.logger.Debug().Msg("updater: Decompressing release assets (zip)")
 
 	for _, f := range r.File {
-		fpath := filepath.Join(dest, f.Name)
+		mode := f.Mode()
+		if mode&os.ModeSymlink != 0 || (!mode.IsRegular() && !f.FileInfo().IsDir()) {
+			return dest, fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, f.Name)
+		}
+
+		fpath, err := util.ResolveArchiveEntryPath(dest, f.Name)
+		if err != nil {
+			return dest, fmt.Errorf("failed to resolve archive path: %w", err)
+		}
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(fpath, os.ModePerm)
 			continue
@@ -188,17 +196,22 @@ func (u *Updater) decompressTarGz(archivePath string, folderName string) (dest s
 			return dest, err
 		}
 
-		fpath := filepath.Join(dest, header.Name)
-		if header.Typeflag == tar.TypeDir {
+		fpath, err := util.ResolveArchiveEntryPath(dest, header.Name)
+		if err != nil {
+			return dest, fmt.Errorf("failed to resolve archive path: %w", err)
+		}
+
+		switch header.Typeflag {
+		case tar.TypeDir:
 			if err := os.MkdirAll(fpath, os.ModePerm); err != nil {
 				return dest, err
 			}
-		} else {
+		case tar.TypeReg, tar.TypeRegA:
 			if err := os.MkdirAll(filepath.Dir(fpath), os.ModePerm); err != nil {
 				return dest, err
 			}
 
-			outFile, err := os.Create(fpath)
+			outFile, err := os.OpenFile(fpath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.FileMode(header.Mode).Perm())
 			if err != nil {
 				return dest, err
 			}
@@ -208,6 +221,10 @@ func (u *Updater) decompressTarGz(archivePath string, folderName string) (dest s
 				return dest, err
 			}
 			outFile.Close()
+		case tar.TypeXHeader, tar.TypeXGlobalHeader, tar.TypeGNULongName, tar.TypeGNULongLink:
+			continue
+		default:
+			return dest, fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, header.Name)
 		}
 	}
 
@@ -253,6 +270,9 @@ func (u *Updater) downloadAsset(assetUrl, dest string) (fp string, err error) {
 	defer util.HandlePanicInModuleWithError("updater/download/downloadAsset", &err)
 
 	u.logger.Debug().Msg("updater: Downloading assets")
+	if err := validateUpdateURL(assetUrl); err != nil {
+		return "", err
+	}
 
 	fp = u.getFilePath(assetUrl, dest)
 

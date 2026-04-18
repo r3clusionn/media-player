@@ -1,7 +1,7 @@
 import { serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
 import { WebSocketContext } from "@/app/(main)/_atoms/websocket.atoms"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
-import { clientIdAtom, websocketConnectedAtom } from "@/app/websocket-provider"
+import { websocketConnectedAtom } from "@/app/websocket-provider"
 import { logger } from "@/lib/helpers/debug"
 import { SeaWebsocketEvent, SeaWebsocketPluginEvent } from "@/lib/server/queries.types"
 import { WSEvents } from "@/lib/server/ws-events"
@@ -11,7 +11,6 @@ import useUpdateEffect from "react-use/lib/useUpdateEffect"
 
 export function useWebsocketSender() {
     const socket = useContext(WebSocketContext)
-    const [clientId] = useAtom(clientIdAtom)
     const [isConnected] = useAtom(websocketConnectedAtom)
 
     // Store message queue in a ref so it persists across rerenders and socket changes
@@ -125,7 +124,7 @@ export function useWebsocketSender() {
 
         if (currentSocket && currentSocket.readyState === WebSocket.OPEN) {
             try {
-                const message = JSON.stringify({ ...data, clientId: clientId })
+                const message = JSON.stringify(data)
                 currentSocket.send(message)
                 // logger("WebsocketSender").info(`Sent message of type ${data.type}`);
                 return true
@@ -200,7 +199,7 @@ export function useWebsocketSender() {
             // Try to send all queued messages
             queueCopy.forEach((message, index) => {
                 try {
-                    const messageStr = JSON.stringify({ ...message, clientId: clientId })
+                    const messageStr = JSON.stringify(message)
                     currentSocket.send(messageStr)
                     successfulMessages.push(index)
                     // logger("WebsocketSender").info(`Successfully sent queued message of type ${message.type}`);

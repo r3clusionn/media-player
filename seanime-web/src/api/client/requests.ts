@@ -1,15 +1,15 @@
-
 import { getServerBaseUrl } from "@/api/client/server-url"
-import { serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
+import { SERVER_AUTH_TOKEN_STORAGE_KEY, serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
+import { getClientId, getClientIdProof, setClientIdentity } from "@/lib/server/client-id"
 import { useMutation, UseMutationOptions, useQuery, UseQueryOptions } from "@tanstack/react-query"
-import axios, { AxiosError, InternalAxiosRequestConfig } from "axios"
+import axios, { AxiosError } from "axios"
 import { useAtomValue } from "jotai"
-import { useAtom } from "jotai/react"
-import { useLocation } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { toast } from "sonner"
 
 type SeaError = AxiosError<{ error: string }>
+
+let authRedirectInProgress = false
 
 type SeaQuery<D> = {
     endpoint: string
@@ -35,6 +35,57 @@ export function useSeaQuery() {
     }
 }
 
+function getSeaErrorMessage(data: unknown): string {
+    if (typeof data === "string") {
+        return data.trim()
+    }
+
+    if (typeof data === "object" && data !== null && "error" in data && typeof data.error === "string") {
+        return data.error.trim()
+    }
+
+    return ""
+}
+
+function isAuthFailureResponse(status: number | undefined, data: unknown): boolean {
+    const errorMessage = getSeaErrorMessage(data).toLowerCase()
+
+    if (status === 401) {
+        return errorMessage === "" || errorMessage.includes("unauthenticated") || errorMessage.includes("unauthorized")
+    }
+
+    return status === 429 && errorMessage.includes("too many authentication attempts")
+}
+
+function clearStoredServerAuthToken() {
+    if (typeof window === "undefined") return
+
+    try {
+        window.localStorage.removeItem(SERVER_AUTH_TOKEN_STORAGE_KEY)
+    }
+    catch {
+    }
+}
+
+function _handleAuthFailure() {
+    clearStoredServerAuthToken()
+
+    if (typeof window === "undefined") return
+    if (window.location.pathname.startsWith("/public/auth")) return
+    if (authRedirectInProgress) return
+
+    authRedirectInProgress = true
+    window.location.replace("/public/auth")
+}
+
+function checkAuthError(error: SeaError | AxiosError | null | undefined) {
+    if (!error) return
+
+    if (isAuthFailureResponse(error.response?.status, error.response?.data)) {
+        _handleAuthFailure()
+    }
+}
+
 /**
  * Create axios query to the server
  * - First generic: Return type
@@ -48,23 +99,73 @@ export async function buildSeaQuery<T, D extends any = any>(
         params,
         password,
     }: SeaQuery<D>): Promise<T | undefined> {
+    const headers: Record<string, string> = {}
 
-    axios.interceptors.request.use((request: InternalAxiosRequestConfig) => {
-            if (password) {
-                request.headers.set("X-Seanime-Token", password)
-            }
-            return request
-        },
-    )
+    if (password) {
+        headers["X-Seanime-Token"] = password
+    }
 
-    const res = await axios<T>({
-        url: getServerBaseUrl() + endpoint,
-        method,
-        data,
-        params,
-    })
+    const clientId = getClientId()
+    const clientIdProof = getClientIdProof()
+    if (clientId && clientIdProof) {
+        headers["X-Seanime-Client-Id"] = clientId
+        headers["X-Seanime-Client-Id-Proof"] = clientIdProof
+    }
+
+    let res
+    try {
+        res = await axios<T>({
+            url: getServerBaseUrl() + endpoint,
+            method,
+            data,
+            params,
+            headers,
+            withCredentials: true,
+        })
+    }
+    catch (error) {
+        if (axios.isAxiosError(error)) {
+            checkAuthError(error)
+        }
+        throw error
+    }
+
+    syncClientIdFromHeader(res.headers)
+
     const response = _handleSeaResponse<T>(res.data)
     return response.data
+}
+
+function syncClientIdFromHeader(headers: unknown) {
+    if (!headers) return
+
+    const clientId = getHeaderValue(headers, "x-seanime-client-id")
+    const clientIdProof = getHeaderValue(headers, "x-seanime-client-id-proof")
+
+    if (clientId) {
+        setClientIdentity(clientId, clientIdProof)
+    }
+}
+
+function getHeaderValue(headers: unknown, name: string): string {
+    if (typeof headers === "object" && headers !== null && "get" in headers && typeof headers.get === "function") {
+        const value = headers.get(name)
+        if (typeof value === "string" && value.trim()) {
+            return value.trim()
+        }
+        return ""
+    }
+
+    const rawValue = (headers as Record<string, string | string[] | undefined>)[name]
+    if (typeof rawValue === "string" && rawValue.trim()) {
+        return rawValue.trim()
+    }
+
+    if (Array.isArray(rawValue) && typeof rawValue[0] === "string" && rawValue[0].trim()) {
+        return rawValue[0].trim()
+    }
+
+    return ""
 }
 
 type ServerMutationProps<R, V = void> = UseMutationOptions<R | undefined, SeaError, V, unknown> & {
@@ -88,6 +189,10 @@ export function useServerMutation<R = void, V = void>(
 
     return useMutation<R | undefined, SeaError, V>({
         onError: error => {
+            checkAuthError(error)
+            if (isAuthFailureResponse(error.response?.status, error.response?.data)) {
+                return
+            }
             console.log("Mutation error", error)
             const errorMsg = _handleSeaError(error.response?.data)
             if (errorMsg.includes("feature disabled")) {
@@ -132,8 +237,7 @@ export function useServerQuery<R, V = any>(
         ...options
     }: ServerQueryProps<R | undefined, V>) {
 
-    const pathname = useLocation().pathname
-    const [password, setPassword] = useAtom(serverAuthTokenAtom)
+    const password = useAtomValue(serverAuthTokenAtom)
 
     const props = useQuery<R | undefined, SeaError>({
         queryFn: async () => {
@@ -150,9 +254,8 @@ export function useServerQuery<R, V = any>(
 
     useEffect(() => {
         if (!muteError && props.isError) {
-            if (props.error?.response?.data?.error === "UNAUTHENTICATED" && pathname !== "/public/auth") {
-                setPassword(undefined)
-                window.location.href = "/public/auth"
+            if (isAuthFailureResponse(props.error?.response?.status, props.error?.response?.data)) {
+                _handleAuthFailure()
                 return
             }
             console.log("Server error", props.error)

@@ -2,6 +2,7 @@ package util
 
 import (
 	"archive/zip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +12,11 @@ import (
 	"strings"
 
 	"github.com/nwaples/rardecode/v2"
+)
+
+var (
+	ErrArchivePathTraversal    = errors.New("archive entry path escapes destination")
+	ErrUnsupportedArchiveEntry = errors.New("unsupported archive entry")
 )
 
 func DirSize(path string) (uint64, error) {
@@ -138,6 +144,31 @@ func looksLikeWindowsPath(input string) bool {
 	return strings.Contains(input, `\`)
 }
 
+func ResolveArchiveEntryPath(destRoot, entryName string) (string, error) {
+	normalizedEntry := strings.ReplaceAll(entryName, `\`, "/")
+	cleanedEntry := path.Clean(normalizedEntry)
+	if normalizedEntry == "" || cleanedEntry == "." || cleanedEntry == "/" {
+		return "", fmt.Errorf("invalid archive entry path: %q", entryName)
+	}
+
+	resolvedPath := filepath.Join(destRoot, filepath.FromSlash(normalizedEntry))
+	normalizedDestRoot, err := normalizeComparablePath(destRoot)
+	if err != nil {
+		return "", err
+	}
+
+	normalizedResolvedPath, err := normalizeComparablePath(resolvedPath)
+	if err != nil {
+		return "", err
+	}
+
+	if normalizedResolvedPath != normalizedDestRoot && !isStrictDescendantPath(normalizedDestRoot, normalizedResolvedPath) {
+		return "", fmt.Errorf("%w: %s", ErrArchivePathTraversal, entryName)
+	}
+
+	return resolvedPath, nil
+}
+
 // UnzipFile unzips a file to the destination.
 //
 //	Example:
@@ -161,8 +192,15 @@ func UnzipFile(src, dest string) error {
 
 	// Iterate through the files in the archive
 	for _, f := range r.File {
-		// Get the full path of the file in the destination
-		fpath := filepath.Join(extractedDir, f.Name)
+		mode := f.Mode()
+		if mode&os.ModeSymlink != 0 || (!mode.IsRegular() && !f.FileInfo().IsDir()) {
+			return fmt.Errorf("%w: %s", ErrUnsupportedArchiveEntry, f.Name)
+		}
+
+		fpath, err := ResolveArchiveEntryPath(extractedDir, f.Name)
+		if err != nil {
+			return fmt.Errorf("failed to resolve archive path: %w", err)
+		}
 		// If the file is a directory, create it in the destination
 		if f.FileInfo().IsDir() {
 			_ = os.MkdirAll(fpath, os.ModePerm)
@@ -247,8 +285,10 @@ func UnrarFile(src, dest string) error {
 			return fmt.Errorf("failed to get next file in archive: %w", err)
 		}
 
-		// Get the full path of the file in the destination
-		fpath := filepath.Join(extractedDir, header.Name)
+		fpath, err := ResolveArchiveEntryPath(extractedDir, header.Name)
+		if err != nil {
+			return fmt.Errorf("failed to resolve archive path: %w", err)
+		}
 		// If the file is a directory, create it in the destination
 		if header.IsDir {
 			_ = os.MkdirAll(fpath, os.ModePerm)

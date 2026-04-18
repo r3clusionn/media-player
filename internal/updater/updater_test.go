@@ -1,7 +1,6 @@
 package updater
 
 import (
-	"seanime/internal/util"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +11,7 @@ func TestUpdater_GetLatestUpdateShouldFallback(t *testing.T) {
 	fixture := newUpdaterTestFixture(t)
 	websiteUrl = fixture.deadAPIURL
 
-	u := New("2.0.2", util.NewLogger(), nil)
+	u := fixture.newUpdater("2.0.2", nil)
 	// update channel is "github"
 
 	update, err := u.GetLatestUpdate()
@@ -25,7 +24,7 @@ func TestUpdater_GetLatestUpdateShouldFallback(t *testing.T) {
 func TestUpdater_GetLatestUpdateSeanime(t *testing.T) {
 	fixture := newUpdaterTestFixture(t)
 
-	u := New("2.0.2", util.NewLogger(), nil)
+	u := fixture.newUpdater("2.0.2", nil)
 	u.UpdateChannel = "seanime"
 
 	update, err := u.GetLatestUpdate()
@@ -37,7 +36,7 @@ func TestUpdater_GetLatestUpdateSeanime(t *testing.T) {
 
 func TestUpdater_GetLatestUpdate(t *testing.T) {
 	fixture := newUpdaterTestFixture(t)
-	u := New(fixture.release.Version, util.NewLogger(), nil)
+	u := fixture.newUpdater(fixture.release.Version, nil)
 	u.UpdateChannel = "seanime"
 
 	update, err := u.GetLatestUpdate()

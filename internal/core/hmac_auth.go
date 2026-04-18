@@ -17,3 +17,11 @@ func (a *App) GetServerPasswordHMACAuth() *util.HMACAuth {
 
 	return util.NewHMACAuth(secret, 24*time.Hour)
 }
+
+func (a *App) GetClientIdentityHMACAuth() *util.HMACAuth {
+	if a.ClientIdentitySecret == "" {
+		a.ClientIdentitySecret = util.GenerateCryptoID()
+	}
+
+	return util.NewHMACAuth(a.ClientIdentitySecret, 24*time.Hour)
+}

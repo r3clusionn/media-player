@@ -46,6 +46,11 @@ func (h *Handler) HandleSaveTorrentstreamSettings(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	prevSettings, _ := h.App.Database.GetTorrentstreamSettings()
+	if err := h.guardStrictTorrentstreamRootMutation(c, prevSettings, &b.Settings); err != nil {
+		return err
+	}
+
 	// Validate the download directory
 	if b.Settings.DownloadDir != "" {
 		dir, err := os.Stat(b.Settings.DownloadDir)
@@ -140,6 +145,8 @@ func (h *Handler) HandleTorrentstreamStartStream(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	b.ClientId = getRequestClientId(c, b.ClientId)
 
 	userAgent := c.Request().Header.Get("User-Agent")
 

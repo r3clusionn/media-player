@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"runtime"
 	"strings"
 
@@ -14,12 +15,36 @@ import (
 // We fetch the latest release from the website first, if it fails we fallback to GitHub API
 // This allows updates even if Seanime is removed from GitHub
 var (
-	websiteUrl        = "https://seanime.app/api/release"
-	fallbackGithubUrl = "https://api.github.com/repos/5rahim/seanime/releases/latest"
-	githubCheckUrl    = "https://seanime.app/api/github-status"
-	seanimeStableUrl  = "https://seanime.app/api/updates/stable/stable_server.json"
-	seanimeNightlyUrl = "https://seanime.app/api/updates/nightly/nightly_server.json"
+	websiteUrl           = "https://seanime.app/api/release"
+	fallbackGithubUrl    = "https://api.github.com/repos/5rahim/seanime/releases/latest"
+	githubCheckUrl       = "https://seanime.app/api/github-status"
+	seanimeStableUrl     = "https://seanime.app/api/updates/stable/stable_server.json"
+	seanimeNightlyUrl    = "https://seanime.app/api/updates/nightly/nightly_server.json"
+	ErrInsecureUpdateURL = errors.New("update URL must use https")
 )
+
+func validateUpdateURL(rawURL string) error {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid update URL %q: %w", rawURL, err)
+	}
+
+	if parsed.Scheme != "https" || parsed.Host == "" {
+		return fmt.Errorf("%w: %s", ErrInsecureUpdateURL, rawURL)
+	}
+
+	return nil
+}
+
+func validateReleaseDownloadURLs(release *Release) error {
+	for _, asset := range release.Assets {
+		if err := validateUpdateURL(asset.BrowserDownloadUrl); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 type (
 	GitHubResponse struct {
@@ -150,6 +175,9 @@ func (u *Updater) fetchLatestRelease(channel string) (*Release, error) {
 }
 
 func (u *Updater) fetchLatestReleaseFromGitHub() (*Release, error) {
+	if err := validateUpdateURL(fallbackGithubUrl); err != nil {
+		return nil, err
+	}
 
 	response, err := u.client.Get(fallbackGithubUrl)
 	if err != nil {
@@ -194,6 +222,10 @@ func (u *Updater) fetchLatestReleaseFromGitHub() (*Release, error) {
 		}
 	}
 
+	if err := validateReleaseDownloadURLs(release); err != nil {
+		return nil, err
+	}
+
 	return release, nil
 }
 
@@ -204,6 +236,10 @@ func (u *Updater) fetchGithubStatus() (string, bool) {
 		Status      string `json:"status"`
 		Fallback    string `json:"fallback"`
 		Description string `json:"description"`
+	}
+
+	if err := validateUpdateURL(githubCheckUrl); err != nil {
+		return "", true
 	}
 
 	response, err := u.client.Get(githubCheckUrl)
@@ -239,6 +275,9 @@ func (u *Updater) fetchGithubStatus() (string, bool) {
 }
 
 func (u *Updater) fetchLatestReleaseFromApi(releaseUrl string) (*Release, error) {
+	if err := validateUpdateURL(releaseUrl); err != nil {
+		return nil, err
+	}
 
 	response, err := u.client.Get(releaseUrl)
 	if err != nil {
@@ -268,6 +307,9 @@ func (u *Updater) fetchLatestReleaseFromApi(releaseUrl string) (*Release, error)
 	}
 
 	res.Release.Version = strings.TrimPrefix(res.Release.TagName, "v")
+	if err := validateReleaseDownloadURLs(&res.Release); err != nil {
+		return nil, err
+	}
 
 	return &res.Release, nil
 }

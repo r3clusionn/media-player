@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"seanime/internal/util"
 
 	"github.com/nwaples/rardecode/v2"
 )
@@ -30,8 +31,15 @@ func unzipFile(src, dest string) (string, error) {
 
 	// Iterate through the files in the archive
 	for _, f := range r.File {
-		// Get the full path of the file in the destination
-		fpath := filepath.Join(extractedDir, f.Name)
+		mode := f.Mode()
+		if mode&os.ModeSymlink != 0 || (!mode.IsRegular() && !f.FileInfo().IsDir()) {
+			return "", fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, f.Name)
+		}
+
+		fpath, err := util.ResolveArchiveEntryPath(extractedDir, f.Name)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve archive path: %w", err)
+		}
 		// If the file is a directory, create it in the destination
 		if f.FileInfo().IsDir() {
 			_ = os.MkdirAll(fpath, os.ModePerm)
@@ -94,8 +102,10 @@ func unrarFile(src, dest string) (string, error) {
 			return "", err
 		}
 
-		// Get the full path of the file in the destination
-		fpath := filepath.Join(extractedDir, header.Name)
+		fpath, err := util.ResolveArchiveEntryPath(extractedDir, header.Name)
+		if err != nil {
+			return "", fmt.Errorf("failed to resolve archive path: %w", err)
+		}
 		// If the file is a directory, create it in the destination
 		if header.IsDir {
 			_ = os.MkdirAll(fpath, os.ModePerm)

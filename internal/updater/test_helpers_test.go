@@ -8,6 +8,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"seanime/internal/events"
+	"seanime/internal/util"
 	"strings"
 	"testing"
 )
@@ -25,7 +27,7 @@ func newUpdaterTestFixture(t *testing.T) *updaterTestFixture {
 	tarGzArchive := mustCreateTarGzArchive(t)
 
 	mux := http.NewServeMux()
-	server := httptest.NewServer(mux)
+	server := httptest.NewTLSServer(mux)
 
 	release := &Release{
 		Url:         server.URL + "/release/v3.5.2",
@@ -129,6 +131,12 @@ func newUpdaterTestFixture(t *testing.T) *updaterTestFixture {
 	t.Cleanup(server.Close)
 
 	return fixture
+}
+
+func (f *updaterTestFixture) newUpdater(currVersion string, wsEventManager events.WSEventManagerInterface) *Updater {
+	updater := New(currVersion, util.NewLogger(), wsEventManager)
+	updater.client = f.server.Client()
+	return updater
 }
 
 func (f *updaterTestFixture) apply(t *testing.T) {

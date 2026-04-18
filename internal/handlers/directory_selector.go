@@ -40,6 +40,10 @@ func (h *Handler) HandleDirectorySelector(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if h != nil && h.App != nil && h.App.Config != nil && isStrictModeSensitive(c.Request(), h.App.Config.Server.Password) {
+		return h.RespondWithError(c, errPrivilegedExecutionDenied)
+	}
+
 	input := filepath.ToSlash(filepath.Clean(request.Input))
 	directoryExists, err := checkDirectoryExists(input)
 	if err != nil {

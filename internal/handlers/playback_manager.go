@@ -22,7 +22,15 @@ func (h *Handler) HandlePlaybackPlayVideo(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	err := h.App.PlaybackManager.StartPlayingUsingMediaPlayer(&playbackmanager.StartPlayingOptions{
+	settings, err := h.App.Database.GetSettings()
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+	if err := h.guardPrivilegedMediaPlayer(c, settings); err != nil {
+		return err
+	}
+
+	err = h.App.PlaybackManager.StartPlayingUsingMediaPlayer(&playbackmanager.StartPlayingOptions{
 		Payload:   b.Path,
 		UserAgent: c.Request().Header.Get("User-Agent"),
 		ClientId:  "",
@@ -43,8 +51,15 @@ func (h *Handler) HandlePlaybackPlayVideo(c echo.Context) error {
 //	@route /api/v1/playback-manager/play-random [POST]
 //	@returns bool
 func (h *Handler) HandlePlaybackPlayRandomVideo(c echo.Context) error {
+	settings, err := h.App.Database.GetSettings()
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+	if err := h.guardPrivilegedMediaPlayer(c, settings); err != nil {
+		return err
+	}
 
-	err := h.App.PlaybackManager.StartRandomVideo(&playbackmanager.StartRandomVideoOptions{
+	err = h.App.PlaybackManager.StartRandomVideo(&playbackmanager.StartRandomVideoOptions{
 		UserAgent: c.Request().Header.Get("User-Agent"),
 		ClientId:  "",
 	})
@@ -204,6 +219,8 @@ func (h *Handler) HandlePlaybackStartManualTracking(c echo.Context) error {
 	if err := c.Bind(b); err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	b.ClientId = getRequestClientId(c, b.ClientId)
 
 	err := h.App.PlaybackManager.StartManualProgressTracking(&playbackmanager.StartManualProgressTrackingOptions{
 		ClientId:      b.ClientId,

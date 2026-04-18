@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 	"path/filepath"
 	"seanime/internal/core"
@@ -20,11 +21,18 @@ type Handler struct {
 }
 
 func InitRoutes(app *core.App, e *echo.Echo) {
+	h := &Handler{App: app}
+
+	e.Use(h.trustedLocalRequestMiddleware)
+
 	// CORS middleware
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins: []string{"*"},
+		AllowOriginFunc: func(origin string) (bool, error) {
+			return isTrustedCORSOrigin(origin, app.Config.Server.Password, app.Config.Server.AccessAllowlist), nil
+		},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization",
-			"X-Seanime-Token", "X-Seanime-Nakama-Token", "X-Seanime-Nakama-Username", "X-Seanime-Nakama-Server-Version", "X-Seanime-Nakama-Peer-Id"},
+			"X-Seanime-Token", "X-Seanime-Client-Id", "X-Seanime-Client-Id-Proof", "X-Seanime-Nakama-Token", "X-Seanime-Nakama-Username", "X-Seanime-Nakama-Server-Version", "X-Seanime-Nakama-Peer-Id"},
+		ExposeHeaders:    []string{"X-Seanime-Client-Id", "X-Seanime-Client-Id-Proof"},
 		AllowCredentials: true,
 	}))
 
@@ -71,41 +79,46 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	// Client ID middleware
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			// Check if the client has a UUID cookie
-			cookie, err := c.Cookie("Seanime-Client-Id")
+			req := c.Request()
+			cookie, err := c.Cookie(clientIdCookieName)
+			clientID := ""
+			if err == nil {
+				clientID = strings.TrimSpace(cookie.Value)
+			}
 
-			if err != nil || cookie.Value == "" {
-				// Generate a new UUID for the client
-				u := uuid.New().String()
+			if clientID == "" {
+				clientID = resolveValidatedClientID(app, req)
+			}
 
-				// Create a cookie with the UUID
+			if clientID == "" {
+				clientID = uuid.New().String()
+			}
+
+			if err != nil || cookie == nil || strings.TrimSpace(cookie.Value) != clientID {
 				newCookie := new(http.Cookie)
-				newCookie.Name = "Seanime-Client-Id"
-				newCookie.Value = u
-				newCookie.HttpOnly = false // Make the cookie accessible via JS
+				newCookie.Name = clientIdCookieName
+				newCookie.Value = clientID
+				newCookie.HttpOnly = true
 				newCookie.Expires = time.Now().Add(24 * time.Hour)
 				newCookie.Path = "/"
 				newCookie.Domain = ""
-				newCookie.SameSite = http.SameSiteDefaultMode
-				newCookie.Secure = false
+				newCookie.SameSite = http.SameSiteLaxMode
+				newCookie.Secure = requestUsesTrustedHTTPS(req)
 
-				// Set the cookie
 				c.SetCookie(newCookie)
-
-				// Store the UUID in the context for use in the request
-				c.Set("Seanime-Client-Id", u)
-			} else {
-				// Store the existing UUID in the context for use in the request
-				c.Set("Seanime-Client-Id", cookie.Value)
 			}
+
+			setClientIdentityHeaders(c.Response().Header(), app, clientID)
+
+			c.Set(clientIdCookieName, clientID)
 
 			return next(c)
 		}
 	})
 
 	e.Use(headMethodMiddleware)
-
-	h := &Handler{App: app}
+	e.Use(h.controlPlaneBodyLimitMiddleware)
+	e.Use(h.controlPlaneMutationRateLimitMiddleware)
 
 	e.GET("/events", h.webSocketEventHandler)
 
@@ -595,7 +608,31 @@ func (h *Handler) RespondWithData(c echo.Context, data interface{}) error {
 }
 
 func (h *Handler) RespondWithError(c echo.Context, err error) error {
-	return c.JSON(500, NewErrorResponse(err))
+	return c.JSON(statusCodeForError(err), NewErrorResponse(err))
+}
+
+func (h *Handler) RespondWithStatusError(c echo.Context, code int, err error) error {
+	return c.JSON(code, NewErrorResponse(err))
+}
+
+func statusCodeForError(err error) int {
+	if err == nil {
+		return http.StatusInternalServerError
+	}
+
+	if echoErr, ok := errors.AsType[*echo.HTTPError](err); ok && echoErr.Code >= 400 && echoErr.Code < 600 {
+		return echoErr.Code
+	}
+
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		return http.StatusRequestEntityTooLarge
+	}
+
+	if strings.EqualFold(strings.TrimSpace(err.Error()), "UNAUTHENTICATED") {
+		return http.StatusUnauthorized
+	}
+
+	return http.StatusInternalServerError
 }
 
 func headMethodMiddleware(next echo.HandlerFunc) echo.HandlerFunc {

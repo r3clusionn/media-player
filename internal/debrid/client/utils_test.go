@@ -1,14 +1,35 @@
 package debrid_client
 
 import (
+	"archive/zip"
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"seanime/internal/testutil"
+	"seanime/internal/util"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func writeZipFixture(t testing.TB, entries map[string]string) string {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range entries {
+		writer, err := zw.Create(name)
+		require.NoError(t, err)
+		_, err = writer.Write([]byte(body))
+		require.NoError(t, err)
+	}
+	require.NoError(t, zw.Close())
+
+	archivePath := filepath.Join(t.TempDir(), "archive.zip")
+	require.NoError(t, os.WriteFile(archivePath, buf.Bytes(), 0o644))
+	return archivePath
+}
 
 func PrintPathStructure(path string, indent string) error {
 	entries, err := os.ReadDir(path)
@@ -207,4 +228,17 @@ func TestMoveContentsTo(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUnzipFileRejectsArchiveTraversal(t *testing.T) {
+	archivePath := writeZipFixture(t, map[string]string{
+		"../escape.txt": "pwned",
+	})
+
+	dest := t.TempDir()
+	_, err := unzipFile(archivePath, dest)
+	require.ErrorIs(t, err, util.ErrArchivePathTraversal)
+	_, statErr := os.Stat(filepath.Join(dest, "escape.txt"))
+	require.Error(t, statErr)
+	require.True(t, os.IsNotExist(statErr))
 }

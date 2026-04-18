@@ -52,6 +52,14 @@ type Status struct {
 
 var clientInfoCache = result.NewMap[string, util.ClientInfo]()
 
+func (h *Handler) newRestrictedStatus() *Status {
+	return &Status{
+		User:              user.NewSimulatedUser(),
+		ServerReady:       h.App.ServerReady,
+		ServerHasPassword: h.App.Config.Server.Password != "",
+	}
+}
+
 // NewStatus returns a new Status struct.
 // It uses the RouteCtx to get the App instance containing the Database instance.
 func (h *Handler) NewStatus(c echo.Context) *Status {
@@ -60,6 +68,17 @@ func (h *Handler) NewStatus(c echo.Context) *Status {
 	var settings *models.Settings
 	var theme *models.Theme
 	//var mal *models.Mal
+
+	if c.Get("unauthenticated") != nil && c.Get("unauthenticated").(bool) {
+		// unauthenticated -> return bare minimum
+		status := h.newRestrictedStatus()
+		status.Settings = &models.Settings{}
+		return status
+	}
+
+	if isStrictModeSensitive(c.Request(), h.App.Config.Server.Password) {
+		return h.newRestrictedStatus()
+	}
 
 	// Get the user from the database (if logged in)
 	if dbAcc, _ = h.App.Database.GetAccount(); dbAcc != nil {
@@ -110,16 +129,6 @@ func (h *Handler) NewStatus(c echo.Context) *Status {
 		ServerHasPassword:     h.App.Config.Server.Password != "",
 		DisabledFeatures:      h.App.FeatureManager.DisabledFeatures,
 		ShowChangelogTour:     h.App.ShowTour,
-	}
-
-	if c.Get("unauthenticated") != nil && c.Get("unauthenticated").(bool) {
-		// unauthenticated -> return bare minimum
-		status = &Status{
-			User:              user.NewSimulatedUser(),
-			ServerReady:       h.App.ServerReady,
-			ServerHasPassword: h.App.Config.Server.Password != "",
-			Settings:          &models.Settings{},
-		}
 	}
 
 	return status

@@ -177,11 +177,11 @@ func (m *Manager) GetCurrentPlaybackIdentity() (playbackID string, clientID stri
 	m.playbackMu.Lock()
 	defer m.playbackMu.Unlock()
 
-	if m.currentPlaybackID == "" || m.currentPlaybackClient == "" {
+	if m.currentPlaybackId == "" || m.currentPlaybackClient == "" {
 		return "", "", false
 	}
 
-	return m.currentPlaybackID, m.currentPlaybackClient, true
+	return m.currentPlaybackId, m.currentPlaybackClient, true
 }
 
 func (m *Manager) PrepareNewStream(clientId string, step string) {
@@ -232,7 +232,7 @@ func (m *Manager) clearPreparationLocked() {
 }
 
 func (m *Manager) clearCurrentPlaybackIdentityLocked() {
-	m.currentPlaybackID = ""
+	m.currentPlaybackId = ""
 	m.currentPlaybackClient = ""
 }
 
@@ -291,7 +291,7 @@ func (m *Manager) shouldHandleTerminatedEventLocked(event *videocore.VideoTermin
 		return false
 	}
 
-	if m.currentPlaybackID == "" {
+	if m.currentPlaybackId == "" {
 		return true
 	}
 
@@ -299,7 +299,7 @@ func (m *Manager) shouldHandleTerminatedEventLocked(event *videocore.VideoTermin
 		return false
 	}
 
-	return event.GetPlaybackId() == m.currentPlaybackID
+	return event.GetPlaybackId() == m.currentPlaybackId
 }
 
 func (m *Manager) cancelPreparationLocked(clientId string, clearCancelFunc bool) (func(), bool) {
@@ -393,7 +393,7 @@ func (m *Manager) loadStream(stream Stream) {
 		m.clearStreamLoadingState(stream)
 		return
 	}
-	m.currentPlaybackID = playbackInfo.ID
+	m.currentPlaybackId = playbackInfo.ID
 	m.currentPlaybackClient = stream.ClientId()
 	m.clearPreparationLocked()
 	m.playbackMu.Unlock()

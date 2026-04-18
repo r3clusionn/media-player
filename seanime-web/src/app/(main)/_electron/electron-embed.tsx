@@ -13,7 +13,7 @@ export function useElectronYoutubeEmbed() {
     }, [])
 
     return {
-        electronEmbedAddress: localServerPort ? `http://localhost:${localServerPort}/player/` : null,
+        electronEmbedAddress: localServerPort ? `http://127.0.0.1:${localServerPort}/player/` : null,
     }
 }
 

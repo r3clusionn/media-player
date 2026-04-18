@@ -27,6 +27,10 @@ func (h *Handler) HandleOpenInExplorer(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardPrivilegedLocalExecution(c); err != nil {
+		return err
+	}
+
 	stat, err := os.Stat(p.Path)
 	if err != nil {
 		return h.RespondWithError(c, err)

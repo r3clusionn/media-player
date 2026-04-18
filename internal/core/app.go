@@ -153,13 +153,14 @@ type (
 		Flags            SeanimeFlags
 
 		// Internal state
-		user               *user.User
-		previousVersion    string
-		moduleMu           sync.Mutex
-		ServerReady        bool
-		isOfflineRef       *util.Ref[bool]
-		ServerPasswordHash string
-		logoutInProgress   atomic.Bool
+		user                 *user.User
+		previousVersion      string
+		moduleMu             sync.Mutex
+		ServerReady          bool
+		isOfflineRef         *util.Ref[bool]
+		ServerPasswordHash   string
+		ClientIdentitySecret string
+		logoutInProgress     atomic.Bool
 
 		// Plugin system
 		HookManager hook.Manager
@@ -442,6 +443,14 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 		HookManager:                     hookManager,
 		isOfflineRef:                    isOfflineRef,
 		ServerPasswordHash:              serverPasswordHash,
+		ClientIdentitySecret:            util.GenerateCryptoID(),
+	}
+
+	app.SyncSecurityConfig()
+
+	if cfg.Server.SecureMode != "" {
+		app.SetSecureMode(cfg.Server.SecureMode, false)
+		logger.Warn().Str("mode", cfg.Server.SecureMode).Msg("app: Secure mode configured")
 	}
 
 	// Run database migrations if version has changed

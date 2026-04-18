@@ -11,6 +11,7 @@ import (
 	"seanime/internal/hook"
 	"seanime/internal/plugin"
 	plugin_ui "seanime/internal/plugin/ui"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	gojautil "seanime/internal/util/goja"
 	"slices"
@@ -263,7 +264,9 @@ func (p *GojaPlugin) BindPluginAPIs(vm *goja.Runtime, logger *zerolog.Logger) {
 				plugin.GlobalAppContext.BindDatabase(vm, logger, p.ext)
 
 			case extension.PluginPermissionSystem: // System
-				plugin.GlobalAppContext.BindSystem(vm, logger, p.ext, p.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindSystem(vm, logger, p.ext, p.scheduler)
+				}
 			}
 		}
 	}

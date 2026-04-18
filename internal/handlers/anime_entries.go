@@ -3,9 +3,7 @@ package handlers
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
-	"runtime"
 	"seanime/internal/api/anilist"
 	"seanime/internal/customsource"
 	"seanime/internal/database/db_bridge"
@@ -19,7 +17,6 @@ import (
 	"seanime/internal/util/result"
 	"slices"
 	"strconv"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 	"github.com/samber/lo"
@@ -216,6 +213,10 @@ func (h *Handler) HandleOpenAnimeEntryInExplorer(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardPrivilegedLocalExecution(c); err != nil {
+		return err
+	}
+
 	// Get all the local files
 	lfs, _, err := db_bridge.GetLocalFiles(h.App.Database)
 	if err != nil {
@@ -230,27 +231,7 @@ func (h *Handler) HandleOpenAnimeEntryInExplorer(c echo.Context) error {
 	}
 
 	dir := filepath.Dir(lf.GetNormalizedPath())
-	cmd := ""
-	var args []string
-
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "explorer"
-		wPath := strings.ReplaceAll(strings.ToLower(dir), "/", "\\")
-		args = []string{wPath}
-	case "darwin":
-		cmd = "open"
-		args = []string{dir}
-	case "linux":
-		cmd = "xdg-open"
-		args = []string{dir}
-	default:
-		return fmt.Errorf("unsupported operating system: %s", runtime.GOOS)
-	}
-	cmdObj := util.NewCmd(cmd, args...)
-	cmdObj.Stdout = os.Stdout
-	cmdObj.Stderr = os.Stderr
-	_ = cmdObj.Run()
+	OpenDirInExplorer(dir)
 
 	return h.RespondWithData(c, true)
 

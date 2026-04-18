@@ -61,6 +61,14 @@ func (h *Handler) HandleGettingStarted(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	prevSettings, _ := h.App.Database.GetSettings()
+	if err := h.guardStrictSettingsMutation(c, prevSettings, &b.Library, &b.Manga); err != nil {
+		return err
+	}
+	if err := h.guardPrivilegedSettingsMutation(c, prevSettings, &b.MediaPlayer, &b.Torrent); err != nil {
+		return err
+	}
+
 	// Check settings
 	if b.Library.LibraryPaths == nil {
 		b.Library.LibraryPaths = []string{}
@@ -167,6 +175,14 @@ func (h *Handler) HandleSaveSettings(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	prevSettings, _ := h.App.Database.GetSettings()
+	if err := h.guardStrictSettingsMutation(c, prevSettings, &b.Library, &b.Manga); err != nil {
+		return err
+	}
+	if err := h.guardPrivilegedSettingsMutation(c, prevSettings, &b.MediaPlayer, &b.Torrent); err != nil {
+		return err
+	}
+
 	if b.Library.LibraryPath != "" {
 		b.Library.LibraryPath = filepath.ToSlash(filepath.Clean(b.Library.LibraryPath))
 	}
@@ -203,8 +219,7 @@ func (h *Handler) HandleSaveSettings(c echo.Context) error {
 	}
 
 	autoDownloaderSettings := models.AutoDownloaderSettings{}
-	prevSettings, err := h.App.Database.GetSettings()
-	if err == nil && prevSettings.AutoDownloader != nil {
+	if prevSettings != nil && prevSettings.AutoDownloader != nil {
 		autoDownloaderSettings = *prevSettings.AutoDownloader
 	}
 	// Disable auto-downloader if the torrent provider is set to none
@@ -323,6 +338,10 @@ func (h *Handler) HandleSaveMediaPlayerSettings(c echo.Context) error {
 	currSettings, err := h.App.Database.GetSettings()
 	if err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedSettingsMutation(c, currSettings, b.MediaPlayer, nil); err != nil {
+		return err
 	}
 
 	currSettings.MediaPlayer = b.MediaPlayer

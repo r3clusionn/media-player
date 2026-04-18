@@ -132,6 +132,10 @@ func (h *Handler) HandleCreateAutoDownloaderRule(c echo.Context) error {
 		return h.RespondWithError(c, errors.New("destination must be an absolute path"))
 	}
 
+	if err := h.guardStrictFilesystemPath(c, b.Rule.Destination); err != nil {
+		return err
+	}
+
 	b.Rule.DbID = 0
 	rule := &b.Rule
 
@@ -167,6 +171,18 @@ func (h *Handler) HandleUpdateAutoDownloaderRule(c echo.Context) error {
 
 	if b.Rule.DbID == 0 {
 		return h.RespondWithError(c, errors.New("invalid id"))
+	}
+
+	if b.Rule.Destination == "" {
+		return h.RespondWithError(c, errors.New("destination is required"))
+	}
+
+	if !filepath.IsAbs(b.Rule.Destination) {
+		return h.RespondWithError(c, errors.New("destination must be an absolute path"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Rule.Destination); err != nil {
+		return err
 	}
 
 	// Update the rule based on its DbID (primary key)

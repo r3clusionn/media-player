@@ -1,20 +1,15 @@
 import { getServerBaseUrl } from "@/api/client/server-url"
-import { serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
+import { serverAuthTokenAtom, serverStatusAtom } from "@/app/(main)/_atoms/server-status.atoms"
 import { websocketAtom, WebSocketContext } from "@/app/(main)/_atoms/websocket.atoms"
 import { ElectronRestartServerPrompt } from "@/app/(main)/_electron/electron-restart-server-prompt"
 import { __openDrawersAtom } from "@/components/ui/drawer"
 import { useMainTab } from "@/hooks/use-main-tab"
 import { logger } from "@/lib/helpers/debug"
-import { usePathname } from "@/lib/navigation.ts"
-import { useRouter } from "@/lib/navigation.ts"
+import { getClientId, getClientIdentity, getClientIdProof, setClientIdentity, subscribeToClientIdentity } from "@/lib/server/client-id"
+import { WSEvents } from "@/lib/server/ws-events"
 import { __isElectronDesktop__ } from "@/types/constants"
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import React, { useRef } from "react"
-import { useCookies } from "react-cookie"
-import { ImSpinner5 } from "react-icons/im"
-import { ImSpinner6 } from "react-icons/im"
-import { ImSpinner3 } from "react-icons/im"
-import { ImSpinner4 } from "react-icons/im"
 import { ImSpinner2 } from "react-icons/im"
 import { RemoveScrollBar } from "react-remove-scroll-bar"
 import { useEffectOnce } from "react-use"
@@ -82,15 +77,19 @@ function WebsocketManagement() {
     const [isConnected, setIsConnected] = useAtom(websocketConnectedAtom)
     const setConnectionErrorCount = useSetAtom(websocketConnectionErrorCountAtom)
 
-    const [cookies, setCookie, removeCookie] = useCookies(["Seanime-Client-Id"])
-
     // Password set, user not yet logged in → ws connection fails (401), reconnect loop retries. Once the user logs in, serverAuthTokenRef updates,
     // next reconnect succeeds.
     const serverAuthToken = useAtomValue(serverAuthTokenAtom)
+    const serverStatus = useAtomValue(serverStatusAtom)
     const serverAuthTokenRef = React.useRef(serverAuthToken)
+    const shouldPauseForAuth = serverStatus?.serverHasPassword !== false && !serverAuthToken
+    const shouldPauseForAuthRef = React.useRef(shouldPauseForAuth)
     React.useEffect(() => {
         serverAuthTokenRef.current = serverAuthToken
     }, [serverAuthToken])
+    React.useEffect(() => {
+        shouldPauseForAuthRef.current = shouldPauseForAuth
+    }, [shouldPauseForAuth])
 
     const [, setClientId] = useAtom(clientIdAtom)
     const setMainTab = useSetAtom(isMainTabAtom)
@@ -106,15 +105,24 @@ function WebsocketManagement() {
     const reconnectTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
     const lastPongRef = React.useRef<number>(Date.now())
     const socketRef = React.useRef<WebSocket | null>(null)
+    const clientIdRef = React.useRef<string>("")
+    const clientIdProofRef = React.useRef<string>("")
+    const connectWebSocketRef = React.useRef<(() => void) | null>(null)
+    const clearAllIntervalsRef = React.useRef<(() => void) | null>(null)
     const wasDisconnected = React.useRef<boolean>(false)
     const initialConnection = React.useRef<boolean>(true)
 
     React.useEffect(() => {
-        logger("WebsocketProvider").info("Seanime-Client-Id", cookies["Seanime-Client-Id"])
-        if (cookies["Seanime-Client-Id"]) {
-            setClientId(cookies["Seanime-Client-Id"])
+        const updateClientIdentity = ({ clientId, clientIdProof }: { clientId: string, clientIdProof: string }) => {
+            logger("WebsocketProvider").info("Seanime-Client-Id", clientId)
+            clientIdRef.current = clientId
+            clientIdProofRef.current = clientIdProof
+            setClientId(clientId || null)
         }
-    }, [cookies])
+
+        updateClientIdentity(getClientIdentity())
+        return subscribeToClientIdentity(updateClientIdentity)
+    }, [setClientId])
 
     // Effect to handle page reload on reconnection
     /* React.useEffect(() => {
@@ -139,6 +147,15 @@ function WebsocketManagement() {
      }, [isConnected]) */
 
     useEffectOnce(() => {
+        function ensureClientIdentity() {
+            const clientId = clientIdRef.current || getClientId()
+            const clientIdProof = clientIdProofRef.current || getClientIdProof()
+            clientIdRef.current = clientId
+            clientIdProofRef.current = clientIdProof
+            setClientId(clientId)
+            return { clientId, clientIdProof }
+        }
+
         function clearAllIntervals() {
             if (heartbeatRef.current) {
                 clearInterval(heartbeatRef.current)
@@ -154,7 +171,13 @@ function WebsocketManagement() {
             }
         }
 
+        clearAllIntervalsRef.current = clearAllIntervals
+
         function connectWebSocket() {
+            if (shouldPauseForAuthRef.current) {
+                return
+            }
+
             // Clear existing connection attempts
             clearAllIntervals()
 
@@ -169,11 +192,19 @@ function WebsocketManagement() {
             }
 
             const wsUrl = `${document.location.protocol == "https:" ? "wss" : "ws"}://${getServerBaseUrl(true)}/events`
-            const clientId = cookies["Seanime-Client-Id"] || uuidv4()
+            const { clientId, clientIdProof } = ensureClientIdentity()
 
             try {
-                const tokenParam = serverAuthTokenRef.current ? `&token=${encodeURIComponent(serverAuthTokenRef.current)}` : ""
-                socketRef.current = new WebSocket(`${wsUrl}?id=${clientId}${tokenParam}`)
+                const queryParams = new URLSearchParams()
+                if (clientId && clientIdProof) {
+                    queryParams.set("id", clientId)
+                    queryParams.set("proof", clientIdProof)
+                }
+                if (serverAuthTokenRef.current) {
+                    queryParams.set("token", serverAuthTokenRef.current)
+                }
+                const query = queryParams.toString()
+                socketRef.current = new WebSocket(query ? `${wsUrl}?${query}` : wsUrl)
 
                 // Reset the last pong timestamp whenever we connect
                 lastPongRef.current = Date.now()
@@ -182,16 +213,6 @@ function WebsocketManagement() {
                     logger("WebsocketProvider").info("WebSocket connection opened")
                     setIsConnected(true)
                     setConnectionErrorCount(0)
-
-                    // Set cookie if it doesn't exist
-                    if (!cookies["Seanime-Client-Id"]) {
-                        setCookie("Seanime-Client-Id", clientId, {
-                            path: "/",
-                            sameSite: "lax",
-                            secure: false,
-                            maxAge: 24 * 60 * 60, // 24 hours
-                        })
-                    }
 
                     // Start heartbeat interval to detect silent disconnections
                     heartbeatRef.current = setInterval(() => {
@@ -221,7 +242,6 @@ function WebsocketManagement() {
                                     socketRef.current?.send(JSON.stringify({
                                         type: "ping",
                                         payload: { timestamp },
-                                        clientId: clientId,
                                     }))
                                 }
                                 catch (e) {
@@ -240,6 +260,15 @@ function WebsocketManagement() {
                 socketRef.current?.addEventListener("message", (event) => {
                     try {
                         const data = JSON.parse(event.data) as { type: string; payload?: any }
+                        if (data.type === WSEvents.CLIENT_IDENTITY) {
+                            const nextClientId = typeof data.payload?.clientId === "string" ? data.payload.clientId : ""
+                            const nextProof = typeof data.payload?.proof === "string" ? data.payload.proof : ""
+                            if (nextClientId) {
+                                setClientIdentity(nextClientId, nextProof)
+                            }
+                            return
+                        }
+
                         if (data.type === "pong") {
                             // Update the last pong timestamp
                             lastPongRef.current = Date.now()
@@ -269,6 +298,8 @@ function WebsocketManagement() {
             }
         }
 
+        connectWebSocketRef.current = connectWebSocket
+
         function handleDisconnection() {
             clearAllIntervals()
             setIsConnected(false)
@@ -288,6 +319,10 @@ function WebsocketManagement() {
         }
 
         function scheduleReconnect() {
+            if (shouldPauseForAuthRef.current) {
+                return
+            }
+
             // Reconnect after a delay with exponential backoff
             setConnectionErrorCount(count => {
                 const newCount = count + 1
@@ -304,12 +339,14 @@ function WebsocketManagement() {
             })
         }
 
-        if (!socket || socket.readyState === WebSocket.CLOSED) {
+        if (!shouldPauseForAuthRef.current && (!socket || socket.readyState === WebSocket.CLOSED)) {
             // If the socket is not set or the connection is closed, initiate a new connection
             connectWebSocket()
         }
 
         return () => {
+            connectWebSocketRef.current = null
+            clearAllIntervalsRef.current = null
             if (socketRef.current) {
                 try {
                     socketRef.current.close()
@@ -323,6 +360,27 @@ function WebsocketManagement() {
             clearAllIntervals()
         }
     })
+
+    React.useEffect(() => {
+        if (shouldPauseForAuth) {
+            clearAllIntervalsRef.current?.()
+            if (socketRef.current) {
+                try {
+                    socketRef.current.close()
+                }
+                catch {
+                }
+            }
+            socketRef.current = null
+            setSocket(null)
+            setIsConnected(false)
+            return
+        }
+
+        if (!socketRef.current || socketRef.current.readyState === WebSocket.CLOSED) {
+            connectWebSocketRef.current?.()
+        }
+    }, [setIsConnected, setSocket, shouldPauseForAuth])
 
     return null
 }

@@ -21,6 +21,10 @@ import (
 //	@route /api/v1/install-update [POST]
 //	@returns handlers.Status
 func (h *Handler) HandleInstallLatestUpdate(c echo.Context) error {
+	if err := h.guardPrivilegedLocalExecution(c); err != nil {
+		return err
+	}
+
 	type body struct {
 		FallbackDestination string `json:"fallback_destination"`
 	}

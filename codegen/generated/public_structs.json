@@ -35056,6 +35056,24 @@
         ]
       },
       {
+        "name": "currentPlaybackId",
+        "jsonName": "currentPlaybackId",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "currentPlaybackClient",
+        "jsonName": "currentPlaybackClient",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "preparingClientID",
         "jsonName": "preparingClientID",
         "goType": "string",
@@ -35577,6 +35595,17 @@
         "typescriptType": "Once",
         "usedTypescriptType": "Once",
         "usedStructName": "sync.Once",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "playbackCancelFunc",
+        "jsonName": "playbackCancelFunc",
+        "goType": "context.CancelFunc",
+        "typescriptType": "CancelFunc",
+        "usedTypescriptType": "CancelFunc",
+        "usedStructName": "context.CancelFunc",
         "required": false,
         "public": false,
         "comments": []

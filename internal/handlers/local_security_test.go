@@ -1,0 +1,638 @@
+package handlers
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"seanime/internal/database/models"
+	"seanime/internal/security"
+	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestRequestHasTrustedLocalOrigin(t *testing.T) {
+	tests := []struct {
+		name    string
+		origin  string
+		referer string
+		reqHost string
+		want    bool
+	}{
+		{
+			name:    "allows loopback origin",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "example.com",
+			want:    true,
+		},
+		{
+			name:    "allows localhost dev origin against loopback api",
+			origin:  "http://localhost:43210",
+			reqHost: "127.0.0.1:43001",
+			want:    true,
+		},
+		{
+			name:    "allows denshi app origin",
+			origin:  "app://-",
+			reqHost: "127.0.0.1:43211",
+			want:    true,
+		},
+		{
+			name:    "falls back to referer",
+			referer: "http://[::1]:43211/settings",
+			reqHost: "example.com",
+			want:    true,
+		},
+		{
+			name:    "allows same server lan origin",
+			origin:  "http://192.168.1.10:43211",
+			reqHost: "192.168.1.10:43211",
+			want:    true,
+		},
+		{
+			name:    "rejects arbitrary website origins",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			want:    false,
+		},
+		{
+			name:    "rejects different lan origins",
+			origin:  "http://192.168.1.10:43211",
+			reqHost: "192.168.1.20:43211",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// local browser and denshi should still be able to change these settings.
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/settings", nil)
+			req.Host = tt.reqHost
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+			if tt.referer != "" {
+				req.Header.Set("Referer", tt.referer)
+			}
+
+			assert.Equal(t, tt.want, isRequestFromTrustedOrigin(req))
+		})
+	}
+}
+
+func TestRequestHasTrustedLocalHost(t *testing.T) {
+	tests := []struct {
+		name    string
+		reqHost string
+		want    bool
+	}{
+		{
+			name:    "allows localhost host",
+			reqHost: "localhost:43211",
+			want:    true,
+		},
+		{
+			name:    "allows loopback host",
+			reqHost: "127.0.0.1:43211",
+			want:    true,
+		},
+		{
+			name:    "allows ipv6 loopback host",
+			reqHost: "[::1]:43211",
+			want:    true,
+		},
+		{
+			name:    "allows private lan host",
+			reqHost: "192.168.1.10:43211",
+			want:    true,
+		},
+		{
+			name:    "rejects arbitrary domain host",
+			reqHost: "evil.example",
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+			req.Host = tt.reqHost
+
+			assert.Equal(t, tt.want, isTrustedRequestHost(req))
+		})
+	}
+}
+
+func TestCanAccessLocalServer(t *testing.T) {
+	tests := []struct {
+		name            string
+		origin          string
+		reqHost         string
+		serverPassword  string
+		accessAllowlist []string
+		secureMode      string
+		want            bool
+	}{
+		{
+			name:    "allows passwordless local host without browser metadata",
+			reqHost: "127.0.0.1:43211",
+			want:    true,
+		},
+		{
+			name:    "allows passwordless trusted local origin",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "127.0.0.1:43211",
+			want:    true,
+		},
+		{
+			name:    "rejects passwordless untrusted origin even on local host",
+			origin:  "https://evil.example",
+			reqHost: "127.0.0.1:43211",
+			want:    false,
+		},
+		{
+			name:    "rejects passwordless arbitrary domain host",
+			reqHost: "evil.example",
+			want:    false,
+		},
+		{
+			name:    "rejects passwordless cross-site browser requests without origin metadata",
+			reqHost: "127.0.0.1:43211",
+			origin:  "",
+			want:    false,
+		},
+		{
+			name:           "allows authenticated requests regardless of host",
+			reqHost:        "evil.example",
+			serverPassword: "configured",
+			want:           true,
+		},
+		{
+			name:            "allows passwordless public host when allowlisted",
+			reqHost:         "demo.example",
+			accessAllowlist: []string{"demo.example"},
+			want:            true,
+		},
+		{
+			name:            "allows passwordless public origin when allowlisted",
+			origin:          "https://demo.example",
+			reqHost:         "demo.example",
+			accessAllowlist: []string{"https://demo.example"},
+			want:            true,
+		},
+		{
+			name:            "allows passwordless public subdomain when wildcard allowlisted",
+			origin:          "https://live.demo.example",
+			reqHost:         "live.demo.example",
+			accessAllowlist: []string{"*.demo.example"},
+			want:            true,
+		},
+		{
+			name:       "allows arbitrary public host in lax mode",
+			reqHost:    "demo.example",
+			secureMode: security.SecureModeLax,
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+			req.Host = tt.reqHost
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			} else if tt.name == "rejects passwordless cross-site browser requests without origin metadata" {
+				req.Header.Set("Sec-Fetch-Site", "cross-site")
+			}
+
+			assert.Equal(t, tt.want, isRequestPermitted(req, tt.serverPassword, tt.accessAllowlist))
+		})
+	}
+}
+
+func TestTrustedCORSOrigin(t *testing.T) {
+	tests := []struct {
+		name            string
+		origin          string
+		serverPassword  string
+		accessAllowlist []string
+		secureMode      string
+		want            bool
+	}{
+		{
+			name:   "allows trusted local origin",
+			origin: "http://127.0.0.1:43211",
+			want:   true,
+		},
+		{
+			name:            "allows allowlisted public origin",
+			origin:          "https://demo.example",
+			accessAllowlist: []string{"https://demo.example"},
+			want:            true,
+		},
+		{
+			name:            "allows wildcard allowlisted public origin",
+			origin:          "https://live.demo.example",
+			accessAllowlist: []string{"*.demo.example"},
+			want:            true,
+		},
+		{
+			name:   "rejects arbitrary public origin without allowlist",
+			origin: "https://demo.example",
+			want:   false,
+		},
+		{
+			name:       "allows any origin in lax mode",
+			origin:     "https://demo.example",
+			secureMode: security.SecureModeLax,
+			want:       true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
+			assert.Equal(t, tt.want, isTrustedCORSOrigin(tt.origin, tt.serverPassword, tt.accessAllowlist))
+		})
+	}
+}
+
+func TestCanMutatePrivilegedSettings(t *testing.T) {
+	prev := &models.Settings{
+		MediaPlayer: &models.MediaPlayerSettings{
+			Default: "vlc",
+			VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+			MpvArgs: "--no-config",
+		},
+		Torrent: &models.TorrentSettings{
+			Default:         "qbittorrent",
+			QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+		},
+	}
+
+	tests := []struct {
+		name           string
+		origin         string
+		reqHost        string
+		serverPassword string
+		nextMedia      *models.MediaPlayerSettings
+		nextTorrent    *models.TorrentSettings
+		want           bool
+	}{
+		{
+			name:    "allows unrelated settings changes without trusted origin",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "vlc",
+				Host:    "127.0.0.1",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: true,
+		},
+		{
+			name:    "allows trusted local origin when passwordless",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "127.0.0.1:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/Applications/mpv.app/Contents/MacOS/mpv",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: true,
+		},
+		{
+			name:    "allows trusted lan origin when it is the same server",
+			origin:  "http://192.168.1.10:43211",
+			reqHost: "192.168.1.10:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: true,
+		},
+		{
+			name:    "rejects untrusted origin when command sinks change",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: false,
+		},
+		{
+			name:           "allows authenticated writes even without trusted origin",
+			origin:         "https://evil.example",
+			reqHost:        "192.168.1.10:43211",
+			serverPassword: "configured",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: true,
+		},
+		{
+			name:    "rejects missing origin when command sinks change and no password is set",
+			reqHost: "192.168.1.10:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// random websites should not be able to flip command sinks on passwordless servers.
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/settings", nil)
+			req.Host = tt.reqHost
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			assert.Equal(t, tt.want, canMutatePrivilegedSettings(req, tt.serverPassword, prev, tt.nextMedia, tt.nextTorrent))
+		})
+	}
+}
+
+func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
+	prev := &models.MediastreamSettings{
+		FfmpegPath:  "ffmpeg",
+		FfprobePath: "ffprobe",
+	}
+
+	tests := []struct {
+		name           string
+		origin         string
+		reqHost        string
+		serverPassword string
+		next           *models.MediastreamSettings
+		want           bool
+	}{
+		{
+			name:    "allows unrelated mediastream changes without trusted origin",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			next: &models.MediastreamSettings{
+				TranscodeEnabled: true,
+				FfmpegPath:       "ffmpeg",
+				FfprobePath:      "ffprobe",
+			},
+			want: true,
+		},
+		{
+			name:    "allows trusted local origin when ffmpeg path changes",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "127.0.0.1:43211",
+			next: &models.MediastreamSettings{
+				FfmpegPath:  "/tmp/ffmpeg-wrapper",
+				FfprobePath: "ffprobe",
+			},
+			want: true,
+		},
+		{
+			name:    "rejects untrusted origin when ffprobe path changes",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			next: &models.MediastreamSettings{
+				FfmpegPath:  "ffmpeg",
+				FfprobePath: "/tmp/ffprobe-wrapper",
+			},
+			want: false,
+		},
+		{
+			name:           "allows authenticated mediastream writes without trusted origin",
+			origin:         "https://evil.example",
+			reqHost:        "192.168.1.10:43211",
+			serverPassword: "configured",
+			next: &models.MediastreamSettings{
+				FfmpegPath:  "/tmp/ffmpeg-wrapper",
+				FfprobePath: "/tmp/ffprobe-wrapper",
+			},
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// remote sites should not be able to repoint ffmpeg or ffprobe on passwordless servers.
+			req := httptest.NewRequest(http.MethodPatch, "/api/v1/mediastream/settings", nil)
+			req.Host = tt.reqHost
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			assert.Equal(t, tt.want, canMutatePrivilegedMediastreamSettings(req, tt.serverPassword, prev, tt.next))
+		})
+	}
+}
+
+func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
+	tests := []struct {
+		name           string
+		origin         string
+		reqHost        string
+		path           string
+		serverPassword string
+		want           bool
+	}{
+		{
+			name:    "allows trusted local origin when passwordless",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "127.0.0.1:43211",
+			path:    "/api/v1/extensions/external/install",
+			want:    true,
+		},
+		{
+			name:    "rejects untrusted origin when passwordless",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			path:    "/api/v1/extensions/external/install",
+			want:    false,
+		},
+		{
+			name:           "allows authenticated extension management without trusted origin",
+			origin:         "https://evil.example",
+			reqHost:        "192.168.1.10:43211",
+			path:           "/api/v1/extensions/external/install",
+			serverPassword: "configured",
+			want:           true,
+		},
+		{
+			name:    "rejects untrusted origin for playground execution when passwordless",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			path:    "/api/v1/extensions/playground/run",
+			want:    false,
+		},
+		{
+			name:    "allows trusted local origin for playground execution when passwordless",
+			origin:  "http://127.0.0.1:43211",
+			reqHost: "127.0.0.1:43211",
+			path:    "/api/v1/extensions/playground/run",
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, tt.path, nil)
+			req.Host = tt.reqHost
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			assert.Equal(t, tt.want, canUsePrivilegedExtensionManagement(req, tt.serverPassword))
+		})
+	}
+}
+
+func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+	req.Host = "192.168.1.10:43211"
+	req.Header.Set("Origin", "https://evil.example")
+
+	security.SetSecureMode("")
+	assert.False(t, isStrictModeSensitive(req, ""))
+
+	security.SetSecureMode(security.SecureModeStrict)
+	assert.True(t, isStrictModeSensitive(req, ""))
+
+	security.SetSecureMode(security.SecureModeLax)
+	assert.False(t, isStrictModeSensitive(req, ""))
+
+	req.Header.Set("Origin", "http://127.0.0.1:43211")
+	assert.False(t, isStrictModeSensitive(req, ""))
+}
+
+func TestRequestMatchescontextClientId(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/events", nil)
+	req.AddCookie(&http.Cookie{Name: clientIdCookieName, Value: "client-1"})
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.Set(clientIdCookieName, "client-1")
+
+	assert.True(t, isSameContextClientId(c, "client-1"))
+	assert.False(t, isSameContextClientId(c, "client-2"))
+	assert.Equal(t, "client-1", getContextClientId(c))
+	assert.False(t, isSameContextClientId(c, ""))
+}
+
+func TestResolveRequestClientId(t *testing.T) {
+	t.Run("prefers server context", func(t *testing.T) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/mediastream/request", nil)
+		req.AddCookie(&http.Cookie{Name: clientIdCookieName, Value: "cookie-client"})
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.Set(clientIdCookieName, "server-client")
+
+		assert.Equal(t, "server-client", getRequestClientId(c, "body-client"))
+	})
+
+	t.Run("falls back to claimed id when context is missing", func(t *testing.T) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/mediastream/request", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		assert.Equal(t, "body-client", getRequestClientId(c, " body-client "))
+	})
+}
+
+func TestUsesPrivilegedCommandSettings(t *testing.T) {
+	t.Run("ignores default executable paths", func(t *testing.T) {
+		// default app paths should still behave like the built-in integration.
+		settings := &models.Settings{
+			MediaPlayer: &models.MediaPlayerSettings{
+				Default: "vlc",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+			},
+			Torrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qbittorrent.app/Contents/MacOS/qbittorrent",
+			},
+		}
+		mediastreamSettings := &models.MediastreamSettings{
+			FfmpegPath:  "ffmpeg",
+			FfprobePath: "ffprobe",
+		}
+
+		assert.False(t, isPrivilegedMediaPlayer(settings))
+		assert.False(t, isPrivilegedTorrentClient(settings))
+		assert.False(t, isPrivilegedMediastream(mediastreamSettings))
+	})
+
+	t.Run("detects custom paths and custom args", func(t *testing.T) {
+		// custom wrappers and launch args stay behind the trusted-origin gate.
+		settings := &models.Settings{
+			MediaPlayer: &models.MediaPlayerSettings{
+				Default: "mpv",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--script=/tmp/hook.lua",
+			},
+			Torrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/tmp/qbit-wrapper",
+			},
+		}
+		mediastreamSettings := &models.MediastreamSettings{
+			FfmpegPath:  "/tmp/ffmpeg-wrapper",
+			FfprobePath: "/tmp/ffprobe-wrapper",
+		}
+
+		assert.True(t, isPrivilegedMediaPlayer(settings))
+		assert.True(t, isPrivilegedTorrentClient(settings))
+		assert.True(t, isPrivilegedMediastream(mediastreamSettings))
+	})
+}

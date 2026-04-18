@@ -51,7 +51,7 @@ type (
 		// ---------- Playback State ---------- //
 
 		currentStream         mo.Option[Stream] // The current stream being played
-		currentPlaybackID     string
+		currentPlaybackId     string
 		currentPlaybackClient string
 		preparingClientID     string
 		preparationCanceled   bool

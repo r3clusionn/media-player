@@ -8,6 +8,7 @@ import (
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/plugin"
+	"seanime/internal/security"
 	gojautil "seanime/internal/util/goja"
 	"seanime/internal/util/result"
 	"sync"
@@ -188,7 +189,9 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 
 	c.bindFetch(obj, c.ext.Plugin.Permissions.GetNetworkAccessAllowedDomains(), c.anilistToken)
 	c.bindAbortContext()
-	c.bindChromeDP(obj)
+	if !security.IsStrict() {
+		c.bindChromeDP(obj)
+	}
 	// Bind screen manager
 	c.screenManager.bind(obj)
 	// Bind action manager
@@ -220,11 +223,15 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 		for _, permission := range c.ext.Plugin.Permissions.Scopes {
 			switch permission {
 			case extension.PluginPermissionPlayback:
-				// Bind playback to the context object
-				plugin.GlobalAppContext.BindPlaybackToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				if !security.IsStrict() {
+					// playback can bridge into external players or mpv sockets, so keep it out of strict mode
+					plugin.GlobalAppContext.BindPlaybackToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 				plugin.GlobalAppContext.BindVideoCoreToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 			case extension.PluginPermissionSystem:
-				plugin.GlobalAppContext.BindDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 			case extension.PluginPermissionCron:
 				// Bind cron to the context object
 				cron := plugin.GlobalAppContext.BindCronToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
@@ -236,8 +243,9 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 				// Bind discord to the context object
 				plugin.GlobalAppContext.BindDiscordToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 			case extension.PluginPermissionTorrentClient:
-				// Bind torrent client to the context object
-				plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 			}
 		}
 	}

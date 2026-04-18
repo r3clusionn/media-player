@@ -16,6 +16,9 @@ func (h *Handler) HandleStartDefaultMediaPlayer(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+	if err := h.guardPrivilegedMediaPlayer(c, settings); err != nil {
+		return err
+	}
 
 	switch settings.MediaPlayer.Default {
 	case "vlc":
