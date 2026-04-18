@@ -242,9 +242,10 @@ func (a *App) initModulesOnce() {
 	})
 
 	plugin.GlobalAppContext.SetModulesPartial(plugin.AppContextModules{
-		PlaybackManager: a.PlaybackManager,
-		MangaRepository: a.MangaRepository,
-		VideoCore:       a.VideoCore,
+		PlaybackManager:     a.PlaybackManager,
+		MangaRepository:     a.MangaRepository,
+		VideoCore:           a.VideoCore,
+		DirectStreamManager: a.DirectStreamManager,
 	})
 
 	// +---------------------+

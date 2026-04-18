@@ -1,7 +1,11 @@
 package plugin
 
 import (
+	"context"
 	"errors"
+	"seanime/internal/api/anilist"
+	"seanime/internal/database/db_bridge"
+	"seanime/internal/directstream"
 	"seanime/internal/extension"
 	"seanime/internal/mkvparser"
 	gojautil "seanime/internal/util/goja"
@@ -91,10 +95,98 @@ func (a *AppContextImpl) BindVideoCoreToContextObj(vm *goja.Runtime, obj *goja.O
 	_ = vcObj.Set("getCurrentPlayerType", p.getCurrentPlayerType)
 	_ = vcObj.Set("getCurrentPlaybackType", p.getCurrentPlaybackType)
 
+	// Initiate playback
+	_ = vcObj.Set("playStream", p.playStream)
+	_ = vcObj.Set("playLocalFile", p.playLocalFile)
+
 	//_ = vcObj.Set("startOnlinestreamWatchParty", p.startOnlinestreamWatchParty)
 
 	_ = obj.Set("videoCore", vcObj)
 
+}
+
+// playStream resolves once the stream is initiated, not when playback completes.
+func (p *VideoCore) playStream(streamUrl string, anidbEpisode string, media *anilist.BaseAnime) goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	dsManager, ok := p.ctx.DirectStreamManager().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("directstream manager not available")))
+		return p.vm.ToValue(promise)
+	}
+
+	if streamUrl == "" || anidbEpisode == "" || media == nil {
+		reject(p.vm.NewGoError(errors.New("playStream: streamUrl, anidbEpisode, and media are required")))
+		return p.vm.ToValue(promise)
+	}
+
+	opts := directstream.PlayURLStreamOptions{
+		StreamUrl:    streamUrl,
+		AnidbEpisode: anidbEpisode,
+		Media:        media,
+	}
+
+	go func() {
+		playErr := dsManager.PlayURLStream(context.Background(), opts)
+		p.scheduler.ScheduleAsync(func() error {
+			if playErr != nil {
+				reject(p.vm.NewGoError(playErr))
+			} else {
+				resolve(nil)
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
+}
+
+// playLocalFile resolves once the stream is initiated, not when playback completes.
+func (p *VideoCore) playLocalFile(path string) goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	dsManager, ok := p.ctx.DirectStreamManager().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("directstream manager not available")))
+		return p.vm.ToValue(promise)
+	}
+
+	db, ok := p.ctx.Database().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("database not available")))
+		return p.vm.ToValue(promise)
+	}
+
+	if path == "" {
+		reject(p.vm.NewGoError(errors.New("playLocalFile: path is required")))
+		return p.vm.ToValue(promise)
+	}
+
+	go func() {
+		lfs, _, err := db_bridge.GetLocalFiles(db)
+		if err != nil {
+			p.scheduler.ScheduleAsync(func() error {
+				reject(p.vm.NewGoError(err))
+				return nil
+			})
+			return
+		}
+
+		playErr := dsManager.PlayLocalFile(context.Background(), directstream.PlayLocalFileOptions{
+			Path:       path,
+			LocalFiles: lfs,
+		})
+		p.scheduler.ScheduleAsync(func() error {
+			if playErr != nil {
+				reject(p.vm.NewGoError(playErr))
+			} else {
+				resolve(nil)
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
 }
 
 type VideoCoreEvent struct {

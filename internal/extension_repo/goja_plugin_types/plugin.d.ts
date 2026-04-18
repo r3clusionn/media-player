@@ -2918,6 +2918,25 @@ declare namespace $ui {
          * @returns The playback type or empty string
          */
         getCurrentPlaybackType(): PlaybackType | ""
+
+        /**
+         * Start playback of a URL in the built-in player with progress tracking.
+         * The promise resolves once the stream has been initiated (not when playback completes).
+         * @param streamUrl - The URL to stream
+         * @param anidbEpisode - AniDB episode identifier (e.g. "1", "S1") - used for progress tracking
+         * @param media - The anime object - used for progress tracking
+         * @returns A promise that resolves when the stream has started
+         */
+        playStream(streamUrl: string, anidbEpisode: string, media: $app.AL_BaseAnime): Promise<void>
+
+        /**
+         * Start playback of a local file in the built-in player with progress tracking.
+         * The promise resolves once the stream has been initiated (not when playback completes).
+         * The file must be in the scanned library.
+         * @param path - Absolute path to the local file
+         * @returns A promise that resolves when the stream has started
+         */
+        playLocalFile(path: string): Promise<void>
     }
 }
 
