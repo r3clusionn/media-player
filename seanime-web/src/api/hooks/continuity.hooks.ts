@@ -75,16 +75,19 @@ export function useHandleContinuityWithMediaPlayer(playerRef: React.RefObject<HT
     function handleUpdateWatchHistory() {
         if (!serverStatus?.settings?.library?.enableWatchContinuity) return
 
-        if (playerRef.current?.duration && playerRef.current?.currentTime) {
+        const duration = playerRef.current?.duration ?? Number.NaN
+        const currentTime = playerRef.current?.currentTime ?? Number.NaN
+
+        if (Number.isFinite(duration) && duration > 0 && Number.isFinite(currentTime) && currentTime > 0) {
             logger("CONTINUITY").info("Watch history updated", {
-                currentTime: playerRef.current?.currentTime,
-                duration: playerRef.current?.duration,
+                currentTime: currentTime,
+                duration: duration,
             })
 
             updateWatchHistory({
                 options: {
-                    currentTime: playerRef.current?.currentTime ?? 0,
-                    duration: playerRef.current?.duration ?? 0,
+                    currentTime: currentTime,
+                    duration: duration,
                     mediaId: Number(mediaId),
                     episodeNumber: episodeNumber ?? 0,
                     kind: "onlinestream",

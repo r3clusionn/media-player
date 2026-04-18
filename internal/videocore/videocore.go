@@ -462,7 +462,7 @@ func (vc *VideoCore) setPlaybackStatusFn(status *PlaybackStatus) {
 // and notifies all subscribers of the change.
 func (vc *VideoCore) updatePlaybackStatusFn(do func()) {
 	vc.playbackStatusMu.Lock()
-	if vc.playbackStatus == nil || len(vc.playbackStatus.Id) == 0 || vc.playbackStatus.Duration <= 0 {
+	if vc.playbackStatus == nil || len(vc.playbackStatus.Id) == 0 {
 		vc.playbackStatusMu.Unlock()
 		return
 	}
@@ -470,7 +470,12 @@ func (vc *VideoCore) updatePlaybackStatusFn(do func()) {
 	currentTime := vc.playbackStatus.CurrentTime
 	duration := vc.playbackStatus.Duration
 	paused := vc.playbackStatus.Paused
+	shouldNotify := duration > 0
 	vc.playbackStatusMu.Unlock()
+
+	if !shouldNotify {
+		return
+	}
 
 	vc.PushEvent(&VideoStatusEvent{
 		CurrentTime: currentTime,

@@ -293,3 +293,78 @@ func TestGetSkipDataAllowsEmptyClientState(t *testing.T) {
 		t.Fatal("expected skip data result")
 	}
 }
+
+func TestVideoStatusRecoversAfterZeroDurationLoadedMetadata(t *testing.T) {
+	logger := util.NewLogger()
+	ws := newRecordingWSEventManager()
+	vc := New(NewVideoCoreOptions{
+		WsEventManager: ws,
+		Logger:         logger,
+	})
+
+	t.Cleanup(vc.Shutdown)
+
+	statusEventCh := make(chan *VideoStatusEvent, 1)
+	cancel := vc.RegisterEventCallback(func(e VideoEvent) bool {
+		statusEvent, ok := e.(*VideoStatusEvent)
+		if !ok {
+			return true
+		}
+
+		statusEventCh <- statusEvent
+		return false
+	})
+	t.Cleanup(cancel)
+
+	state := newPlaybackState("playback-1")
+	ws.MockSendVideoCoreEvent(ClientEvent{
+		ClientId: "player-client",
+		Type:     PlayerEventVideoLoaded,
+		Payload:  mustMarshalRaw(t, clientVideoLoadedPayload{State: *state}),
+	})
+
+	require.Eventually(t, func() bool {
+		playbackState, ok := vc.GetPlaybackState()
+		return ok && playbackState.PlaybackInfo != nil && playbackState.PlaybackInfo.Id == "playback-1"
+	}, time.Second, 10*time.Millisecond)
+
+	// making sure duration is zero to simulate an edge case
+	ws.MockSendVideoCoreEvent(ClientEvent{
+		ClientId: "player-client",
+		Type:     PlayerEventVideoLoadedMetadata,
+		Payload: mustMarshalRaw(t, clientVideoStatusPayload{
+			CurrentTime: 24,
+			Duration:    0,
+			Paused:      false,
+		}),
+	})
+
+	require.Eventually(t, func() bool {
+		vc.playbackStatusMu.RLock()
+		defer vc.playbackStatusMu.RUnlock()
+		return vc.playbackStatus != nil && vc.playbackStatus.Duration == 0
+	}, time.Second, 10*time.Millisecond)
+
+	ws.MockSendVideoCoreEvent(ClientEvent{
+		ClientId: "player-client",
+		Type:     PlayerEventVideoStatus,
+		Payload: mustMarshalRaw(t, clientVideoStatusPayload{
+			CurrentTime: 32,
+			Duration:    120,
+			Paused:      false,
+		}),
+	})
+
+	require.Eventually(t, func() bool {
+		status, ok := vc.GetPlaybackStatus()
+		return ok && status.CurrentTime == 32 && status.Duration == 120
+	}, time.Second, 10*time.Millisecond)
+
+	select {
+	case statusEvent := <-statusEventCh:
+		require.Equal(t, 32.0, statusEvent.CurrentTime)
+		require.Equal(t, 120.0, statusEvent.Duration)
+	case <-time.After(time.Second):
+		t.Fatal("expected recovered video status event")
+	}
+}

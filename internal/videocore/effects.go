@@ -3,7 +3,7 @@ package videocore
 import (
 	"context"
 	"seanime/internal/continuity"
-	"seanime/internal/discordrpc/presence"
+	discordrpc_presence "seanime/internal/discordrpc/presence"
 	"seanime/internal/events"
 	"seanime/internal/mkvparser"
 )
@@ -94,13 +94,17 @@ func (vc *VideoCore) setupSharedEffects() {
 				if !ok {
 					continue
 				}
+				kind := continuity.MediastreamKind
+				if event.IsOnlinestream() {
+					kind = continuity.OnlinestreamKind
+				}
 				if event.Duration != 0 {
 					_ = vc.continuityManager.UpdateWatchHistoryItem(&continuity.UpdateWatchHistoryItemOptions{
 						CurrentTime:   event.CurrentTime,
 						Duration:      event.Duration,
 						MediaId:       state.PlaybackInfo.Media.GetID(),
 						EpisodeNumber: state.PlaybackInfo.Episode.GetEpisodeNumber(),
-						Kind:          continuity.MediastreamKind,
+						Kind:          kind,
 					})
 				}
 
