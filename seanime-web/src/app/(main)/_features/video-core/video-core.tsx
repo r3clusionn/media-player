@@ -5,7 +5,7 @@ import { useDirectstreamConvertSubs } from "@/api/hooks/directstream.hooks"
 import { useCancelDiscordActivity } from "@/api/hooks/discord.hooks"
 import { useNakamaWatchParty } from "@/app/(main)/_features/nakama/nakama-manager"
 import { nativePlayer_initialState, nativePlayer_stateAtom } from "@/app/(main)/_features/native-player/native-player.atoms"
-import { AniSkipTime } from "@/app/(main)/_features/video-core/_lib/aniskip"
+import { type NormalizedSkipData } from "@/app/(main)/_features/video-core/_lib/aniskip.utils"
 import { vc_anime4kOption, VideoCoreAnime4K } from "@/app/(main)/_features/video-core/video-core-anime-4k"
 import { Anime4KOption, VideoCoreAnime4KManager } from "@/app/(main)/_features/video-core/video-core-anime-4k-manager"
 import { vc_menuOpen } from "@/app/(main)/_features/video-core/video-core-atoms"
@@ -605,10 +605,7 @@ PlayerContent.displayName = "PlayerContent"
 export interface VideoCoreProps {
     id: string
     state: VideoCoreLifecycleState
-    aniSkipData?: {
-        op: AniSkipTime | null
-        ed: AniSkipTime | null
-    } | undefined
+    aniSkipData?: NormalizedSkipData | undefined
     onTerminateStream: () => void
     onEnded?: () => void
     onCompleted?: () => void
@@ -676,6 +673,10 @@ export function VideoCore(props: VideoCoreProps) {
 
     const videoRef = useRef<HTMLVideoElement | null>(null)
     const containerRef = useRef<HTMLDivElement | null>(null)
+    const [pluginSkipDataOverride, setPluginSkipDataOverride] = useState<NormalizedSkipData | undefined>(undefined)
+    const resolvedSkipData = useMemo(() => pluginSkipDataOverride ?? aniSkipData, [pluginSkipDataOverride, aniSkipData])
+    const currentSkipDataRef = useRef<NormalizedSkipData | undefined>(resolvedSkipData)
+    currentSkipDataRef.current = resolvedSkipData
 
     const {
         dispatchTerminatedEvent,
@@ -685,7 +686,7 @@ export function VideoCore(props: VideoCoreProps) {
         dispatchCanPlayEvent,
         dispatchTranslateTextEvent,
         dispatchTranslateSubtitleTrackEvent,
-    } = useVideoCoreSetupEvents(props.id, state, videoRef, onTerminateStream)
+    } = useVideoCoreSetupEvents(props.id, state, videoRef, onTerminateStream, setPluginSkipDataOverride, currentSkipDataRef)
 
     const { width: windowWidth } = useWindowSize()
     const [isMobilePlayer, setIsMobilePlayer] = useAtom(vc_isMobile)
@@ -751,6 +752,10 @@ export function VideoCore(props: VideoCoreProps) {
     React.useEffect(() => {
         setIsMiniPlayer(false)
     }, [])
+
+    React.useEffect(() => {
+        setPluginSkipDataOverride(undefined)
+    }, [state.playbackInfo?.id])
 
     React.useEffect(() => {
         if (!__isElectronDesktop__ || !window.electron?.on) return
@@ -1529,12 +1534,12 @@ export function VideoCore(props: VideoCoreProps) {
                 return cues
             }
 
-            // Otherwise, create chapters from AniSkip data if available
-            if (!!aniSkipData?.op?.interval && duration > 0) {
-                log.info("Creating chapter cues from AniSkip data", aniSkipData)
-                const chapters = vc_createChaptersFromAniSkip(aniSkipData, duration, state?.playbackInfo?.media?.format)
+            // Otherwise, create chapters from skip data if available
+            if (!!resolvedSkipData?.op?.interval && duration > 0) {
+                log.info("Creating chapter cues from skip data", resolvedSkipData)
+                const chapters = vc_createChaptersFromAniSkip(resolvedSkipData, duration, state?.playbackInfo?.media?.format)
                 const cues = vc_createChapterCues(chapters, duration)
-                log.info("Chapter cues from AniSkip", cues)
+                log.info("Chapter cues from skip data", cues)
                 return cues
             }
 
@@ -1542,8 +1547,8 @@ export function VideoCore(props: VideoCoreProps) {
         },
         [
             state.playbackInfo?.mkvMetadata?.chapters,
-            aniSkipData?.op?.interval,
-            aniSkipData?.ed?.interval,
+            resolvedSkipData?.op?.interval,
+            resolvedSkipData?.ed?.interval,
             duration,
             state?.playbackInfo?.media?.format,
         ])
@@ -1568,7 +1573,7 @@ export function VideoCore(props: VideoCoreProps) {
                         state={state}
                         videoRef={videoRef}
                         chapterCues={chapterCues}
-                        aniSkipData={aniSkipData}
+                        aniSkipData={resolvedSkipData}
                         streamUrl={streamUrl}
                         combineRef={combineRef}
                         combineContainerRef={combineContainerRef}
@@ -1648,7 +1653,7 @@ export function VideoCore(props: VideoCoreProps) {
                         state={state}
                         videoRef={videoRef}
                         chapterCues={chapterCues}
-                        aniSkipData={aniSkipData}
+                        aniSkipData={resolvedSkipData}
                         streamUrl={streamUrl}
                         combineRef={combineRef}
                         combineContainerRef={combineContainerRef}

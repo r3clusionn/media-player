@@ -45,6 +45,8 @@ const (
 	PlayerEventVideoPlaylist        ClientEventType = "video-playlist"
 	// Player sent all text tracks
 	PlayerEventVideoTextTracks ClientEventType = "video-text-tracks"
+	// Player sent the current skip data
+	PlayerEventVideoSkipData ClientEventType = "video-skip-data"
 	// Request to translate text
 	PlayerEventTranslateText ClientEventType = "translate-text"
 	// Request to translate subtitle file track
@@ -106,6 +108,20 @@ type VideoSource struct {
 type VideoInitialState struct {
 	CurrentTime *float64 `json:"currentTime"`
 	Paused      *bool    `json:"paused"`
+}
+
+type SkipInterval struct {
+	StartTime float64 `json:"startTime"`
+	EndTime   float64 `json:"endTime"`
+}
+
+type SkipDataEntry struct {
+	Interval SkipInterval `json:"interval"`
+}
+
+type SkipData struct {
+	Op *SkipDataEntry `json:"op"`
+	Ed *SkipDataEntry `json:"ed"`
 }
 
 type OnlinestreamParams struct {
@@ -230,6 +246,9 @@ type (
 	}
 	clientVideoTextTracksPayload struct {
 		TextTracks []*VideoTextTrack `json:"textTracks"`
+	}
+	clientVideoSkipDataPayload struct {
+		SkipData *SkipData `json:"skipData"`
 	}
 	clientTranslateTextPayload struct {
 		Text string `json:"text"`
@@ -402,6 +421,10 @@ type (
 		BaseVideoEvent
 		TextTracks []*VideoTextTrack `json:"textTracks"`
 	}
+	VideoSkipDataEvent struct {
+		BaseVideoEvent
+		SkipData *SkipData `json:"skipData"`
+	}
 )
 
 func (e *VideoStatusEvent) IsCritical() bool     { return false }
@@ -433,6 +456,8 @@ const (
 	ServerEventRequestPlayEpisode          ServerEvent = "request-play-episode"
 	ServerEventTranslatedText              ServerEvent = "translated-text"
 	ServerEventInSightData                 ServerEvent = "in-sight-data"
+	ServerEventSetSkipData                 ServerEvent = "set-skip-data"
+	ServerEventGetSkipData                 ServerEvent = "get-skip-data"
 	// State requests
 	ServerEventGetFullscreen           ServerEvent = "get-fullscreen"
 	ServerEventGetPip                  ServerEvent = "get-pip"

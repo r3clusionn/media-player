@@ -2568,6 +2568,20 @@ declare namespace $ui {
         playbackInfo: VideoPlaybackInfo
     }
 
+    interface SkipInterval {
+        startTime: number
+        endTime: number
+    }
+
+    interface SkipDataEntry {
+        interval: SkipInterval
+    }
+
+    interface SkipData {
+        op: SkipDataEntry | null
+        ed: SkipDataEntry | null
+    }
+
     interface VideoCore {
         /**
          * Adds an event listener for video-loaded events
@@ -2778,6 +2792,17 @@ declare namespace $ui {
          */
         showMessage(message: string, milliseconds?: number): void
 
+        /**
+         * Overrides the current playback skip data.
+         * pass null for op or ed to explicitly disable that range for this playback.
+         */
+        setSkipData(skipData: SkipData): void
+
+        /**
+         * Clears the current playback skip-data override.
+         */
+        clearSkipData(): void
+
         // Track control methods
 
         /**
@@ -2918,6 +2943,12 @@ declare namespace $ui {
          * @returns The playback type or empty string
          */
         getCurrentPlaybackType(): PlaybackType | ""
+
+        /**
+         * Gets the current playback skip data from the active client.
+         * @returns A promise that resolves to the current skip data or undefined
+         */
+        getSkipData(): Promise<SkipData | undefined>
 
         /**
          * Start playback of a URL in the built-in player with progress tracking.

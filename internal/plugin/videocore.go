@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"seanime/internal/api/anilist"
 	"seanime/internal/database/db_bridge"
@@ -63,6 +64,8 @@ func (a *AppContextImpl) BindVideoCoreToContextObj(vm *goja.Runtime, obj *goja.O
 	_ = vcObj.Set("setFullscreen", p.setFullscreen)
 	_ = vcObj.Set("setPip", p.setPip)
 	_ = vcObj.Set("showMessage", p.showMessage)
+	_ = vcObj.Set("setSkipData", p.setSkipData)
+	_ = vcObj.Set("clearSkipData", p.clearSkipData)
 
 	// Track control
 	_ = vcObj.Set("setSubtitleTrack", p.setSubtitleTrack)
@@ -94,6 +97,7 @@ func (a *AppContextImpl) BindVideoCoreToContextObj(vm *goja.Runtime, obj *goja.O
 	_ = vcObj.Set("getCurrentClientId", p.getCurrentClientId)
 	_ = vcObj.Set("getCurrentPlayerType", p.getCurrentPlayerType)
 	_ = vcObj.Set("getCurrentPlaybackType", p.getCurrentPlaybackType)
+	_ = vcObj.Set("getSkipData", p.getSkipData)
 
 	// Initiate playback
 	_ = vcObj.Set("playStream", p.playStream)
@@ -490,6 +494,42 @@ func (p *VideoCore) showMessage(message string, duration int) error {
 	return nil
 }
 
+func (p *VideoCore) setSkipData(call goja.FunctionCall) goja.Value {
+	videoCore, ok := p.ctx.VideoCore().Get()
+	if !ok {
+		panic(p.vm.NewTypeError("videocore not found"))
+	}
+
+	arg := call.Argument(0)
+	if goja.IsUndefined(arg) || goja.IsNull(arg) {
+		videoCore.ClearSkipData()
+		return goja.Undefined()
+	}
+
+	marshaled, err := json.Marshal(arg.Export())
+	if err != nil {
+		panic(p.vm.NewTypeError("invalid skip data payload"))
+	}
+
+	var skipData videocore.SkipData
+	if err := json.Unmarshal(marshaled, &skipData); err != nil {
+		panic(p.vm.NewTypeError("invalid skip data payload"))
+	}
+
+	videoCore.SetSkipData(&skipData)
+	return goja.Undefined()
+}
+
+func (p *VideoCore) clearSkipData() error {
+	videoCore, ok := p.ctx.VideoCore().Get()
+	if !ok {
+		return errors.New("videocore not found")
+	}
+
+	videoCore.ClearSkipData()
+	return nil
+}
+
 // Track control methods
 
 func (p *VideoCore) setSubtitleTrack(trackNumber int) error {
@@ -733,6 +773,30 @@ func (p *VideoCore) getCurrentPlaybackType() string {
 	}
 
 	return string(playbackType)
+}
+
+func (p *VideoCore) getSkipData() goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	videoCore, ok := p.ctx.VideoCore().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("videocore not found")))
+		return p.vm.ToValue(promise)
+	}
+
+	go func() {
+		skipData, ok := videoCore.GetSkipData()
+		p.scheduler.ScheduleAsync(func() error {
+			if ok && skipData != nil {
+				resolve(p.vm.ToValue(skipData))
+			} else {
+				resolve(goja.Undefined())
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
 }
 
 // Special methods

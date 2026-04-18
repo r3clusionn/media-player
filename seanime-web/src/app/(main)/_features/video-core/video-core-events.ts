@@ -1,5 +1,6 @@
 import { VideoCore_InSightData } from "@/api/generated/types"
 import { MKVParser_TrackInfo, VideoCore_ClientEventType, VideoCore_PlaybackState, VideoCore_ServerEvent } from "@/api/generated/types"
+import { normalizeAniSkipData, type NormalizedSkipData } from "@/app/(main)/_features/video-core/_lib/aniskip.utils"
 import { vc_subtitleManager } from "@/app/(main)/_features/video-core/video-core"
 import { vc_mediaCaptionsManager } from "@/app/(main)/_features/video-core/video-core"
 import { vc_audioManager } from "@/app/(main)/_features/video-core/video-core"
@@ -80,12 +81,17 @@ export type VideoCoreLoadedPayload = {
     state: VideoCore_PlaybackState
 }
 
+type VideoCoreClientEvent = VideoCore_ClientEventType | "video-skip-data"
+type VideoCoreServerEvent = VideoCore_ServerEvent | "set-skip-data" | "get-skip-data"
+
 const log = logger("VideoCoreEvents")
 
 export function useVideoCoreSetupEvents(id: string,
     state: VideoCoreLifecycleState,
     videoRef: React.MutableRefObject<HTMLVideoElement | null>,
     onTerminateStream: () => void,
+    setPluginSkipDataOverride: React.Dispatch<React.SetStateAction<NormalizedSkipData | undefined>>,
+    currentSkipDataRef: React.MutableRefObject<NormalizedSkipData | undefined>,
 ) {
     const { sendEvent } = useVideoCoreEvents()
 
@@ -510,8 +516,27 @@ export function useVideoCoreSetupEvents(id: string,
     useWebsocketMessageListener({
         type: WSEvents.VIDEOCORE,
         deps: [activePlayer, id],
-        onMessage: ({ type, payload }: { type: VideoCore_ServerEvent, payload: unknown }) => {
-            if (!isActivePlayer || !videoRef.current) return
+        onMessage: ({ type, payload }: { type: VideoCoreServerEvent, payload: unknown }) => {
+            if (!isActivePlayer) return
+
+            if (type === "set-skip-data") {
+                log.info("Set skip data event received", payload)
+                if (!payload) {
+                    setPluginSkipDataOverride(undefined)
+                    return
+                }
+                setPluginSkipDataOverride(normalizeAniSkipData(payload as NormalizedSkipData))
+                return
+            }
+
+            if (type === "get-skip-data") {
+                sendEvent("video-skip-data", {
+                    skipData: currentSkipDataRef.current ?? null,
+                })
+                return
+            }
+
+            if (!videoRef.current) return
 
             switch (type) {
                 case "get-status":
@@ -758,7 +783,7 @@ export function useVideoCoreEvents() {
     const { sendMessage } = useWebsocketSender()
     const clientId = useAtomValue(clientIdAtom)
 
-    function sendEvent<T extends Record<string, any> | void = void>(type: VideoCore_ClientEventType, payload?: T) {
+    function sendEvent<T extends Record<string, any> | void = void>(type: VideoCoreClientEvent, payload?: T) {
         sendMessage({
             type: WSEvents.VIDEOCORE,
             payload: {
