@@ -4,12 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## v3.6.2-alpha.0
 
+- ⚡️ Hooks: Added more Auto Downloader hooks
+- ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
+- 🦺 Continuity: Fixed potential progress being ignored
 - 🔒 Server: Tightened passwordless access and origin checks
   - Passwordless `/api` and `/events` access is now local-only by default, with `accessAllowlist` and `secureMode` controls
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary
 - 🔒 Server: Added stricter proxy, local-only, and strict-mode guards
   - Added `trustedProxies` and `externalUrl` handling for forwarded host/proto normalization and proxy-aware secure cookies
-  - `secureMode = "strict"` now redacts sensitive status data and keeps privileged settings, local execution, extension management, and root/path changes behind trusted-local checks
+  - `secureMode = "strict"` keeps privileged settings, local execution, extension management, and root/path changes behind trusted-local checks
 - 🔒 Core: Improved client identity security checks
 - 🔒 Denshi: Improved baseline security across renderers and updater
 

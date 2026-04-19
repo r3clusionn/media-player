@@ -11,8 +11,20 @@ import (
 // Prevent default to abort the run.
 type AutoDownloaderRunStartedEvent struct {
 	hook_resolver.Event
-	Rules    []*anime.AutoDownloaderRule    `json:"rules"`
-	Profiles []*anime.AutoDownloaderProfile `json:"profiles"`
+	Rules        []*anime.AutoDownloaderRule    `json:"rules"`
+	Profiles     []*anime.AutoDownloaderProfile `json:"profiles"`
+	IsSimulation bool                           `json:"isSimulation"`
+}
+
+// AutoDownloaderRunCompletedEvent is triggered when the autodownloader finishes a run.
+type AutoDownloaderRunCompletedEvent struct {
+	hook_resolver.Event
+	Rules           []*anime.AutoDownloaderRule    `json:"rules"`
+	Profiles        []*anime.AutoDownloaderProfile `json:"profiles"`
+	IsSimulation    bool                           `json:"isSimulation"`
+	DownloadedCount int                            `json:"downloadedCount"`
+	QueuedCount     int                            `json:"queuedCount"`
+	DelayedCount    int                            `json:"delayedCount"`
 }
 
 // AutoDownloaderTorrentsFetchedEvent is triggered at the beginning of a run, when the autodownloader fetches torrents from the provider.
@@ -22,7 +34,8 @@ type AutoDownloaderTorrentsFetchedEvent struct {
 }
 
 // AutoDownloaderMatchVerifiedEvent is triggered when a torrent is verified to follow a rule.
-// Prevent default to abort the download if the match is found.
+// Changing MatchFound or Episode lets the hook override the verified result.
+// Prevent default to reject the match.
 type AutoDownloaderMatchVerifiedEvent struct {
 	hook_resolver.Event
 	// Fetched torrent
@@ -38,24 +51,56 @@ type AutoDownloaderMatchVerifiedEvent struct {
 	MatchFound bool `json:"matchFound"`
 }
 
+// AutoDownloaderBestCandidateSelectedEvent is triggered when the best candidate for an episode is selected.
+// Prevent default to skip handling the episode.
+type AutoDownloaderBestCandidateSelectedEvent struct {
+	hook_resolver.Event
+	Rule         *anime.AutoDownloaderRule  `json:"rule"`
+	Episode      int                        `json:"episode"`
+	Candidates   []*Candidate               `json:"candidates"`
+	Candidate    *Candidate                 `json:"candidate"`
+	ExistingItem *models.AutoDownloaderItem `json:"existingItem"`
+	IsSimulation bool                       `json:"isSimulation"`
+}
+
 // AutoDownloaderSettingsUpdatedEvent is triggered when the autodownloader settings are updated
 type AutoDownloaderSettingsUpdatedEvent struct {
 	hook_resolver.Event
 	Settings *models.AutoDownloaderSettings `json:"settings"`
 }
 
+// AutoDownloaderBeforeQueueDelayedTorrentEvent is triggered when the autodownloader is about to queue a torrent with delay.
+// Prevent default to skip the delayed queue behavior.
+type AutoDownloaderBeforeQueueDelayedTorrentEvent struct {
+	hook_resolver.Event
+	Candidate    *Candidate                `json:"candidate"`
+	Rule         *anime.AutoDownloaderRule `json:"rule"`
+	Episode      int                       `json:"episode"`
+	DelayMinutes int                       `json:"delayMinutes"`
+	IsSimulation bool                      `json:"isSimulation"`
+}
+
 // AutoDownloaderBeforeDownloadTorrentEvent is triggered when the autodownloader is about to download a torrent.
 // Prevent default to abort the download.
 type AutoDownloaderBeforeDownloadTorrentEvent struct {
 	hook_resolver.Event
-	Torrent *NormalizedTorrent           `json:"torrent"`
-	Rule    *anime.AutoDownloaderRule    `json:"rule"`
-	Items   []*models.AutoDownloaderItem `json:"items"`
+	Torrent      *NormalizedTorrent           `json:"torrent"`
+	Rule         *anime.AutoDownloaderRule    `json:"rule"`
+	Episode      int                          `json:"episode"`
+	Score        int                          `json:"score"`
+	Items        []*models.AutoDownloaderItem `json:"items"`
+	ExistingItem *models.AutoDownloaderItem   `json:"existingItem"`
+	IsSimulation bool                         `json:"isSimulation"`
 }
 
-// AutoDownloaderAfterDownloadTorrentEvent is triggered when the autodownloader has downloaded a torrent.
+// AutoDownloaderAfterDownloadTorrentEvent is triggered after the autodownloader queues or downloads a torrent.
 type AutoDownloaderAfterDownloadTorrentEvent struct {
 	hook_resolver.Event
-	Torrent *NormalizedTorrent        `json:"torrent"`
-	Rule    *anime.AutoDownloaderRule `json:"rule"`
+	Torrent      *NormalizedTorrent         `json:"torrent"`
+	Rule         *anime.AutoDownloaderRule  `json:"rule"`
+	Episode      int                        `json:"episode"`
+	Score        int                        `json:"score"`
+	Downloaded   bool                       `json:"downloaded"`
+	Item         *models.AutoDownloaderItem `json:"item"`
+	IsSimulation bool                       `json:"isSimulation"`
 }

@@ -3090,6 +3090,15 @@
           "comments": []
         },
         {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
           "name": "next",
           "jsonName": "next",
           "goType": "",
@@ -3120,6 +3129,109 @@
       "comments": [
         " AutoDownloaderRunStartedEvent is triggered when the autodownloader starts checking for new episodes.",
         " Prevent default to abort the run."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "autodownloader",
+    "goStruct": {
+      "filepath": "../internal/library/autodownloader/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "AutoDownloaderRunCompletedEvent",
+      "formattedName": "AutoDownloader_AutoDownloaderRunCompletedEvent",
+      "package": "autodownloader",
+      "fields": [
+        {
+          "name": "Rules",
+          "jsonName": "rules",
+          "goType": "[]anime.AutoDownloaderRule",
+          "typescriptType": "Array\u003cAnime_AutoDownloaderRule\u003e",
+          "usedTypescriptType": "Anime_AutoDownloaderRule",
+          "usedStructName": "anime.AutoDownloaderRule",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Profiles",
+          "jsonName": "profiles",
+          "goType": "[]anime.AutoDownloaderProfile",
+          "typescriptType": "Array\u003cAnime_AutoDownloaderProfile\u003e",
+          "usedTypescriptType": "Anime_AutoDownloaderProfile",
+          "usedStructName": "anime.AutoDownloaderProfile",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "DownloadedCount",
+          "jsonName": "downloadedCount",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "QueuedCount",
+          "jsonName": "queuedCount",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "DelayedCount",
+          "jsonName": "delayedCount",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " AutoDownloaderRunCompletedEvent is triggered when the autodownloader finishes a run."
       ],
       "embeddedStructNames": [
         "hook_resolver.Event"
@@ -3283,7 +3395,116 @@
       ],
       "comments": [
         " AutoDownloaderMatchVerifiedEvent is triggered when a torrent is verified to follow a rule.",
-        " Prevent default to abort the download if the match is found."
+        " Changing MatchFound or Episode lets the hook override the verified result.",
+        " Prevent default to reject the match."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "autodownloader",
+    "goStruct": {
+      "filepath": "../internal/library/autodownloader/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "AutoDownloaderBestCandidateSelectedEvent",
+      "formattedName": "AutoDownloader_AutoDownloaderBestCandidateSelectedEvent",
+      "package": "autodownloader",
+      "fields": [
+        {
+          "name": "Rule",
+          "jsonName": "rule",
+          "goType": "anime.AutoDownloaderRule",
+          "typescriptType": "Anime_AutoDownloaderRule",
+          "usedTypescriptType": "Anime_AutoDownloaderRule",
+          "usedStructName": "anime.AutoDownloaderRule",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Episode",
+          "jsonName": "episode",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Candidates",
+          "jsonName": "candidates",
+          "goType": "[]Candidate",
+          "typescriptType": "Array\u003cAutoDownloader_Candidate\u003e",
+          "usedTypescriptType": "AutoDownloader_Candidate",
+          "usedStructName": "autodownloader.Candidate",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Candidate",
+          "jsonName": "candidate",
+          "goType": "Candidate",
+          "typescriptType": "AutoDownloader_Candidate",
+          "usedTypescriptType": "AutoDownloader_Candidate",
+          "usedStructName": "autodownloader.Candidate",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "ExistingItem",
+          "jsonName": "existingItem",
+          "goType": "models.AutoDownloaderItem",
+          "typescriptType": "Models_AutoDownloaderItem",
+          "usedTypescriptType": "Models_AutoDownloaderItem",
+          "usedStructName": "models.AutoDownloaderItem",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " AutoDownloaderBestCandidateSelectedEvent is triggered when the best candidate for an episode is selected.",
+        " Prevent default to skip handling the episode."
       ],
       "embeddedStructNames": [
         "hook_resolver.Event"
@@ -3351,6 +3572,101 @@
     "goStruct": {
       "filepath": "../internal/library/autodownloader/hook_events.go",
       "filename": "hook_events.go",
+      "name": "AutoDownloaderBeforeQueueDelayedTorrentEvent",
+      "formattedName": "AutoDownloader_AutoDownloaderBeforeQueueDelayedTorrentEvent",
+      "package": "autodownloader",
+      "fields": [
+        {
+          "name": "Candidate",
+          "jsonName": "candidate",
+          "goType": "Candidate",
+          "typescriptType": "AutoDownloader_Candidate",
+          "usedTypescriptType": "AutoDownloader_Candidate",
+          "usedStructName": "autodownloader.Candidate",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Rule",
+          "jsonName": "rule",
+          "goType": "anime.AutoDownloaderRule",
+          "typescriptType": "Anime_AutoDownloaderRule",
+          "usedTypescriptType": "Anime_AutoDownloaderRule",
+          "usedStructName": "anime.AutoDownloaderRule",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Episode",
+          "jsonName": "episode",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "DelayMinutes",
+          "jsonName": "delayMinutes",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " AutoDownloaderBeforeQueueDelayedTorrentEvent is triggered when the autodownloader is about to queue a torrent with delay.",
+        " Prevent default to skip the delayed queue behavior."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "autodownloader",
+    "goStruct": {
+      "filepath": "../internal/library/autodownloader/hook_events.go",
+      "filename": "hook_events.go",
       "name": "AutoDownloaderBeforeDownloadTorrentEvent",
       "formattedName": "AutoDownloader_AutoDownloaderBeforeDownloadTorrentEvent",
       "package": "autodownloader",
@@ -3378,6 +3694,24 @@
           "comments": []
         },
         {
+          "name": "Episode",
+          "jsonName": "episode",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Score",
+          "jsonName": "score",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
           "name": "Items",
           "jsonName": "items",
           "goType": "[]models.AutoDownloaderItem",
@@ -3385,6 +3719,26 @@
           "usedTypescriptType": "Models_AutoDownloaderItem",
           "usedStructName": "models.AutoDownloaderItem",
           "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "ExistingItem",
+          "jsonName": "existingItem",
+          "goType": "models.AutoDownloaderItem",
+          "typescriptType": "Models_AutoDownloaderItem",
+          "usedTypescriptType": "Models_AutoDownloaderItem",
+          "usedStructName": "models.AutoDownloaderItem",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
           "public": true,
           "comments": []
         },
@@ -3457,6 +3811,53 @@
           "comments": []
         },
         {
+          "name": "Episode",
+          "jsonName": "episode",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Score",
+          "jsonName": "score",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Downloaded",
+          "jsonName": "downloaded",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Item",
+          "jsonName": "item",
+          "goType": "models.AutoDownloaderItem",
+          "typescriptType": "Models_AutoDownloaderItem",
+          "usedTypescriptType": "Models_AutoDownloaderItem",
+          "usedStructName": "models.AutoDownloaderItem",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "IsSimulation",
+          "jsonName": "isSimulation",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
           "name": "next",
           "jsonName": "next",
           "goType": "",
@@ -3485,7 +3886,7 @@
         }
       ],
       "comments": [
-        " AutoDownloaderAfterDownloadTorrentEvent is triggered when the autodownloader has downloaded a torrent."
+        " AutoDownloaderAfterDownloadTorrentEvent is triggered after the autodownloader queues or downloads a torrent."
       ],
       "embeddedStructNames": [
         "hook_resolver.Event"

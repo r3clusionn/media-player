@@ -66,9 +66,12 @@ type Manager interface {
 
 	// Auto Downloader events
 	OnAutoDownloaderRunStarted() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderRunCompleted() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderMatchVerified() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBeforeQueueDelayedTorrent() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderBeforeDownloadTorrent() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderAfterDownloadTorrent() *Hook[hook_resolver.Resolver]
 
@@ -200,13 +203,15 @@ type ManagerImpl struct {
 	onAnimeLibraryStreamCollection          *Hook[hook_resolver.Resolver]
 	onAnimeScheduleItems                    *Hook[hook_resolver.Resolver]
 	// Auto Downloader events
-	onAutoDownloaderMatchVerified         *Hook[hook_resolver.Resolver]
-	onAutoDownloaderRunStarted            *Hook[hook_resolver.Resolver]
-	onAutoDownloaderRunCompleted          *Hook[hook_resolver.Resolver]
-	onAutoDownloaderSettingsUpdated       *Hook[hook_resolver.Resolver]
-	onAutoDownloaderTorrentsFetched       *Hook[hook_resolver.Resolver]
-	onAutoDownloaderBeforeDownloadTorrent *Hook[hook_resolver.Resolver]
-	onAutoDownloaderAfterDownloadTorrent  *Hook[hook_resolver.Resolver]
+	onAutoDownloaderMatchVerified             *Hook[hook_resolver.Resolver]
+	onAutoDownloaderRunStarted                *Hook[hook_resolver.Resolver]
+	onAutoDownloaderRunCompleted              *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBestCandidateSelected     *Hook[hook_resolver.Resolver]
+	onAutoDownloaderSettingsUpdated           *Hook[hook_resolver.Resolver]
+	onAutoDownloaderTorrentsFetched           *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeQueueDelayedTorrent *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeDownloadTorrent     *Hook[hook_resolver.Resolver]
+	onAutoDownloaderAfterDownloadTorrent      *Hook[hook_resolver.Resolver]
 	// Scanner events
 	onScanStarted                   *Hook[hook_resolver.Resolver]
 	onScanFilePathsRetrieved        *Hook[hook_resolver.Resolver]
@@ -347,8 +352,10 @@ func (m *ManagerImpl) initHooks() {
 	m.onAutoDownloaderMatchVerified = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderRunStarted = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderRunCompleted = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBestCandidateSelected = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderSettingsUpdated = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderTorrentsFetched = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBeforeQueueDelayedTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderBeforeDownloadTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderAfterDownloadTorrent = &Hook[hook_resolver.Resolver]{}
 	// Scanner events
@@ -721,6 +728,13 @@ func (m *ManagerImpl) OnAutoDownloaderRunStarted() *Hook[hook_resolver.Resolver]
 	return m.onAutoDownloaderRunStarted
 }
 
+func (m *ManagerImpl) OnAutoDownloaderRunCompleted() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderRunCompleted
+}
+
 func (m *ManagerImpl) OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Resolver] {
 	if m == nil {
 		return &Hook[hook_resolver.Resolver]{}
@@ -728,11 +742,25 @@ func (m *ManagerImpl) OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Reso
 	return m.onAutoDownloaderSettingsUpdated
 }
 
+func (m *ManagerImpl) OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBestCandidateSelected
+}
+
 func (m *ManagerImpl) OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver] {
 	if m == nil {
 		return &Hook[hook_resolver.Resolver]{}
 	}
 	return m.onAutoDownloaderTorrentsFetched
+}
+
+func (m *ManagerImpl) OnAutoDownloaderBeforeQueueDelayedTorrent() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBeforeQueueDelayedTorrent
 }
 
 func (m *ManagerImpl) OnAutoDownloaderBeforeDownloadTorrent() *Hook[hook_resolver.Resolver] {

@@ -7,6 +7,8 @@ import (
 	"seanime/internal/database/models"
 	"seanime/internal/debrid/debrid"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
+	"seanime/internal/hook"
+	"seanime/internal/hook_resolver"
 	"seanime/internal/library/anime"
 	"seanime/internal/torrent_clients/torrent_client"
 	"seanime/internal/util"
@@ -18,6 +20,36 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+const frierenMediaId = 154587
+
+func useTestHookManager(t *testing.T) hook.Manager {
+	t.Helper()
+
+	prev := hook.GlobalHookManager
+	hm := hook.NewHookManager(hook.NewHookManagerOptions{Logger: util.NewLogger()})
+	hook.SetGlobalHookManager(hm)
+	t.Cleanup(func() {
+		hook.SetGlobalHookManager(prev)
+	})
+
+	return hm
+}
+
+func newTestAnimeCollection(t *testing.T, mediaId int) *anilist.AnimeCollection {
+	t.Helper()
+
+	anilistClient := anilist.NewTestAnilistClient()
+	animeCollection, err := anilistClient.AnimeCollection(context.Background(), nil)
+	require.NoError(t, err)
+
+	entry, found := animeCollection.GetListEntryFromAnimeId(mediaId)
+	require.True(t, found)
+	progress := 0
+	entry.Progress = &progress
+
+	return animeCollection
+}
 
 func TestIsConstraintsMatch(t *testing.T) {
 	ad := &AutoDownloader{}
@@ -1388,4 +1420,192 @@ func TestDelayIntegration(t *testing.T) {
 func mustMarshalTorrent(t *NormalizedTorrent) []byte {
 	b, _ := json.Marshal(t)
 	return b
+}
+
+func TestRunCheckUsesMatchVerifiedHook(t *testing.T) {
+	hm := useTestHookManager(t)
+	hm.OnAutoDownloaderMatchVerified().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*AutoDownloaderMatchVerifiedEvent)
+		if event.Torrent != nil && event.Torrent.InfoHash == "forced_match" {
+			event.MatchFound = true
+			event.Episode = 1
+		}
+		return event.Next()
+	})
+
+	harness := &TestHarness{
+		GetLatestResults: []*hibiketorrent.AnimeTorrent{
+			{Name: "[SubsPlease] Totally Different Show - 01 (1080p)", InfoHash: "forced_match", Seeders: 100},
+		},
+		SearchResults: []*hibiketorrent.AnimeTorrent{
+			{Name: "[SubsPlease] Totally Different Show - 01 (1080p)", InfoHash: "forced_match", Seeders: 100},
+		},
+	}
+	ad := harness.New(t)
+	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
+
+	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
+		DbID:                1,
+		Enabled:             true,
+		MediaId:             frierenMediaId,
+		EpisodeType:         anime.AutoDownloaderRuleEpisodeRecent,
+		ComparisonTitle:     "Sousou no Frieren",
+		TitleComparisonType: anime.AutoDownloaderRuleTitleComparisonLikely,
+	})
+	require.NoError(t, err)
+
+	ad.ClearSimulationResults()
+	ad.RunCheck(t.Context(), true)
+
+	results := ad.GetSimulationResults()
+	require.Len(t, results, 1)
+	assert.Equal(t, "forced_match", results[0].Hash)
+	assert.Equal(t, 1, results[0].Episode)
+}
+
+func TestRunCheckUsesBestCandidateSelectedHook(t *testing.T) {
+	hm := useTestHookManager(t)
+	hm.OnAutoDownloaderBestCandidateSelected().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*AutoDownloaderBestCandidateSelectedEvent)
+		for _, candidate := range event.Candidates {
+			if candidate.Torrent != nil && candidate.Torrent.InfoHash == "override_candidate" {
+				event.Candidate = candidate
+				break
+			}
+		}
+		return event.Next()
+	})
+
+	torrents := []*hibiketorrent.AnimeTorrent{
+		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "best_candidate", Seeders: 100},
+		{Name: "[AltGroup] Sousou no Frieren - 01 (720p)", InfoHash: "override_candidate", Seeders: 50},
+	}
+	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
+	ad := harness.New(t)
+	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
+
+	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderProfile(ad.database, &anime.AutoDownloaderProfile{
+		DbID:   1,
+		Global: true,
+		Conditions: []anime.AutoDownloaderCondition{
+			{Term: "1080p", Action: anime.AutoDownloaderProfileRuleFormatActionScore, Score: 25},
+			{Term: "SubsPlease", Action: anime.AutoDownloaderProfileRuleFormatActionScore, Score: 10},
+		},
+	})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
+		DbID:                1,
+		Enabled:             true,
+		MediaId:             frierenMediaId,
+		EpisodeType:         anime.AutoDownloaderRuleEpisodeRecent,
+		ComparisonTitle:     "Sousou no Frieren",
+		TitleComparisonType: anime.AutoDownloaderRuleTitleComparisonLikely,
+	})
+	require.NoError(t, err)
+
+	ad.ClearSimulationResults()
+	ad.RunCheck(t.Context(), true)
+
+	results := ad.GetSimulationResults()
+	require.Len(t, results, 1)
+	assert.Equal(t, "override_candidate", results[0].Hash)
+}
+
+func TestRunCheckUsesBeforeQueueDelayedTorrentHook(t *testing.T) {
+	hm := useTestHookManager(t)
+	hm.OnAutoDownloaderBeforeQueueDelayedTorrent().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*AutoDownloaderBeforeQueueDelayedTorrentEvent)
+		event.DelayMinutes = 30
+		return event.Next()
+	})
+
+	torrents := []*hibiketorrent.AnimeTorrent{
+		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "delay_hook", MagnetLink: "magnet:?xt=urn:btih:delay_hook", Seeders: 100},
+	}
+	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
+	ad := harness.New(t)
+	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
+
+	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderProfile(ad.database, &anime.AutoDownloaderProfile{
+		DbID: 1,
+		Conditions: []anime.AutoDownloaderCondition{
+			{Term: "1080p", Action: anime.AutoDownloaderProfileRuleFormatActionScore, Score: 10},
+		},
+		DelayMinutes:   10,
+		SkipDelayScore: 50,
+	})
+	require.NoError(t, err)
+
+	profileID := uint(1)
+	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
+		DbID:                1,
+		Enabled:             true,
+		MediaId:             frierenMediaId,
+		ProfileID:           &profileID,
+		EpisodeType:         anime.AutoDownloaderRuleEpisodeRecent,
+		ComparisonTitle:     "Sousou no Frieren",
+		TitleComparisonType: anime.AutoDownloaderRuleTitleComparisonLikely,
+	})
+	require.NoError(t, err)
+
+	ad.RunCheck(t.Context(), false)
+
+	items, err := ad.database.GetAutoDownloaderItems()
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	assert.True(t, items[0].IsDelayed)
+	remaining := time.Until(items[0].DelayUntil)
+	assert.Greater(t, remaining, 29*time.Minute)
+	assert.LessOrEqual(t, remaining, 31*time.Minute)
+}
+
+func TestRunCheckTriggersRunCompletedHook(t *testing.T) {
+	hm := useTestHookManager(t)
+	var completed *AutoDownloaderRunCompletedEvent
+	hm.OnAutoDownloaderRunCompleted().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*AutoDownloaderRunCompletedEvent)
+		copied := *event
+		completed = &copied
+		return event.Next()
+	})
+
+	torrents := []*hibiketorrent.AnimeTorrent{
+		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "run_completed", Seeders: 100},
+	}
+	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
+	ad := harness.New(t)
+	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
+
+	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
+		DbID:                1,
+		Enabled:             true,
+		MediaId:             frierenMediaId,
+		EpisodeType:         anime.AutoDownloaderRuleEpisodeRecent,
+		ComparisonTitle:     "Sousou no Frieren",
+		TitleComparisonType: anime.AutoDownloaderRuleTitleComparisonLikely,
+	})
+	require.NoError(t, err)
+
+	ad.ClearSimulationResults()
+	ad.RunCheck(t.Context(), true)
+
+	require.NotNil(t, completed)
+	assert.True(t, completed.IsSimulation)
+	assert.Equal(t, 0, completed.DownloadedCount)
+	assert.Equal(t, 1, completed.QueuedCount)
+	assert.Equal(t, 0, completed.DelayedCount)
+	require.Len(t, completed.Rules, 1)
 }

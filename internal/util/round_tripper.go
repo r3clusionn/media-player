@@ -45,7 +45,7 @@ func AddCloudFlareByPass(inner http.RoundTripper, options ...Options) http.Round
 		},
 	}
 
-	if options != nil && len(options) > 0 {
+	if len(options) > 0 {
 		roundTripper.options = options[0]
 	} else {
 		roundTripper.options = GetDefaultOptions()

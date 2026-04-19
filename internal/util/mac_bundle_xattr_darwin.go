@@ -1,6 +1,6 @@
 //go:build darwin
 
-package handlers
+package util
 
 import (
 	"errors"
@@ -11,9 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const macQuarantineAttribute = "com.apple.quarantine"
-
-func clearMacAppQuarantine(root string) error {
+func ClearMacAppQuarantine(root string) error {
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -21,9 +19,9 @@ func clearMacAppQuarantine(root string) error {
 
 		var err error
 		if d.Type()&os.ModeSymlink != 0 {
-			err = unix.Lremovexattr(path, macQuarantineAttribute)
+			err = unix.Lremovexattr(path, "com.apple.quarantine")
 		} else {
-			err = unix.Removexattr(path, macQuarantineAttribute)
+			err = unix.Removexattr(path, "com.apple.quarantine")
 		}
 
 		if err != nil && !errors.Is(err, unix.ENOATTR) {

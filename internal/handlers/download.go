@@ -339,7 +339,7 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 
 	// Run xattr -c to remove quarantine attributes
 	h.App.Logger.Info().Str("path", appPath).Msg("Removing quarantine attributes")
-	if err := clearMacAppQuarantine(appPath); err != nil {
+	if err := util.ClearMacAppQuarantine(appPath); err != nil {
 		h.App.Logger.Warn().Err(err).Msg("Failed to remove quarantine attributes natively, falling back to xattr")
 		xattrCmd := util.NewCmd("xattr", "-cr", appPath)
 		if err := xattrCmd.Run(); err != nil {

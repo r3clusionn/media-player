@@ -457,6 +457,26 @@ declare namespace $app {
 
         rules?: Array<Anime_AutoDownloaderRule>;
         profiles?: Array<Anime_AutoDownloaderProfile>;
+        isSimulation: boolean;
+    }
+
+    /**
+     * @event AutoDownloaderRunCompletedEvent
+     * @file internal/library/autodownloader/hook_events.go
+     * @description
+     * AutoDownloaderRunCompletedEvent is triggered when the autodownloader finishes a run.
+     */
+    function onAutoDownloaderRunCompleted(cb: (event: AutoDownloaderRunCompletedEvent) => void): void;
+
+    interface AutoDownloaderRunCompletedEvent {
+        rules?: Array<Anime_AutoDownloaderRule>;
+        profiles?: Array<Anime_AutoDownloaderProfile>;
+        isSimulation: boolean;
+        downloadedCount: number;
+        queuedCount: number;
+        delayedCount: number;
+
+        next(): void;
     }
 
     /**
@@ -478,7 +498,8 @@ declare namespace $app {
      * @file internal/library/autodownloader/hook_events.go
      * @description
      * AutoDownloaderMatchVerifiedEvent is triggered when a torrent is verified to follow a rule.
-     * Prevent default to abort the download if the match is found.
+     * Changing MatchFound or Episode lets the hook override the verified result.
+     * Prevent default to reject the match.
      */
     function onAutoDownloaderMatchVerified(cb: (event: AutoDownloaderMatchVerifiedEvent) => void): void;
 
@@ -496,6 +517,28 @@ declare namespace $app {
     }
 
     /**
+     * @event AutoDownloaderBestCandidateSelectedEvent
+     * @file internal/library/autodownloader/hook_events.go
+     * @description
+     * AutoDownloaderBestCandidateSelectedEvent is triggered when the best candidate for an episode is selected.
+     * Prevent default to skip handling the episode.
+     */
+    function onAutoDownloaderBestCandidateSelected(cb: (event: AutoDownloaderBestCandidateSelectedEvent) => void): void;
+
+    interface AutoDownloaderBestCandidateSelectedEvent {
+        rule?: Anime_AutoDownloaderRule;
+        episode: number;
+        candidates?: Array<AutoDownloader_Candidate>;
+        candidate?: AutoDownloader_Candidate;
+        existingItem?: Models_AutoDownloaderItem;
+        isSimulation: boolean;
+
+        next(): void;
+
+        preventDefault(): void;
+    }
+
+    /**
      * @event AutoDownloaderSettingsUpdatedEvent
      * @file internal/library/autodownloader/hook_events.go
      * @description
@@ -507,6 +550,27 @@ declare namespace $app {
         next(): void;
 
         settings?: Models_AutoDownloaderSettings;
+    }
+
+    /**
+     * @event AutoDownloaderBeforeQueueDelayedTorrentEvent
+     * @file internal/library/autodownloader/hook_events.go
+     * @description
+     * AutoDownloaderBeforeQueueDelayedTorrentEvent is triggered when the autodownloader is about to queue a torrent with delay.
+     * Prevent default to skip the delayed queue behavior.
+     */
+    function onAutoDownloaderBeforeQueueDelayedTorrent(cb: (event: AutoDownloaderBeforeQueueDelayedTorrentEvent) => void): void;
+
+    interface AutoDownloaderBeforeQueueDelayedTorrentEvent {
+        candidate?: AutoDownloader_Candidate;
+        rule?: Anime_AutoDownloaderRule;
+        episode: number;
+        delayMinutes: number;
+        isSimulation: boolean;
+
+        next(): void;
+
+        preventDefault(): void;
     }
 
     /**
@@ -525,14 +589,18 @@ declare namespace $app {
 
         torrent?: AutoDownloader_NormalizedTorrent;
         rule?: Anime_AutoDownloaderRule;
+        episode: number;
+        score: number;
         items?: Array<Models_AutoDownloaderItem>;
+        existingItem?: Models_AutoDownloaderItem;
+        isSimulation: boolean;
     }
 
     /**
      * @event AutoDownloaderAfterDownloadTorrentEvent
      * @file internal/library/autodownloader/hook_events.go
      * @description
-     * AutoDownloaderAfterDownloadTorrentEvent is triggered when the autodownloader has downloaded a torrent.
+     * AutoDownloaderAfterDownloadTorrentEvent is triggered after the autodownloader queues or downloads a torrent.
      */
     function onAutoDownloaderAfterDownloadTorrent(cb: (event: AutoDownloaderAfterDownloadTorrentEvent) => void): void;
 
@@ -541,6 +609,11 @@ declare namespace $app {
 
         torrent?: AutoDownloader_NormalizedTorrent;
         rule?: Anime_AutoDownloaderRule;
+        episode: number;
+        score: number;
+        downloaded: boolean;
+        item?: Models_AutoDownloaderItem;
+        isSimulation: boolean;
     }
 
 
@@ -3472,6 +3545,16 @@ declare namespace $app {
         episodeCount: number;
         specialCount: number;
         mappings?: Anizip_Mappings;
+    }
+
+    /**
+     * - Filepath: internal/library/autodownloader/autodownloader.go
+     * @description
+     *  Candidate represents a potential torrent to download with its score
+     */
+    interface AutoDownloader_Candidate {
+        Torrent?: AutoDownloader_NormalizedTorrent;
+        Score: number;
     }
 
     /**

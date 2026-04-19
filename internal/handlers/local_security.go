@@ -357,7 +357,7 @@ func parseAccessAllowlistEntry(raw string) (*accessAllowlistEntry, bool) {
 		return &accessAllowlistEntry{
 			scheme: strings.ToLower(parsed.Scheme),
 			host:   strings.ToLower(parsed.Hostname()),
-			port:   effectivePort(parsed.Scheme, parsed.Port()),
+			port:   getEffectivePort(parsed.Scheme, parsed.Port()),
 		}, true
 	}
 
@@ -455,7 +455,7 @@ func isRequestFromTrustedOrigin(req *http.Request) bool {
 		return false
 	}
 
-	return requestUsesSameLiteralHost(req, parsed)
+	return isReqSameLiteralHost(req, parsed)
 }
 
 func isAllowlistedRequestHost(req *http.Request, accessAllowlist []string) bool {
@@ -472,7 +472,7 @@ func isAllowlistedOrigin(origin *url.URL, accessAllowlist []string) bool {
 		return false
 	}
 
-	return isAllowlistedHost(strings.ToLower(origin.Hostname()), effectivePort(origin.Scheme, origin.Port()), strings.ToLower(origin.Scheme), accessAllowlist)
+	return isAllowlistedHost(strings.ToLower(origin.Hostname()), getEffectivePort(origin.Scheme, origin.Port()), strings.ToLower(origin.Scheme), accessAllowlist)
 }
 
 func isAllowlistedHost(host string, port string, scheme string, accessAllowlist []string) bool {
@@ -488,7 +488,7 @@ func isAllowlistedHost(host string, port string, scheme string, accessAllowlist 
 		if entry.scheme != "" && scheme != "" && entry.scheme != scheme {
 			continue
 		}
-		if !allowlistHostMatches(entry.host, host) {
+		if !isAllowlistHostMatch(entry.host, host) {
 			continue
 		}
 		if entry.port != "" && entry.port != port && !(port == "" && (entry.port == "80" || entry.port == "443")) {
@@ -501,7 +501,7 @@ func isAllowlistedHost(host string, port string, scheme string, accessAllowlist 
 	return false
 }
 
-func allowlistHostMatches(pattern string, host string) bool {
+func isAllowlistHostMatch(pattern string, host string) bool {
 	pattern = strings.ToLower(strings.TrimSpace(pattern))
 	host = strings.ToLower(strings.TrimSpace(host))
 	if pattern == "" || host == "" {
@@ -518,7 +518,7 @@ func allowlistHostMatches(pattern string, host string) bool {
 	return host != suffix && strings.HasSuffix(host, "."+suffix)
 }
 
-func effectivePort(scheme string, port string) string {
+func getEffectivePort(scheme string, port string) string {
 	if port != "" {
 		return port
 	}
@@ -533,7 +533,7 @@ func effectivePort(scheme string, port string) string {
 	}
 }
 
-func requestUsesSameLiteralHost(req *http.Request, origin *url.URL) bool {
+func isReqSameLiteralHost(req *http.Request, origin *url.URL) bool {
 	if req == nil || origin == nil {
 		return false
 	}
@@ -547,7 +547,7 @@ func requestUsesSameLiteralHost(req *http.Request, origin *url.URL) bool {
 		return false
 	}
 
-	return effectivePort(origin.Scheme, origin.Port()) == effectivePort(view.scheme, view.port)
+	return getEffectivePort(origin.Scheme, origin.Port()) == getEffectivePort(view.scheme, view.port)
 }
 
 func privilegedSettingsChanged(prev *models.Settings, nextMedia *models.MediaPlayerSettings, nextTorrent *models.TorrentSettings) bool {

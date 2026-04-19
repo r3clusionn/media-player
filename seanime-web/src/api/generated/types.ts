@@ -4376,7 +4376,7 @@ export type NativePlayer_ServerEvent = "open-and-await" |
  * - Filename: nativeplayer.go
  * - Package: nativeplayer
  */
-export type NativePlayer_StreamType = "torrent" | "localfile" | "debrid" | "nakama"
+export type NativePlayer_StreamType = "torrent" | "localfile" | "debrid" | "url" | "nakama"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Onlinestream
@@ -5127,6 +5127,7 @@ export type VideoCore_ClientEventType = "video-loaded" |
     "subtitle-file-uploaded" |
     "video-playlist" |
     "video-text-tracks" |
+    "video-skip-data" |
     "translate-text" |
     "translate-subtitle-file-track"
 
@@ -5268,6 +5269,8 @@ export type VideoCore_ServerEvent = "pause" |
     "request-play-episode" |
     "translated-text" |
     "in-sight-data" |
+    "set-skip-data" |
+    "get-skip-data" |
     "get-fullscreen" |
     "get-pip" |
     "get-anime-4k" |
