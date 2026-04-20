@@ -1,6 +1,7 @@
 import { useGetSettings } from "@/api/hooks/settings.hooks"
 import { useGetStatus } from "@/api/hooks/status.hooks"
 import { serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
+import { useSetServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { LoadingOverlayWithLogo } from "@/components/shared/loading-overlay-with-logo"
 import { useAtomValue } from "jotai"
 import React from "react"
@@ -13,6 +14,13 @@ type SimpleAuthWrapperProps = {
 export function SimpleAuthWrapper({ children }: SimpleAuthWrapperProps) {
     const { data: serverStatus, isLoading: isStatusLoading } = useGetStatus()
     const password = useAtomValue(serverAuthTokenAtom)
+    const setServerStatus = useSetServerStatus()
+
+    React.useEffect(() => {
+        if (serverStatus) {
+            setServerStatus(serverStatus)
+        }
+    }, [serverStatus, setServerStatus])
 
     // check if we need to verify authentication
     const shouldVerifyAuth = React.useMemo(() => {

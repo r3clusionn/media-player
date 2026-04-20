@@ -1,11 +1,8 @@
-import { useRouter } from "@/lib/navigation"
 import Mousetrap from "mousetrap"
 import React from "react"
 
 // This is only rendered on the Electron Desktop client
 export function ElectronManager() {
-    const { back, forward } = useRouter()
-
     React.useEffect(() => {
         if (!window.electron) return
         const isMac = window.electron?.platform === "darwin"
@@ -13,13 +10,13 @@ export function ElectronManager() {
 
         Mousetrap.bind(`${modifier}+left`, (e) => {
             e.preventDefault()
-            back()
+            window.history.back()
             return false
         })
 
         Mousetrap.bind(`${modifier}+right`, (e) => {
             e.preventDefault()
-            forward()
+            window.history.forward()
             return false
         })
 

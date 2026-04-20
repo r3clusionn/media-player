@@ -451,6 +451,7 @@ let serverProcess = null
 let isShutdown = false
 let serverStarted = false
 let updateDownloaded = false
+let serverRestartPromise = null
 
 // Setup autoUpdater events with improved error handling
 autoUpdater.on("checking-for-update", () => {
@@ -810,6 +811,70 @@ async function launchSeanimeServer(isRestart) {
             reject(err)
         })
     })
+}
+
+async function restartSeanimeServer() {
+    if (serverRestartPromise) {
+        console.log("[Main] Restart already in progress, skipping duplicate request")
+        return serverRestartPromise
+    }
+
+    serverRestartPromise = (async () => {
+        if (await isDesktopServerReachable()) {
+            console.log("[Main] Restart skipped because the desktop server is already reachable")
+            return
+        }
+
+        const currentServerProcess = serverProcess
+
+        if (currentServerProcess && !currentServerProcess.killed) {
+            console.log("[Main] Waiting for existing server process to exit before relaunching")
+
+            await new Promise((resolve) => {
+                let settled = false
+
+                function finish() {
+                    if (settled) {
+                        return
+                    }
+
+                    settled = true
+                    currentServerProcess.removeListener("close", finish)
+                    currentServerProcess.removeListener("error", finish)
+
+                    if (serverProcess === currentServerProcess) {
+                        serverProcess = null
+                    }
+
+                    resolve()
+                }
+
+                currentServerProcess.once("close", finish)
+                currentServerProcess.once("error", finish)
+
+                try {
+                    currentServerProcess.kill()
+                } catch (error) {
+                    console.error("[Main] Failed to kill server during restart:", error)
+                    finish()
+                    return
+                }
+
+                setTimeout(() => {
+                    console.warn("[Main] Timed out waiting for server process to exit during restart")
+                    finish()
+                }, 3000)
+            })
+        } else {
+            serverProcess = null
+        }
+
+        await launchSeanimeServer(true)
+    })().finally(() => {
+        serverRestartPromise = null
+    })
+
+    return serverRestartPromise
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1280,13 +1345,7 @@ app.whenReady().then(async () => {
     // Register server IPC handlers
     ipcMain.on("restart-server", () => {
         console.log("EVENT restart-server")
-        if (serverProcess) {
-            console.log("Killing existing server process")
-            serverProcess.kill()
-        }
-        // devnote: don't set this to false or it will trigger the crashscreen
-        // serverStarted = false;
-        launchSeanimeServer(true).catch(console.error)
+        restartSeanimeServer().catch(console.error)
     })
 
     ipcMain.on("kill-server", () => {

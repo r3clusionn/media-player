@@ -6,15 +6,17 @@ All notable changes to this project will be documented in this file.
 
 - ⚡️ Hooks: Added more Auto Downloader hooks
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
+- 🦺 Denshi: Fixed blank screen after server reconnection
 - 🦺 Continuity: Fixed potential progress being ignored
-- 🔒 Server: Tightened passwordless access and origin checks
-  - Passwordless `/api` and `/events` access is now local-only by default, with `accessAllowlist` and `secureMode` controls
+- 🔒 Server: Security overhaul
+  - Passwordless access is now local-only by default
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary
-- 🔒 Server: Added stricter proxy, local-only, and strict-mode guards
-  - Added `trustedProxies` and `externalUrl` handling for forwarded host/proto normalization and proxy-aware secure cookies
-  - `secureMode = "strict"` keeps privileged settings, local execution, extension management, and root/path changes behind trusted-local checks
-- 🔒 Core: Improved client identity security checks
-- 🔒 Denshi: Improved baseline security across renderers and updater
+  - Added `server.trustedProxies` and `server.externalUrl` handling for forwarded host/proto normalization and proxy-aware secure cookies
+  - Added `server.accessAllowlist`
+  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
+  - Added `securemode = "lax"` which disables baseline security improvements
+  - Improved client identity security checks
+  - Improved baseline security across Denshi renderers and macOS updater
 
 ## v3.6.1
 

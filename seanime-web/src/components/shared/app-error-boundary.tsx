@@ -1,6 +1,6 @@
 import { LuffyError } from "@/components/shared/luffy-error"
 import { useQueryClient } from "@tanstack/react-query"
-import { useLocation, useRouter } from "@tanstack/react-router"
+import { useRouter as useTanStackRouter } from "@tanstack/react-router"
 import React from "react"
 
 interface AppErrorBoundaryProps {
@@ -10,18 +10,23 @@ interface AppErrorBoundaryProps {
 }
 
 export function AppErrorBoundary({ error, reset, resetErrorBoundary }: AppErrorBoundaryProps) {
-    const router = useRouter()
+    const router = useTanStackRouter({ warn: false }) as { invalidate?: () => void } | null
     const queryClient = useQueryClient()
-    const location = useLocation()
+    const pathname = typeof window !== "undefined" ? window.location.pathname : "/"
+
+    const pathnameRef = React.useRef(pathname)
 
     React.useEffect(() => {
-        if (resetErrorBoundary) {
-            resetErrorBoundary()
+        if (pathname !== pathnameRef.current) {
+            pathnameRef.current = pathname
+            if (resetErrorBoundary) {
+                resetErrorBoundary()
+            }
+            if (reset) {
+                reset()
+            }
         }
-        if (reset) {
-            reset()
-        }
-    }, [location.pathname])
+    }, [pathname, reset, resetErrorBoundary])
 
     const handleReset = () => {
         if (resetErrorBoundary) {
@@ -30,7 +35,7 @@ export function AppErrorBoundary({ error, reset, resetErrorBoundary }: AppErrorB
         if (reset) {
             reset()
         }
-        router.invalidate()
+        router?.invalidate?.()
         queryClient.invalidateQueries()
     }
 

@@ -234,8 +234,6 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
 
                 const defaultFontUrl = "/fonts/Roboto-Medium.ttf"
 
-                console.warn(workerUrl)
-
                 this.libassRenderer = new JASSUB({
                     video: this.videoElement,
                     subContent: this.defaultSubtitleHeader,
