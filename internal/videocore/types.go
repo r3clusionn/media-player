@@ -69,6 +69,7 @@ const (
 	PlaybackTypeDebrid       PlaybackType = "debrid"       // NativePlayer only
 	PlaybackTypeNakama       PlaybackType = "nakama"       // NativePlayer only
 	PlaybackTypeOnlinestream PlaybackType = "onlinestream" // WebPlayer only
+	PlaybackTypeUrl          PlaybackType = "url"          // NativePlayer only
 )
 
 // VideoSubtitleTrack is an external subtitle track.

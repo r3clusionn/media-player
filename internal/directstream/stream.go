@@ -682,7 +682,24 @@ func (m *Manager) preStreamError(stream Stream, err error) {
 	m.unloadStream(stream)
 }
 
+func overrideHeaders(dst http.Header, src http.Header) {
+	if len(src) == 0 {
+		return
+	}
+
+	for key, values := range src {
+		dst.Del(key)
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
 func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
+	return m.getContentTypeAndLengthWithHeaders(url, nil)
+}
+
+func (m *Manager) getContentTypeAndLengthWithHeaders(url string, headers http.Header) (string, int64, error) {
 	m.Logger.Trace().Msg("directstream(debrid): Fetching content type and length using HEAD request")
 
 	// Create client with timeout for HEAD request (faster timeout since it's just headers)
@@ -691,7 +708,13 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 	}
 
 	// Try HEAD request first
-	resp, err := headClient.Head(url)
+	headReq, err := http.NewRequest(http.MethodHead, url, nil)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to create HEAD request: %w", err)
+	}
+	overrideHeaders(headReq.Header, headers)
+
+	resp, err := headClient.Do(headReq)
 	if err == nil {
 		defer resp.Body.Close()
 
@@ -732,6 +755,7 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 		return "", 0, fmt.Errorf("failed to create GET request: %w", err)
 	}
 
+	overrideHeaders(req.Header, headers)
 	req.Header.Set("Range", "bytes=0-511")
 
 	resp, err = getClient.Do(req)
@@ -788,6 +812,10 @@ type StreamInfo struct {
 }
 
 func (m *Manager) FetchStreamInfo(streamUrl string) (info *StreamInfo, canStream bool) {
+	return m.FetchStreamInfoWithHeaders(streamUrl, nil)
+}
+
+func (m *Manager) FetchStreamInfoWithHeaders(streamUrl string, headers http.Header) (info *StreamInfo, canStream bool) {
 	hasExtension, isArchive := IsArchive(streamUrl)
 
 	m.Logger.Debug().Str("url", streamUrl).Msg("directstream(http): Fetching stream info")
@@ -816,7 +844,7 @@ func (m *Manager) FetchStreamInfo(streamUrl string) (info *StreamInfo, canStream
 	// We'll fetch headers to get the info
 	// If the headers are not available, we can't stream it
 
-	contentType, contentLength, err := m.getContentTypeAndLength(streamUrl)
+	contentType, contentLength, err := m.getContentTypeAndLengthWithHeaders(streamUrl, headers)
 	if err != nil {
 		m.Logger.Error().Err(err).Str("url", streamUrl).Msg("directstream(http): Failed to fetch content type and length")
 		return nil, false

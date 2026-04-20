@@ -5234,7 +5234,12 @@ export type VideoCore_PlaybackState = {
  * @description
  *  PlaybackType is the playback method.
  */
-export type VideoCore_PlaybackType = "localfile" | "torrent" | "debrid" | "nakama" | "onlinestream"
+export type VideoCore_PlaybackType = "localfile" |
+    "torrent" |
+    "debrid" |
+    "nakama" |
+    "onlinestream" |
+    "url"
 
 /**
  * - Filepath: internal/videocore/types.go

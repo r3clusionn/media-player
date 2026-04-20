@@ -110,6 +110,8 @@ func shouldRateLimitMutation(req *http.Request) bool {
 
 func getBodyLimit(path string) int64 {
 	switch {
+	case path == "/api/v1/report/issue/decompress":
+		return 100 << 20
 	case path == "/api/v1/library/local-files/import":
 		return 8 << 20
 	case path == "/api/v1/extensions/external/edit-payload":

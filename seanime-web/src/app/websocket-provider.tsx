@@ -5,6 +5,7 @@ import { ElectronRestartServerPrompt } from "@/app/(main)/_electron/electron-res
 import { __openDrawersAtom } from "@/components/ui/drawer"
 import { useMainTab } from "@/hooks/use-main-tab"
 import { logger } from "@/lib/helpers/debug"
+import { usePathname } from "@/lib/navigation.ts"
 import { getClientId, getClientIdentity, getClientIdProof, setClientIdentity, subscribeToClientIdentity } from "@/lib/server/client-id"
 import { WSEvents } from "@/lib/server/ws-events"
 import { __isElectronDesktop__ } from "@/types/constants"
@@ -47,6 +48,8 @@ export function useIsMainTabRef() {
 export function WebsocketProvider({ children }: { children: React.ReactNode }) {
     const [socket] = useAtom(websocketAtom)
     const [isConnected] = useAtom(websocketConnectedAtom)
+    const pathname = usePathname()
+    const showSpinner = pathname !== "/issue-report" && pathname !== "/scan-log-viewer" && pathname !== "/public/auth"
 
     return (
         <>
@@ -54,7 +57,7 @@ export function WebsocketProvider({ children }: { children: React.ReactNode }) {
             <ManageOpenDrawers />
             {__isElectronDesktop__ && <ElectronRestartServerPrompt />}
             <WebSocketContext.Provider value={socket}>
-                {!isConnected && <div
+                {!isConnected && showSpinner && <div
                     className="fixed right-4 bottom-4 bg-gray-950 border text-sm py-2 px-4 font-semibold rounded-xl z-[100] flex gap-2 items-center opacity-70"
                 >
                     <ImSpinner2 className="animate-spin text-base" />

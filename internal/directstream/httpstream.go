@@ -16,14 +16,16 @@ import (
 	"github.com/samber/mo"
 )
 
-// httpBaseStream holds shared state and logic for HTTP URL-based streams (debrid, URL).
+// httpBaseStream holds shared state and logic for HTTP URL-based streams (debrid, URL, nakama).
 type httpBaseStream struct {
 	BaseStream
-	streamUrl     string
-	contentLength int64
-	filepath      string
-	httpStream    *httputil.FileStream // Shared file-backed cache for multiple readers
-	cacheMu       sync.RWMutex        // Protects httpStream access
+	streamUrl           string
+	contentLength       int64
+	filepath            string
+	requestHeaders      http.Header
+	headResponseHeaders http.Header
+	httpStream          *httputil.FileStream // Shared file-backed cache for multiple readers
+	cacheMu             sync.RWMutex         // Protects httpStream access
 }
 
 var videoProxyClient = &http.Client{
@@ -53,6 +55,18 @@ var proxyHopHeaders = map[string]bool{
 	"Upgrade":             true,
 }
 
+func (s *httpBaseStream) applyReqHeaders(dst http.Header) {
+	overrideHeaders(dst, s.requestHeaders)
+}
+
+func (s *httpBaseStream) applyHeadRespHeaders(dst http.Header) {
+	overrideHeaders(dst, s.headResponseHeaders)
+}
+
+func (s *httpBaseStream) newMetadataReader() (io.ReadSeekCloser, error) {
+	return httputil.NewHttpReadSeekerFromURLWithHeaders(s.streamUrl, s.requestHeaders)
+}
+
 func (s *httpBaseStream) LoadContentType() string {
 	s.contentTypeOnce.Do(func() {
 		s.cacheMu.RLock()
@@ -63,7 +77,7 @@ func (s *httpBaseStream) LoadContentType() string {
 			s.cacheMu.RUnlock()
 		}
 
-		info, ok := s.manager.FetchStreamInfo(s.streamUrl)
+		info, ok := s.manager.FetchStreamInfoWithHeaders(s.streamUrl, s.requestHeaders)
 		if !ok {
 			s.logger.Warn().Str("url", s.streamUrl).Msg("directstream(http): Failed to fetch stream info for content type")
 			return
@@ -147,8 +161,7 @@ func (s *httpBaseStream) loadPlaybackInfo(streamType nativeplayer.StreamType) (r
 
 		// If the content type is an EBML content type, we can create a metadata parser
 		if isEbmlContent(s.LoadContentType()) || s.LoadContentType() == "application/octet-stream" || s.LoadContentType() == "application/force-download" {
-			//reader, readErr := s.getPriorityReader()
-			reader, readErr := httputil.NewHttpReadSeekerFromURL(s.streamUrl)
+			reader, readErr := s.newMetadataReader()
 			if readErr != nil {
 				err = fmt.Errorf("failed to create reader for stream url: %w", readErr)
 				s.logger.Error().Err(readErr).Msg("directstream(http): Failed to create reader for stream url")
@@ -196,6 +209,7 @@ func (s *httpBaseStream) getStreamHandler(outer Stream) http.Handler {
 			w.Header().Set("Content-Length", fmt.Sprintf("%d", fileSize))
 			w.Header().Set("Content-Type", s.LoadContentType())
 			w.Header().Set("Accept-Ranges", "bytes")
+			s.applyHeadRespHeaders(w.Header())
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -264,6 +278,7 @@ func (s *httpBaseStream) getStreamHandler(outer Stream) http.Handler {
 				req.Header.Add(key, value)
 			}
 		}
+		s.applyReqHeaders(req.Header)
 
 		resp, err := videoProxyClient.Do(req)
 		if err != nil {
@@ -311,7 +326,7 @@ func (s *httpBaseStream) initializeStream() error {
 
 	// Get content length first
 	if s.contentLength == 0 {
-		info, ok := s.manager.FetchStreamInfo(s.streamUrl)
+		info, ok := s.manager.FetchStreamInfoWithHeaders(s.streamUrl, s.requestHeaders)
 		if !ok {
 			return fmt.Errorf("failed to fetch stream info")
 		}

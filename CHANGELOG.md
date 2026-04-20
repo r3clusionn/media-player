@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## v3.6.2-alpha.0
+## v3.6.2-alpha.1
 
 - ⚡️ Hooks: Added more Auto Downloader hooks
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'

@@ -35325,24 +35325,6 @@
     "package": "directstream",
     "fields": [
       {
-        "name": "streamUrl",
-        "jsonName": "streamUrl",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
-        "name": "contentLength",
-        "jsonName": "contentLength",
-        "goType": "int64",
-        "typescriptType": "number",
-        "required": true,
-        "public": false,
-        "comments": []
-      },
-      {
         "name": "torrent",
         "jsonName": "torrent",
         "goType": "hibiketorrent.AnimeTorrent",
@@ -35363,48 +35345,13 @@
         "comments": [
           " Closed by the initiator when the stream is ready"
         ]
-      },
-      {
-        "name": "httpStream",
-        "jsonName": "httpStream",
-        "goType": "httputil.FileStream",
-        "typescriptType": "FileStream",
-        "usedTypescriptType": "FileStream",
-        "usedStructName": "httputil.FileStream",
-        "required": false,
-        "public": false,
-        "comments": [
-          " Shared file-backed cache for multiple readers"
-        ]
-      },
-      {
-        "name": "cacheMu",
-        "jsonName": "cacheMu",
-        "goType": "sync.RWMutex",
-        "typescriptType": "RWMutex",
-        "usedTypescriptType": "RWMutex",
-        "usedStructName": "sync.RWMutex",
-        "required": false,
-        "public": false,
-        "comments": [
-          " Protects httpStream access"
-        ]
-      },
-      {
-        "name": "nakamaHostPassword",
-        "jsonName": "nakamaHostPassword",
-        "goType": "string",
-        "typescriptType": "string",
-        "required": true,
-        "public": false,
-        "comments": []
       }
     ],
     "comments": [
       " Nakama is a stream that is a torrent."
     ],
     "embeddedStructNames": [
-      "directstream.BaseStream"
+      "directstream.httpBaseStream"
     ]
   },
   {
@@ -90183,6 +90130,19 @@
         ]
       },
       {
+        "name": "headers",
+        "jsonName": "headers",
+        "goType": "http.Header",
+        "typescriptType": "Header",
+        "usedTypescriptType": "Header",
+        "usedStructName": "http.Header",
+        "required": false,
+        "public": false,
+        "comments": [
+          " Headers to apply to follow-up requests"
+        ]
+      },
+      {
         "name": "offset",
         "jsonName": "offset",
         "goType": "int64",
@@ -91943,7 +91903,8 @@
         "\"torrent\"",
         "\"debrid\"",
         "\"nakama\"",
-        "\"onlinestream\""
+        "\"onlinestream\"",
+        "\"url\""
       ]
     },
     "comments": [
