@@ -18,7 +18,6 @@ func TestMatcher1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	allMedia := animeCollection.GetAllAnime()
 
 	dir := "E:/Anime"
 
@@ -26,6 +25,7 @@ func TestMatcher1(t *testing.T) {
 		name            string
 		paths           []string
 		expectedMediaId int
+		otherMediaIds   []int
 	}{
 		{
 			// These local files are from "86 - Eighty Six Part 2" but should be matched with "86 - Eighty Six Part 1"
@@ -39,6 +39,14 @@ func TestMatcher1(t *testing.T) {
 			},
 			expectedMediaId: 116589, // 86 - Eighty Six Part 1
 		},
+		{
+			name: "Diamond no Ace act II second season",
+			paths: []string{
+				"E:/Anime/Diamond no Ace/[SomeSubs] Diamond no Ace - Act II Second Season - 03 [1080p].mkv",
+			},
+			expectedMediaId: 177634,
+			otherMediaIds:   []int{105749},
+		},
 	}
 
 	for _, tt := range tests {
@@ -49,6 +57,13 @@ func TestMatcher1(t *testing.T) {
 			if err != nil {
 				t.Fatal("expected result, got error:", err.Error())
 			}
+
+			currentStatus := anilist.MediaListStatusCurrent
+			anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
+			for _, otherMediaId := range tt.otherMediaIds {
+				anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, otherMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
+			}
+			allMedia := animeCollection.GetAllAnime()
 
 			// +---------------------+
 			// |   Local Files       |
@@ -95,6 +110,41 @@ func TestMatcher1(t *testing.T) {
 		})
 	}
 
+}
+
+func TestSeasonSignalsIgnoreQualifiedRomanNumerals(t *testing.T) {
+	file := anime.NewLocalFile(
+		"E:/Anime/Diamond no Ace/[SomeSubs] Diamond no Ace - Act II Second Season - 03 [1080p].mkv",
+		scannerTestLibraryDir,
+	)
+
+	if got := getFileSeason(file); got != 2 {
+		t.Fatalf("expected file season 2, got %d", got)
+	}
+
+	actTitle := "Diamond no Ace act II"
+	secondSeasonTitle := "Diamond no Ace act II Second Season"
+
+	actOnly := NormalizeTitle(actTitle)
+	actOnly.IsMain = true
+
+	secondSeason := NormalizeTitle(secondSeasonTitle)
+	secondSeason.IsMain = true
+
+	actMedia := &anime.NormalizedMedia{
+		Title: &anime.NormalizedMediaTitle{Romaji: &actTitle},
+	}
+	secondSeasonMedia := &anime.NormalizedMedia{
+		Title: &anime.NormalizedMediaTitle{Romaji: &secondSeasonTitle},
+	}
+
+	if season, _, _ := getMediaSeason(actMedia, []*NormalizedTitle{actOnly}); season != -1 {
+		t.Fatalf("expected act-qualified title to have no season, got %d", season)
+	}
+
+	if season, explicit, _ := getMediaSeason(secondSeasonMedia, []*NormalizedTitle{secondSeason}); season != 2 || !explicit {
+		t.Fatalf("expected second-season title to keep season 2, got season=%d explicit=%v", season, explicit)
+	}
 }
 
 func TestMatcher2(t *testing.T) {

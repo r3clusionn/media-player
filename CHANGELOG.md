@@ -2,12 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
-## v3.6.2-alpha.1
+## v3.6.2-alpha.2
 
 - ⚡️ Hooks: Added more Auto Downloader hooks
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - 🦺 Denshi: Fixed blank screen after server reconnection
 - 🦺 Continuity: Fixed potential progress being ignored
+- 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
 - 🔒 Server: Security overhaul
   - Passwordless access is now local-only by default
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary

@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+const seasonRomanNumeralPattern = `(i{1,3}|iv|vi?i?i?|ix|x)`
+
 var (
 	// ValueContainsSeason regex
 	seasonOrdinalRegex = regexp.MustCompile(`\d(st|nd|rd|th) [Ss].*`)
@@ -14,8 +16,9 @@ var (
 	seasonExplicitRegex   = regexp.MustCompile(`season\s*(\d+)`)
 	seasonFormatRegex     = regexp.MustCompile(`\bs0?(\d{1,2})(?:e\d|$|\s|\.)`)
 	seasonOrdinalNumRegex = regexp.MustCompile(`(\d+)(?:st|nd|rd|th)\s+season`)
-	romanPattern1Regex    = regexp.MustCompile(`[\s.](i{1,3}|iv|vi?i?i?|ix|x)(?:\s|$|[:,.]|['\'])`)
-	romanPattern2Regex    = regexp.MustCompile(`[\s.](i{1,3}|iv|vi?i?i?|ix|x)[.\s]*(?:s\d|e\d|part)`)
+	romanPattern1Regex    = regexp.MustCompile(`[\s.]` + seasonRomanNumeralPattern + `(?:\s|$|[:,.]|['\'])`)
+	romanPattern2Regex    = regexp.MustCompile(`[\s.]` + seasonRomanNumeralPattern + `[.\s]*(?:s\d|e\d|part)`)
+	ignoredRomanNumRegex  = regexp.MustCompile(`\b((?:act|arc|chapter|saga|hen|part|cour))[\s._:-]+` + seasonRomanNumeralPattern + `\b`)
 	seasonTrailingNumRe   = regexp.MustCompile(`(?:^|\s)(\d{1,2})\s*$`)
 	seasonPartCourRegex   = regexp.MustCompile(`(?:part|cour|specials?|sp|movie|ova|ona|oad)\s*\d{1,2}\s*$`)
 	seasonJapaneseRegex   = regexp.MustCompile(`(?:第)?(\d+)\s*期`)
@@ -65,7 +68,7 @@ var (
 func ValueContainsSeason(val string) bool {
 	val = strings.ToLower(val)
 
-	if strings.IndexRune(val, '第') != -1 {
+	if strings.ContainsRune(val, '第') {
 		return false
 	}
 	if ValueContainsSpecial(val) {
@@ -114,9 +117,10 @@ func ExtractSeasonNumber(val string) int {
 	}
 
 	// Roman numerals at end of title or before common markers (e.g., "Overlord II", "Title III")
+	romanVal := ignoredRomanNumRegex.ReplaceAllString(val, `$1`)
 	romanPatterns := []*regexp.Regexp{romanPattern1Regex, romanPattern2Regex}
 	for _, re := range romanPatterns {
-		matches = re.FindStringSubmatch(val)
+		matches = re.FindStringSubmatch(romanVal)
 		if len(matches) > 1 {
 			romanNum := strings.ToLower(matches[1])
 			if num, ok := romanToNum[romanNum]; ok {
