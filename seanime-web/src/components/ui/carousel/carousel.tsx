@@ -448,16 +448,52 @@ const DotButton = (props: React.ComponentPropsWithoutRef<"div">) => {
 
 export const CarouselDotButtons = (props: { className?: string, flag?: any }) => {
 
+    const { api: emblaApi } = useCarousel()
     const { selectedIndex, scrollSnaps, onDotButtonClick } = useDotButton()
+    const wasAutoScrollPlayingRef = React.useRef(false)
+
+    const stopAutoScroll = React.useCallback(() => {
+        const autoplay = emblaApi?.plugins().autoplay
+        if (!autoplay) return
+
+        wasAutoScrollPlayingRef.current = autoplay.isPlaying()
+        if (wasAutoScrollPlayingRef.current) {
+            autoplay.stop()
+        }
+    }, [emblaApi])
+
+    const resumeAutoScroll = React.useCallback(() => {
+        const autoplay = emblaApi?.plugins().autoplay
+        if (!autoplay) return
+
+        if (wasAutoScrollPlayingRef.current) {
+            autoplay.play()
+        }
+
+        wasAutoScrollPlayingRef.current = false
+    }, [emblaApi])
 
     React.useEffect(() => {
         onDotButtonClick(0)
     }, [onDotButtonClick, scrollSnaps, props.flag])
 
+    React.useEffect(() => {
+        return () => {
+            const autoplay = emblaApi?.plugins().autoplay
+            if (wasAutoScrollPlayingRef.current && autoplay) {
+                autoplay.play()
+            }
+        }
+    }, [emblaApi])
+
     if (scrollSnaps.length > 30) return null
 
     return (
-        <div className={cn("absolute -top-8 right-0 hidden md:flex items-center z-[10]", props.className)}>
+        <div
+            className={cn("absolute -top-8 right-0 hidden md:flex items-center z-[10]", props.className)}
+            onMouseEnter={stopAutoScroll}
+            onMouseLeave={resumeAutoScroll}
+        >
             {scrollSnaps.map((_, index) => (
                 <DotButton
                     key={index}
