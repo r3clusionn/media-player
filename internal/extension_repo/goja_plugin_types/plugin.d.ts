@@ -567,12 +567,31 @@ declare namespace $ui {
          */
         resume(): void
 
+
         /**
          * Seeks to a specific position in the playback
          * @param seconds - The position to seek to
          * @throws Error if an error occurs, or if the playback is not running
          */
-        seek(seconds: number): void
+        seekTo(seconds: number): void
+
+        /**
+         * Starts manual tracking for media not being played through an integrated player.
+         * @param opts - The manual tracking options
+         * @returns A promise that resolves when tracking starts
+         */
+        startManualTracking(opts: PlaybackManualTrackingOptions): Promise<void>
+
+        /**
+         * Syncs the current progress with AniList.
+         * @returns A promise that resolves when the progress is synced
+         */
+        syncCurrentProgress(): Promise<void>
+
+        /**
+         * Stops manual tracking for the current media.
+         */
+        cancelManualTracking(): void
 
         /**
          * Gets the next episode to play for the current media being played
@@ -586,6 +605,15 @@ declare namespace $ui {
          */
         playNextEpisode(): Promise<void>
 
+    }
+
+    interface PlaybackManualTrackingOptions {
+        /** The client ID used for tracking. Defaults to the plugin ID. */
+        clientId?: string
+        /** The AniList media ID to track. */
+        mediaId: number
+        /** The episode number to sync when tracking is updated. */
+        episodeNumber: number
     }
 
     interface PlaybackEvent {

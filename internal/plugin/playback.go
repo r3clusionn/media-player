@@ -23,6 +23,12 @@ type Playback struct {
 	scheduler *gojautil.Scheduler
 }
 
+type ManualTrackingOptions struct {
+	ClientId      string
+	MediaId       int
+	EpisodeNumber int
+}
+
 type PlaybackMPV struct {
 	mpv      *mpv.Mpv
 	playback *Playback
@@ -45,6 +51,9 @@ func (a *AppContextImpl) BindPlaybackToContextObj(vm *goja.Runtime, obj *goja.Ob
 	_ = playbackObj.Set("resume", p.resume)
 	_ = playbackObj.Set("seekTo", p.seekTo)
 	_ = playbackObj.Set("cancel", p.cancel)
+	_ = playbackObj.Set("startManualTracking", p.startManualTracking)
+	_ = playbackObj.Set("syncCurrentProgress", p.syncCurrentProgress)
+	_ = playbackObj.Set("cancelManualTracking", p.cancelManualTracking)
 	_ = playbackObj.Set("getNextEpisode", p.getNextEpisode)
 	_ = playbackObj.Set("playNextEpisode", p.playNextEpisode)
 	_ = obj.Set("playback", playbackObj)
@@ -353,6 +362,93 @@ func (p *Playback) cancel() error {
 		return errors.New("playback manager not found")
 	}
 	return playbackManager.Cancel()
+}
+
+func (p *Playback) startManualTracking(call goja.FunctionCall) goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	playbackManager, ok := p.ctx.PlaybackManager().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("playback manager not found")))
+		return p.vm.ToValue(promise)
+	}
+
+	if len(call.Arguments) == 0 || goja.IsUndefined(call.Argument(0)) || goja.IsNull(call.Argument(0)) {
+		reject(p.vm.NewGoError(errors.New("manual tracking options are required")))
+		return p.vm.ToValue(promise)
+	}
+
+	optsObj := call.Argument(0).ToObject(p.vm)
+	opts := ManualTrackingOptions{
+		ClientId:      p.ext.ID,
+		MediaId:       int(optsObj.Get("mediaId").ToInteger()),
+		EpisodeNumber: int(optsObj.Get("episodeNumber").ToInteger()),
+	}
+	if clientIdValue := optsObj.Get("clientId"); !goja.IsUndefined(clientIdValue) && !goja.IsNull(clientIdValue) {
+		if clientId := clientIdValue.String(); clientId != "" {
+			opts.ClientId = clientId
+		}
+	}
+
+	if opts.MediaId <= 0 {
+		reject(p.vm.NewGoError(errors.New("manual tracking requires a valid mediaId")))
+		return p.vm.ToValue(promise)
+	}
+	if opts.EpisodeNumber <= 0 {
+		reject(p.vm.NewGoError(errors.New("manual tracking requires a valid episodeNumber")))
+		return p.vm.ToValue(promise)
+	}
+
+	go func() {
+		err := playbackManager.StartManualProgressTracking(&playbackmanager.StartManualProgressTrackingOptions{
+			ClientId:      opts.ClientId,
+			MediaId:       opts.MediaId,
+			EpisodeNumber: opts.EpisodeNumber,
+		})
+		p.scheduler.ScheduleAsync(func() error {
+			if err != nil {
+				reject(p.vm.NewGoError(err))
+			} else {
+				resolve(goja.Undefined())
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
+}
+
+func (p *Playback) syncCurrentProgress() goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	playbackManager, ok := p.ctx.PlaybackManager().Get()
+	if !ok {
+		reject(p.vm.NewGoError(errors.New("playback manager not found")))
+		return p.vm.ToValue(promise)
+	}
+
+	go func() {
+		err := playbackManager.SyncCurrentProgress()
+		p.scheduler.ScheduleAsync(func() error {
+			if err != nil {
+				reject(p.vm.NewGoError(err))
+			} else {
+				resolve(goja.Undefined())
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
+}
+
+func (p *Playback) cancelManualTracking() error {
+	playbackManager, ok := p.ctx.PlaybackManager().Get()
+	if !ok {
+		return errors.New("playback manager not found")
+	}
+	playbackManager.CancelManualProgressTracking()
+	return nil
 }
 
 func (p *Playback) getNextEpisode() goja.Value {
