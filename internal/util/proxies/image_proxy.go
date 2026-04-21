@@ -13,7 +13,7 @@ import (
 type ImageProxy struct{}
 
 func (ip *ImageProxy) GetImage(url string, headers map[string]string) ([]byte, error) {
-	request := req.C().NewRequest()
+	request := req.C().DisableAutoReadResponse().NewRequest()
 
 	for key, value := range headers {
 		request.SetHeader(key, value)

@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## v3.6.2-alpha.2
 
-- ⚡️ Hooks: Added more Auto Downloader hooks
+- ⚡️ Plugins: New APIs and Hooks
+  - Added VideoCore play methods #699 and skip data manipulation
+  - Added more Auto Downloader hooks
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - 🦺 Denshi: Fixed blank screen after server reconnection
+- 🦺 Transcoder: Fixed 10bit issues with NVENC (?)
 - 🦺 Continuity: Fixed potential progress being ignored
 - 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
+- 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
 - 🔒 Server: Security overhaul
   - Passwordless access is now local-only by default
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary
