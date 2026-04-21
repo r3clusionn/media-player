@@ -8,7 +8,6 @@ import (
 	"seanime/internal/util"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/5rahim/hls-m3u8/m3u8"
 	"github.com/goccy/go-json"
@@ -18,7 +17,8 @@ import (
 )
 
 var videoProxyClient2 = req.C().
-	SetTimeout(60 * time.Second).
+	DisableAutoReadResponse().
+	DisableCompression().
 	EnableInsecureSkipVerify().
 	ImpersonateChrome()
 
@@ -242,7 +242,6 @@ func toProxyURL(targetMediaURL string, headerMap map[string]string, authToken st
 	proxyURL := "/api/v1/proxy?url=" + url2.QueryEscape(targetMediaURL)
 	if len(headerMap) > 0 {
 		headersStrB, err := json.Marshal(headerMap)
-		// Ignore marshalling errors here? Or log them? For simplicity, ignoring now.
 		if err == nil && len(headersStrB) > 2 { // Check > 2 for "{}" empty map
 			proxyURL += "&headers=" + url2.QueryEscape(string(headersStrB))
 		}
