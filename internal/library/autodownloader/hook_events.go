@@ -27,6 +27,17 @@ type AutoDownloaderRunCompletedEvent struct {
 	DelayedCount    int                            `json:"delayedCount"`
 }
 
+// AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.
+// Prevent default to skip native provider retrieval.
+type AutoDownloaderBeforeFetchTorrentsEvent struct {
+	hook_resolver.Event
+	Rules           []*anime.AutoDownloaderRule    `json:"rules"`
+	Profiles        []*anime.AutoDownloaderProfile `json:"profiles"`
+	ProviderIDs     []string                       `json:"providerIds"`
+	DefaultProvider string                         `json:"defaultProvider"`
+	Torrents        []*NormalizedTorrent           `json:"torrents"`
+}
+
 // AutoDownloaderTorrentsFetchedEvent is triggered at the beginning of a run, when the autodownloader fetches torrents from the provider.
 type AutoDownloaderTorrentsFetchedEvent struct {
 	hook_resolver.Event

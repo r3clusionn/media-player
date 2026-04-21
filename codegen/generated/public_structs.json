@@ -43972,6 +43972,15 @@
         "comments": []
       },
       {
+        "name": "onAutoDownloaderBeforeFetchTorrents",
+        "jsonName": "onAutoDownloaderBeforeFetchTorrents",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "onAutoDownloaderTorrentsFetched",
         "jsonName": "onAutoDownloaderTorrentsFetched",
         "goType": "",
@@ -49530,6 +49539,73 @@
     ],
     "comments": [
       " AutoDownloaderRunCompletedEvent is triggered when the autodownloader finishes a run."
+    ],
+    "embeddedStructNames": [
+      "hook_resolver.Event"
+    ]
+  },
+  {
+    "filepath": "../internal/library/autodownloader/hook_events.go",
+    "filename": "hook_events.go",
+    "name": "AutoDownloaderBeforeFetchTorrentsEvent",
+    "formattedName": "AutoDownloader_AutoDownloaderBeforeFetchTorrentsEvent",
+    "package": "autodownloader",
+    "fields": [
+      {
+        "name": "Rules",
+        "jsonName": "rules",
+        "goType": "[]anime.AutoDownloaderRule",
+        "typescriptType": "Array\u003cAnime_AutoDownloaderRule\u003e",
+        "usedTypescriptType": "Anime_AutoDownloaderRule",
+        "usedStructName": "anime.AutoDownloaderRule",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Profiles",
+        "jsonName": "profiles",
+        "goType": "[]anime.AutoDownloaderProfile",
+        "typescriptType": "Array\u003cAnime_AutoDownloaderProfile\u003e",
+        "usedTypescriptType": "Anime_AutoDownloaderProfile",
+        "usedStructName": "anime.AutoDownloaderProfile",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ProviderIDs",
+        "jsonName": "providerIds",
+        "goType": "[]string",
+        "typescriptType": "Array\u003cstring\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DefaultProvider",
+        "jsonName": "defaultProvider",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Torrents",
+        "jsonName": "torrents",
+        "goType": "[]NormalizedTorrent",
+        "typescriptType": "Array\u003cAutoDownloader_NormalizedTorrent\u003e",
+        "usedTypescriptType": "AutoDownloader_NormalizedTorrent",
+        "usedStructName": "autodownloader.NormalizedTorrent",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": [
+      " AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.",
+      " Hooks can add custom torrents to Torrents. Prevent default to skip native provider retrieval."
     ],
     "embeddedStructNames": [
       "hook_resolver.Event"
@@ -74380,6 +74456,43 @@
   {
     "filepath": "../internal/plugin/playback.go",
     "filename": "playback.go",
+    "name": "ManualTrackingOptions",
+    "formattedName": "ManualTrackingOptions",
+    "package": "plugin",
+    "fields": [
+      {
+        "name": "ClientId",
+        "jsonName": "ClientId",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "MediaId",
+        "jsonName": "MediaId",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "EpisodeNumber",
+        "jsonName": "EpisodeNumber",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/playback.go",
+    "filename": "playback.go",
     "name": "PlaybackMPV",
     "formattedName": "PlaybackMPV",
     "package": "plugin",
@@ -74577,26 +74690,15 @@
         "comments": []
       },
       {
-        "name": "keyDataCache",
-        "jsonName": "keyDataCache",
-        "goType": "",
-        "typescriptType": "any",
+        "name": "state",
+        "jsonName": "state",
+        "goType": "storageState",
+        "typescriptType": "storageState",
+        "usedTypescriptType": "storageState",
+        "usedStructName": "plugin.storageState",
         "required": false,
         "public": false,
-        "comments": [
-          " Cache to avoid repeated database calls"
-        ]
-      },
-      {
-        "name": "keySubscribers",
-        "jsonName": "keySubscribers",
-        "goType": "",
-        "typescriptType": "any",
-        "required": false,
-        "public": false,
-        "comments": [
-          " Subscribers for key changes"
-        ]
+        "comments": []
       },
       {
         "name": "scheduler",
@@ -74612,7 +74714,7 @@
     ],
     "comments": [
       " Storage is used to store data for an extension.",
-      " A new instance is created for each extension."
+      " A new binding is created for each runtime, but the cache and watchers are shared per extension."
     ]
   },
   {

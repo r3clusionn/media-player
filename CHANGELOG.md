@@ -6,7 +6,8 @@ All notable changes to this project will be documented in this file.
 
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods #699 and skip data manipulation
-  - Added more Auto Downloader hooks
+  - Added Auto Downloader hooks
+  - Added Playback API methods
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - 🦺 Denshi: Fixed blank screen after server reconnection
 - 🦺 Transcoder: Fixed 10bit issues with NVENC (?)

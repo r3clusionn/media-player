@@ -3243,6 +3243,103 @@
     "goStruct": {
       "filepath": "../internal/library/autodownloader/hook_events.go",
       "filename": "hook_events.go",
+      "name": "AutoDownloaderBeforeFetchTorrentsEvent",
+      "formattedName": "AutoDownloader_AutoDownloaderBeforeFetchTorrentsEvent",
+      "package": "autodownloader",
+      "fields": [
+        {
+          "name": "Rules",
+          "jsonName": "rules",
+          "goType": "[]anime.AutoDownloaderRule",
+          "typescriptType": "Array\u003cAnime_AutoDownloaderRule\u003e",
+          "usedTypescriptType": "Anime_AutoDownloaderRule",
+          "usedStructName": "anime.AutoDownloaderRule",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Profiles",
+          "jsonName": "profiles",
+          "goType": "[]anime.AutoDownloaderProfile",
+          "typescriptType": "Array\u003cAnime_AutoDownloaderProfile\u003e",
+          "usedTypescriptType": "Anime_AutoDownloaderProfile",
+          "usedStructName": "anime.AutoDownloaderProfile",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "ProviderIDs",
+          "jsonName": "providerIds",
+          "goType": "[]string",
+          "typescriptType": "Array\u003cstring\u003e",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "DefaultProvider",
+          "jsonName": "defaultProvider",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Torrents",
+          "jsonName": "torrents",
+          "goType": "[]NormalizedTorrent",
+          "typescriptType": "Array\u003cAutoDownloader_NormalizedTorrent\u003e",
+          "usedTypescriptType": "AutoDownloader_NormalizedTorrent",
+          "usedStructName": "autodownloader.NormalizedTorrent",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.",
+        " Hooks can add custom torrents to Torrents. Prevent default to skip native provider retrieval."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "autodownloader",
+    "goStruct": {
+      "filepath": "../internal/library/autodownloader/hook_events.go",
+      "filename": "hook_events.go",
       "name": "AutoDownloaderTorrentsFetchedEvent",
       "formattedName": "AutoDownloader_AutoDownloaderTorrentsFetchedEvent",
       "package": "autodownloader",

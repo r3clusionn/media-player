@@ -460,10 +460,25 @@ func (ad *AutoDownloader) fetchRunData(ctx context.Context, ruleIDs ...uint) (*r
 	// Returns the default provider + any other provider used by rules or profiles
 	providerExtensions := ad.getProvidersForRules(rules, profiles)
 
-	// Fetch torrents from all identified providers
-	torrents, err := ad.fetchTorrentsFromProviders(ctx, providerExtensions, rules, profiles)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get latest torrents: %w", err)
+	beforeFetchEvent := &AutoDownloaderBeforeFetchTorrentsEvent{
+		Rules:           rules,
+		Profiles:        profiles,
+		ProviderIDs:     lo.Map(providerExtensions, func(ext extension.AnimeTorrentProviderExtension, _ int) string { return ext.GetID() }),
+		DefaultProvider: ad.settings.Provider,
+	}
+	_ = hook.GlobalHookManager.OnAutoDownloaderBeforeFetchTorrents().Trigger(beforeFetchEvent)
+
+	var torrents []*NormalizedTorrent
+	if beforeFetchEvent.DefaultPrevented {
+		torrents = mergeNormalizedTorrents(beforeFetchEvent.Torrents)
+	} else {
+		// Fetch torrents from all identified providers
+		torrents, err = ad.fetchTorrentsFromProviders(ctx, providerExtensions, rules, profiles)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get latest torrents: %w", err)
+		}
+
+		torrents = mergeNormalizedTorrents(beforeFetchEvent.Torrents, torrents)
 	}
 
 	// Event

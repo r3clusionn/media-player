@@ -70,6 +70,7 @@ type Manager interface {
 	OnAutoDownloaderMatchVerified() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBeforeFetchTorrents() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderBeforeQueueDelayedTorrent() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderBeforeDownloadTorrent() *Hook[hook_resolver.Resolver]
@@ -208,6 +209,7 @@ type ManagerImpl struct {
 	onAutoDownloaderRunCompleted              *Hook[hook_resolver.Resolver]
 	onAutoDownloaderBestCandidateSelected     *Hook[hook_resolver.Resolver]
 	onAutoDownloaderSettingsUpdated           *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeFetchTorrents       *Hook[hook_resolver.Resolver]
 	onAutoDownloaderTorrentsFetched           *Hook[hook_resolver.Resolver]
 	onAutoDownloaderBeforeQueueDelayedTorrent *Hook[hook_resolver.Resolver]
 	onAutoDownloaderBeforeDownloadTorrent     *Hook[hook_resolver.Resolver]
@@ -354,6 +356,7 @@ func (m *ManagerImpl) initHooks() {
 	m.onAutoDownloaderRunCompleted = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderBestCandidateSelected = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderSettingsUpdated = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBeforeFetchTorrents = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderTorrentsFetched = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderBeforeQueueDelayedTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderBeforeDownloadTorrent = &Hook[hook_resolver.Resolver]{}
@@ -747,6 +750,13 @@ func (m *ManagerImpl) OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolve
 		return &Hook[hook_resolver.Resolver]{}
 	}
 	return m.onAutoDownloaderBestCandidateSelected
+}
+
+func (m *ManagerImpl) OnAutoDownloaderBeforeFetchTorrents() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBeforeFetchTorrents
 }
 
 func (m *ManagerImpl) OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver] {

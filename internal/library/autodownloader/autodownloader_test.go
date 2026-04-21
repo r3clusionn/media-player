@@ -1569,6 +1569,47 @@ func TestRunCheckUsesBeforeQueueDelayedTorrentHook(t *testing.T) {
 	assert.LessOrEqual(t, remaining, 31*time.Minute)
 }
 
+func TestRunCheckUsesBeforeFetchTorrentsHook(t *testing.T) {
+	hm := useTestHookManager(t)
+	hm.OnAutoDownloaderBeforeFetchTorrents().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*AutoDownloaderBeforeFetchTorrentsEvent)
+		event.Torrents = []*NormalizedTorrent{{
+			AnimeTorrent: &hibiketorrent.AnimeTorrent{
+				Name:     "[SubsPlease] Sousou no Frieren - 01 (1080p)",
+				InfoHash: "before_fetch_hook",
+			},
+			ExtensionID: event.DefaultProvider,
+		}}
+		event.PreventDefault()
+		return event.Next()
+	})
+
+	harness := &TestHarness{}
+	ad := harness.New(t)
+	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
+
+	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	require.NoError(t, err)
+
+	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
+		DbID:                1,
+		Enabled:             true,
+		MediaId:             frierenMediaId,
+		EpisodeType:         anime.AutoDownloaderRuleEpisodeRecent,
+		ComparisonTitle:     "Sousou no Frieren",
+		TitleComparisonType: anime.AutoDownloaderRuleTitleComparisonLikely,
+	})
+	require.NoError(t, err)
+
+	ad.ClearSimulationResults()
+	ad.RunCheck(t.Context(), true)
+
+	results := ad.GetSimulationResults()
+	require.Len(t, results, 1)
+	assert.Equal(t, "before_fetch_hook", results[0].Hash)
+	assert.Equal(t, "fake", results[0].ExtensionID)
+}
+
 func TestRunCheckTriggersRunCompletedHook(t *testing.T) {
 	hm := useTestHookManager(t)
 	var completed *AutoDownloaderRunCompletedEvent

@@ -480,6 +480,27 @@ declare namespace $app {
     }
 
     /**
+     * @event AutoDownloaderBeforeFetchTorrentsEvent
+     * @file internal/library/autodownloader/hook_events.go
+     * @description
+     * AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.
+     * Hooks can add custom torrents to Torrents. Prevent default to skip native provider retrieval.
+     */
+    function onAutoDownloaderBeforeFetchTorrents(cb: (event: AutoDownloaderBeforeFetchTorrentsEvent) => void): void;
+
+    interface AutoDownloaderBeforeFetchTorrentsEvent {
+        rules?: Array<Anime_AutoDownloaderRule>;
+        profiles?: Array<Anime_AutoDownloaderProfile>;
+        providerIds?: Array<string>;
+        defaultProvider: string;
+        torrents?: Array<AutoDownloader_NormalizedTorrent>;
+
+        next(): void;
+
+        preventDefault(): void;
+    }
+
+    /**
      * @event AutoDownloaderTorrentsFetchedEvent
      * @file internal/library/autodownloader/hook_events.go
      * @description
