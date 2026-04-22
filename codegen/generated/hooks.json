@@ -1208,6 +1208,173 @@
     "goStruct": {
       "filepath": "../internal/debrid/client/hook_events.go",
       "filename": "hook_events.go",
+      "name": "DebridAddTorrentRequestedEvent",
+      "formattedName": "DebridClient_DebridAddTorrentRequestedEvent",
+      "package": "debrid_client",
+      "fields": [
+        {
+          "name": "Options",
+          "jsonName": "options",
+          "goType": "debrid.AddTorrentOptions",
+          "typescriptType": "Debrid_AddTorrentOptions",
+          "usedTypescriptType": "Debrid_AddTorrentOptions",
+          "usedStructName": "debrid.AddTorrentOptions",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Destination",
+          "jsonName": "destination",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "MediaID",
+          "jsonName": "mediaId",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "TorrentItemID",
+          "jsonName": "torrentItemId",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " DebridAddTorrentRequestedEvent is triggered when Seanime is about to add a torrent to the debrid provider.",
+        " Prevent default to bypass the native add call and provide TorrentItemID yourself."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "debrid_client",
+    "goStruct": {
+      "filepath": "../internal/debrid/client/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "DebridAddTorrentEvent",
+      "formattedName": "DebridClient_DebridAddTorrentEvent",
+      "package": "debrid_client",
+      "fields": [
+        {
+          "name": "Options",
+          "jsonName": "options",
+          "goType": "debrid.AddTorrentOptions",
+          "typescriptType": "Debrid_AddTorrentOptions",
+          "usedTypescriptType": "Debrid_AddTorrentOptions",
+          "usedStructName": "debrid.AddTorrentOptions",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Destination",
+          "jsonName": "destination",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "MediaID",
+          "jsonName": "mediaId",
+          "goType": "int",
+          "typescriptType": "number",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "TorrentItemID",
+          "jsonName": "torrentItemId",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " DebridAddTorrentEvent is triggered after Seanime adds a torrent to the debrid provider and queues it locally."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "debrid_client",
+    "goStruct": {
+      "filepath": "../internal/debrid/client/hook_events.go",
+      "filename": "hook_events.go",
       "name": "DebridLocalDownloadRequestedEvent",
       "formattedName": "DebridClient_DebridLocalDownloadRequestedEvent",
       "package": "debrid_client",
@@ -1270,6 +1437,159 @@
       "comments": [
         " DebridLocalDownloadRequestedEvent is triggered when Seanime is about to download a debrid torrent locally.",
         " Prevent default to skip the default download and override the download."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "debrid_client",
+    "goStruct": {
+      "filepath": "../internal/debrid/client/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "DebridLocalDownloadStartedEvent",
+      "formattedName": "DebridClient_DebridLocalDownloadStartedEvent",
+      "package": "debrid_client",
+      "fields": [
+        {
+          "name": "TorrentItemID",
+          "jsonName": "torrentItemId",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "TorrentName",
+          "jsonName": "torrentName",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Destination",
+          "jsonName": "destination",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "DownloadUrl",
+          "jsonName": "downloadUrl",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " DebridLocalDownloadStartedEvent is triggered right after Seanime accepts a local debrid download."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "debrid_client",
+    "goStruct": {
+      "filepath": "../internal/debrid/client/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "DebridLocalDownloadCompletedEvent",
+      "formattedName": "DebridClient_DebridLocalDownloadCompletedEvent",
+      "package": "debrid_client",
+      "fields": [
+        {
+          "name": "TorrentItemID",
+          "jsonName": "torrentItemId",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "TorrentName",
+          "jsonName": "torrentName",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "Destination",
+          "jsonName": "destination",
+          "goType": "string",
+          "typescriptType": "string",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " DebridLocalDownloadCompletedEvent is triggered when Seanime finishes a local debrid download."
       ],
       "embeddedStructNames": [
         "hook_resolver.Event"
@@ -3328,7 +3648,7 @@
       ],
       "comments": [
         " AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.",
-        " Hooks can add custom torrents to Torrents. Prevent default to skip native provider retrieval."
+        " Prevent default to skip native provider retrieval."
       ],
       "embeddedStructNames": [
         "hook_resolver.Event"
@@ -7422,6 +7742,142 @@
         }
       ],
       "comments": [],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "torrent",
+    "goStruct": {
+      "filepath": "../internal/torrents/torrent/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "TorrentSearchRequestedEvent",
+      "formattedName": "Torrent_TorrentSearchRequestedEvent",
+      "package": "torrent",
+      "fields": [
+        {
+          "name": "Options",
+          "jsonName": "options",
+          "goType": "AnimeSearchOptions",
+          "typescriptType": "Torrent_AnimeSearchOptions",
+          "usedTypescriptType": "Torrent_AnimeSearchOptions",
+          "usedStructName": "torrent.AnimeSearchOptions",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "SearchData",
+          "jsonName": "searchData",
+          "goType": "SearchData",
+          "typescriptType": "Torrent_SearchData",
+          "usedTypescriptType": "Torrent_SearchData",
+          "usedStructName": "torrent.SearchData",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " TorrentSearchRequestedEvent is triggered before Seanime searches anime torrents.",
+        " Prevent default to skip the native search and return SearchData."
+      ],
+      "embeddedStructNames": [
+        "hook_resolver.Event"
+      ]
+    }
+  },
+  {
+    "package": "torrent",
+    "goStruct": {
+      "filepath": "../internal/torrents/torrent/hook_events.go",
+      "filename": "hook_events.go",
+      "name": "TorrentSearchEvent",
+      "formattedName": "Torrent_TorrentSearchEvent",
+      "package": "torrent",
+      "fields": [
+        {
+          "name": "Options",
+          "jsonName": "options",
+          "goType": "AnimeSearchOptions",
+          "typescriptType": "Torrent_AnimeSearchOptions",
+          "usedTypescriptType": "Torrent_AnimeSearchOptions",
+          "usedStructName": "torrent.AnimeSearchOptions",
+          "required": true,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "SearchData",
+          "jsonName": "searchData",
+          "goType": "SearchData",
+          "typescriptType": "Torrent_SearchData",
+          "usedTypescriptType": "Torrent_SearchData",
+          "usedStructName": "torrent.SearchData",
+          "required": false,
+          "public": true,
+          "comments": []
+        },
+        {
+          "name": "next",
+          "jsonName": "next",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "preventDefault",
+          "jsonName": "preventDefault",
+          "goType": "",
+          "typescriptType": "any",
+          "required": true,
+          "public": false,
+          "comments": []
+        },
+        {
+          "name": "DefaultPrevented",
+          "jsonName": "defaultPrevented",
+          "goType": "bool",
+          "typescriptType": "boolean",
+          "required": true,
+          "public": true,
+          "comments": []
+        }
+      ],
+      "comments": [
+        " TorrentSearchEvent is triggered after Seanime assembles the torrent search response.",
+        " Handlers can mutate SearchData before it is cached and returned."
+      ],
       "embeddedStructNames": [
         "hook_resolver.Event"
       ]

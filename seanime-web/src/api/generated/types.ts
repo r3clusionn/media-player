@@ -4856,31 +4856,31 @@ export type Torrentstream_PlaybackType = "default" | "externalPlayerLink" | "nat
  * - Package: torrentstream
  */
 export type Torrentstream_StartStreamOptions = {
-    MediaId: number
+    mediaId: number
     /**
      * RELATIVE Episode number to identify the file
      */
-    EpisodeNumber: number
+    episodeNumber: number
     /**
      * Animap episode
      */
-    AniDBEpisode: string
+    aniDbEpisode: string
     /**
      * Automatically select the best file to stream
      */
-    AutoSelect: boolean
+    autoSelect: boolean
     /**
      * Selected torrent (Manual selection)
      */
-    Torrent?: HibikeTorrent_AnimeTorrent
+    torrent?: HibikeTorrent_AnimeTorrent
     /**
      * Index of the file to stream (Manual selection)
      */
-    FileIndex?: number
-    UserAgent: string
-    ClientId: string
-    PlaybackType: Torrentstream_PlaybackType
-    BatchEpisodeFiles?: HibikeTorrent_BatchEpisodeFiles
+    fileIndex?: number
+    userAgent: string
+    clientId: string
+    playbackType: Torrentstream_PlaybackType
+    batchEpisodeFiles?: HibikeTorrent_BatchEpisodeFiles
 }
 
 /**

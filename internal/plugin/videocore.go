@@ -110,7 +110,7 @@ func (a *AppContextImpl) BindVideoCoreToContextObj(vm *goja.Runtime, obj *goja.O
 }
 
 // playStream resolves once the stream is initiated, not when playback completes.
-func (p *VideoCore) playStream(streamUrl string, anidbEpisode string, media *anilist.BaseAnime) goja.Value {
+func (p *VideoCore) playStream(clientId string, streamUrl string, anidbEpisode string, media *anilist.BaseAnime) goja.Value {
 	promise, resolve, reject := p.vm.NewPromise()
 
 	dsManager, ok := p.ctx.DirectStreamManager().Get()
@@ -125,6 +125,7 @@ func (p *VideoCore) playStream(streamUrl string, anidbEpisode string, media *ani
 	}
 
 	opts := directstream.PlayURLStreamOptions{
+		ClientId:     clientId,
 		StreamUrl:    streamUrl,
 		AnidbEpisode: anidbEpisode,
 		Media:        media,
@@ -146,7 +147,7 @@ func (p *VideoCore) playStream(streamUrl string, anidbEpisode string, media *ani
 }
 
 // playLocalFile resolves once the stream is initiated, not when playback completes.
-func (p *VideoCore) playLocalFile(path string) goja.Value {
+func (p *VideoCore) playLocalFile(clientId string, path string) goja.Value {
 	promise, resolve, reject := p.vm.NewPromise()
 
 	dsManager, ok := p.ctx.DirectStreamManager().Get()
@@ -177,6 +178,7 @@ func (p *VideoCore) playLocalFile(path string) goja.Value {
 		}
 
 		playErr := dsManager.PlayLocalFile(context.Background(), directstream.PlayLocalFileOptions{
+			ClientId:   clientId,
 			Path:       path,
 			LocalFiles: lfs,
 		})

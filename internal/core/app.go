@@ -464,6 +464,8 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 		AutoScanner:             app.AutoScanner,
 		AutoDownloader:          app.AutoDownloader,
 		FileCacher:              app.FileCacher,
+		TorrentRepository:       app.TorrentRepository,
+		DebridClientRepository:  app.DebridClientRepository,
 		OnlinestreamRepository:  app.OnlinestreamRepository,
 		MediastreamRepository:   app.MediastreamRepository,
 		TorrentstreamRepository: app.TorrentstreamRepository,

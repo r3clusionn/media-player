@@ -1,6 +1,7 @@
 import { getServerBaseUrl } from "@/api/client/server-url"
 import { SERVER_AUTH_TOKEN_STORAGE_KEY, serverAuthTokenAtom } from "@/app/(main)/_atoms/server-status.atoms"
 import { getClientId, getClientIdProof, setClientIdentity } from "@/lib/server/client-id"
+import { __clientPlatform__ } from "@/types/constants"
 import { useMutation, UseMutationOptions, useQuery, UseQueryOptions } from "@tanstack/react-query"
 import axios, { AxiosError } from "axios"
 import { useAtomValue } from "jotai"
@@ -110,6 +111,9 @@ export async function buildSeaQuery<T, D extends any = any>(
     if (clientId && clientIdProof) {
         headers["X-Seanime-Client-Id"] = clientId
         headers["X-Seanime-Client-Id-Proof"] = clientIdProof
+    }
+    if (__clientPlatform__) {
+        headers["X-Seanime-Client-Platform"] = __clientPlatform__
     }
 
     let res

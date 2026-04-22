@@ -212,6 +212,12 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindAutoDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind auto scanner
 	plugin.GlobalAppContext.BindAutoScannerToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind auto select profile helpers
+	plugin.GlobalAppContext.BindAutoSelectToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind torrent search helpers
+	plugin.GlobalAppContext.BindTorrentSearchToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind manual scanner helpers
+	plugin.GlobalAppContext.BindScannerToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind external player link
 	plugin.GlobalAppContext.BindExternalPlayerLinkToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind onlinestream
@@ -220,14 +226,21 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindMediastreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 
 	if c.ext.Plugin != nil {
+		hasPlayback := false
+		hasDebrid := false
 		for _, permission := range c.ext.Plugin.Permissions.Scopes {
 			switch permission {
 			case extension.PluginPermissionPlayback:
+				hasPlayback = true
 				if !security.IsStrict() {
 					// playback can bridge into external players or mpv sockets, so keep it out of strict mode
 					plugin.GlobalAppContext.BindPlaybackToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 				}
+				plugin.GlobalAppContext.BindTorrentstreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 				plugin.GlobalAppContext.BindVideoCoreToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+			case extension.PluginPermissionDebrid:
+				hasDebrid = true
+				plugin.GlobalAppContext.BindDebridToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 			case extension.PluginPermissionSystem:
 				if !security.IsStrict() {
 					plugin.GlobalAppContext.BindDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
@@ -247,6 +260,10 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 					plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 				}
 			}
+		}
+
+		if hasPlayback && hasDebrid {
+			plugin.GlobalAppContext.BindDebridstreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 		}
 	}
 

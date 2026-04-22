@@ -7,7 +7,7 @@ import { useMainTab } from "@/hooks/use-main-tab"
 import { logger } from "@/lib/helpers/debug"
 import { getClientId, getClientIdentity, getClientIdProof, setClientIdentity, subscribeToClientIdentity } from "@/lib/server/client-id"
 import { WSEvents } from "@/lib/server/ws-events"
-import { __isElectronDesktop__ } from "@/types/constants"
+import { __clientPlatform__, __isElectronDesktop__ } from "@/types/constants"
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai"
 import React, { useRef } from "react"
 import { RemoveScrollBar } from "react-remove-scroll-bar"
@@ -138,7 +138,7 @@ function WebsocketManagement() {
      }, [isConnected]) */
 
     useEffectOnce(() => {
-        function ensureClientIdentity() {
+        function initClientIdentity() {
             const clientId = clientIdRef.current || getClientId()
             const clientIdProof = clientIdProofRef.current || getClientIdProof()
             clientIdRef.current = clientId
@@ -183,13 +183,16 @@ function WebsocketManagement() {
             }
 
             const wsUrl = `${document.location.protocol == "https:" ? "wss" : "ws"}://${getServerBaseUrl(true)}/events`
-            const { clientId, clientIdProof } = ensureClientIdentity()
+            const { clientId, clientIdProof } = initClientIdentity()
 
             try {
                 const queryParams = new URLSearchParams()
                 if (clientId && clientIdProof) {
                     queryParams.set("id", clientId)
                     queryParams.set("proof", clientIdProof)
+                }
+                if (__clientPlatform__) {
+                    queryParams.set("platform", __clientPlatform__)
                 }
                 if (serverAuthTokenRef.current) {
                     queryParams.set("token", serverAuthTokenRef.current)

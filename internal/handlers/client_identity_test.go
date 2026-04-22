@@ -28,19 +28,41 @@ func TestResolveValidatedClientId(t *testing.T) {
 		req.Header.Set(clientIdHeaderName, "header-client")
 		req.Header.Set(clientIdProofHeaderName, headerProof)
 
-		assert.Equal(t, "header-client", resolveValidatedClientID(app, req))
+		assert.Equal(t, "header-client", getClientIdFromRequest(app, req))
 	})
 
 	t.Run("rejects unsigned header client id", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
 		req.Header.Set(clientIdHeaderName, "header-client")
 
-		assert.Empty(t, resolveValidatedClientID(app, req))
+		assert.Empty(t, getClientIdFromRequest(app, req))
 	})
 
 	t.Run("accepts signed websocket query client id", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/events?id=query-client&proof="+queryProof, nil)
 
-		assert.Equal(t, "query-client", resolveValidatedClientID(app, req))
+		assert.Equal(t, "query-client", getClientIdFromRequest(app, req))
+	})
+}
+
+func TestClientAppPlatform(t *testing.T) {
+	t.Run("accepts normalized header platform", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+		req.Header.Set(clientPlatformHeader, " DensHi ")
+
+		assert.Equal(t, ClientPlatformDenshi, getClientPlatformFromRequest(req))
+	})
+
+	t.Run("accepts websocket query platform", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/events?platform=mobile", nil)
+
+		assert.Equal(t, ClientPlatformMobile, getClientPlatformFromRequest(req))
+	})
+
+	t.Run("ignores invalid platform values", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
+		req.Header.Set(clientPlatformHeader, "windows")
+
+		assert.Empty(t, getClientPlatformFromRequest(req))
 	})
 }

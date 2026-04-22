@@ -15,6 +15,8 @@ import (
 type WSEventManagerInterface interface {
 	SendEvent(t string, payload interface{})
 	SendEventTo(clientId string, t string, payload interface{}, noLog ...bool)
+	GetClientIds() []string
+	GetClientPlatform(clientId string) string
 	SubscribeToClientEvents(id string) *ClientEventSubscriber
 	SubscribeToClientNativePlayerEvents(id string) *ClientEventSubscriber
 	SubscribeToClientVideoCoreEvents(id string) *ClientEventSubscriber
@@ -43,6 +45,13 @@ func (w *GlobalWSEventManagerWrapper) SendEventTo(clientId string, t string, pay
 	w.WSEventManager.SendEventTo(clientId, t, payload, noLog...)
 }
 
+func (w *GlobalWSEventManagerWrapper) GetClientIds() []string {
+	if w.WSEventManager == nil {
+		return nil
+	}
+	return w.WSEventManager.GetClientIds()
+}
+
 type (
 	// WSEventManager holds the websocket connection instance.
 	// It is attached to the App instance, so it is available to other handlers.
@@ -66,8 +75,9 @@ type (
 	}
 
 	WSConn struct {
-		ID   string
-		Conn *websocket.Conn
+		ID       string
+		Platform string
+		Conn     *websocket.Conn
 	}
 
 	WSEvent struct {
@@ -131,11 +141,17 @@ func (m *WSEventManager) ExitIfNoConnsAsDesktopSidecar() {
 	}()
 }
 
-func (m *WSEventManager) AddConn(id string, conn *websocket.Conn) {
+func (m *WSEventManager) AddConn(id string, conn *websocket.Conn, platform ...string) {
+	clientPlatform := ""
+	if len(platform) > 0 {
+		clientPlatform = platform[0]
+	}
+
 	m.hasHadConnection = true
 	m.Conns = append(m.Conns, &WSConn{
-		ID:   id,
-		Conn: conn,
+		ID:       id,
+		Platform: clientPlatform,
+		Conn:     conn,
 	})
 }
 
@@ -216,6 +232,35 @@ func (m *WSEventManager) SendStringTo(clientId string, s string) {
 			_ = conn.Conn.WriteMessage(websocket.TextMessage, []byte(s))
 		}
 	}
+}
+
+func (m *WSEventManager) GetClientIds() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	ret := make([]string, 0, len(m.Conns))
+	for _, conn := range m.Conns {
+		if conn == nil || conn.ID == "" {
+			continue
+		}
+		ret = append(ret, conn.ID)
+	}
+
+	return ret
+}
+
+func (m *WSEventManager) GetClientPlatform(clientId string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	for _, conn := range m.Conns {
+		if conn == nil || conn.ID != clientId {
+			continue
+		}
+		return conn.Platform
+	}
+
+	return ""
 }
 
 func (m *WSEventManager) OnClientEvent(event *WebsocketClientEvent) {

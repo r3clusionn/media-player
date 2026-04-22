@@ -31,8 +31,9 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 			return isTrustedCORSOrigin(origin, app.Config.Server.Password, app.Config.Server.AccessAllowlist), nil
 		},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Cookie", "Authorization",
-			"X-Seanime-Token", "X-Seanime-Client-Id", "X-Seanime-Client-Id-Proof", "X-Seanime-Nakama-Token", "X-Seanime-Nakama-Username", "X-Seanime-Nakama-Server-Version", "X-Seanime-Nakama-Peer-Id"},
-		ExposeHeaders:    []string{"X-Seanime-Client-Id", "X-Seanime-Client-Id-Proof"},
+			"X-Seanime-Token", clientIdHeaderName, clientIdProofHeaderName, clientPlatformHeader,
+			"X-Seanime-Nakama-Token", "X-Seanime-Nakama-Username", "X-Seanime-Nakama-Server-Version", "X-Seanime-Nakama-Peer-Id"},
+		ExposeHeaders:    []string{clientIdHeaderName, clientIdProofHeaderName},
 		AllowCredentials: true,
 	}))
 
@@ -87,7 +88,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 			}
 
 			if clientID == "" {
-				clientID = resolveValidatedClientID(app, req)
+				clientID = getClientIdFromRequest(app, req)
 			}
 
 			if clientID == "" {
@@ -111,6 +112,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 			setClientIdentityHeaders(c.Response().Header(), app, clientID)
 
 			c.Set(clientIdCookieName, clientID)
+			c.Set(clientPlatformHeader, getClientPlatformFromRequest(req))
 
 			return next(c)
 		}

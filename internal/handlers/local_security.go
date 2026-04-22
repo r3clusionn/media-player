@@ -320,6 +320,20 @@ func getContextClientId(c echo.Context) string {
 	return ""
 }
 
+func getClientPlatformFromContext(c echo.Context) string {
+	if c == nil {
+		return ""
+	}
+
+	if value := c.Get(clientPlatformHeader); value != nil {
+		if platform, ok := value.(string); ok {
+			return normalizeClientPlatform(platform)
+		}
+	}
+
+	return ""
+}
+
 // getRequestClientId retrieves the client ID from the context or falls back to the claimed value after trimming whitespace.
 func getRequestClientId(c echo.Context, claimed string) string {
 	if contextClientID := getContextClientId(c); contextClientID != "" {

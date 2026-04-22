@@ -61,13 +61,15 @@ func (h *Handler) webSocketEventHandler(c echo.Context) error {
 	if id == "" {
 		id = "0"
 	}
+	platform := getClientPlatformFromContext(c)
 
 	// Add connection to manager
-	h.App.WSEventManager.AddConn(id, ws)
-	h.App.Logger.Debug().Str("id", id).Msg("ws: Client connected")
+	h.App.WSEventManager.AddConn(id, ws, platform)
+	h.App.Logger.Debug().Str("id", id).Str("platform", platform).Msg("ws: Client connected")
 	h.App.WSEventManager.SendEventTo(id, events.ClientIdentity, map[string]string{
 		"clientId": id,
 		"proof":    generateClientIdentityProof(h.App, id),
+		"platform": platform,
 	}, true)
 
 	for {

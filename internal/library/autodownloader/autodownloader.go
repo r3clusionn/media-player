@@ -165,6 +165,33 @@ func (ad *AutoDownloader) ClearSimulationResults() {
 	ad.simulationResults = make([]*SimulationResult, 0)
 }
 
+func (ad *AutoDownloader) GetSettings() *models.AutoDownloaderSettings {
+	if ad == nil {
+		return nil
+	}
+
+	ad.mu.Lock()
+	defer ad.mu.Unlock()
+
+	if ad.settings == nil {
+		return nil
+	}
+
+	settings := *ad.settings
+	return &settings
+}
+
+func (ad *AutoDownloader) IsEnabled() bool {
+	if ad == nil {
+		return false
+	}
+
+	ad.mu.Lock()
+	defer ad.mu.Unlock()
+
+	return ad.settings != nil && ad.settings.Enabled
+}
+
 // RunCheck runs the auto downloader synchronously for testing purposes
 // This directly calls checkForNewEpisodes without using goroutines
 func (ad *AutoDownloader) RunCheck(ctx context.Context, isSimulation bool, ruleIDs ...uint) {

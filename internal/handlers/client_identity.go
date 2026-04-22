@@ -12,8 +12,27 @@ const (
 	clientIdCookieName      = "Seanime-Client-Id"
 	clientIdQueryParam      = "id"
 	clientIdProofQueryParam = "proof"
+	clientPlatformHeader    = "X-Seanime-Client-Platform"
+	clientPlatformQuery     = "platform"
 	clientIdTokenPrefix     = "client-id:"
+
+	ClientPlatformWeb    = "web"
+	ClientPlatformDenshi = "denshi"
+	ClientPlatformMobile = "mobile"
 )
+
+func normalizeClientPlatform(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case ClientPlatformWeb:
+		return ClientPlatformWeb
+	case ClientPlatformDenshi:
+		return ClientPlatformDenshi
+	case ClientPlatformMobile:
+		return ClientPlatformMobile
+	default:
+		return ""
+	}
+}
 
 func formatClientIdTokenSubject(clientID string) string {
 	return clientIdTokenPrefix + strings.TrimSpace(clientID)
@@ -47,7 +66,7 @@ func getSignedClientId(app *core.App, claimedId string, proof string) string {
 	return claimedId
 }
 
-func resolveValidatedClientID(app *core.App, req *http.Request) string {
+func getClientIdFromRequest(app *core.App, req *http.Request) string {
 	if req == nil {
 		return ""
 	}
@@ -60,6 +79,22 @@ func resolveValidatedClientID(app *core.App, req *http.Request) string {
 		if clientID := getSignedClientId(app, req.URL.Query().Get(clientIdQueryParam), req.URL.Query().Get(clientIdProofQueryParam)); clientID != "" {
 			return clientID
 		}
+	}
+
+	return ""
+}
+
+func getClientPlatformFromRequest(req *http.Request) string {
+	if req == nil {
+		return ""
+	}
+
+	if platform := normalizeClientPlatform(req.Header.Get(clientPlatformHeader)); platform != "" {
+		return platform
+	}
+
+	if req.URL != nil && req.URL.Path == "/events" {
+		return normalizeClientPlatform(req.URL.Query().Get(clientPlatformQuery))
 	}
 
 	return ""

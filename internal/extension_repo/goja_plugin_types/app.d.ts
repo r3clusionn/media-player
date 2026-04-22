@@ -484,20 +484,20 @@ declare namespace $app {
      * @file internal/library/autodownloader/hook_events.go
      * @description
      * AutoDownloaderBeforeFetchTorrentsEvent is triggered before the autodownloader fetches torrents from providers.
-     * Hooks can add custom torrents to Torrents. Prevent default to skip native provider retrieval.
+     * Prevent default to skip native provider retrieval.
      */
     function onAutoDownloaderBeforeFetchTorrents(cb: (event: AutoDownloaderBeforeFetchTorrentsEvent) => void): void;
 
     interface AutoDownloaderBeforeFetchTorrentsEvent {
+        next(): void;
+
+        preventDefault(): void;
+
         rules?: Array<Anime_AutoDownloaderRule>;
         profiles?: Array<Anime_AutoDownloaderProfile>;
         providerIds?: Array<string>;
         defaultProvider: string;
         torrents?: Array<AutoDownloader_NormalizedTorrent>;
-
-        next(): void;
-
-        preventDefault(): void;
     }
 
     /**
@@ -768,6 +768,43 @@ declare namespace $app {
     }
 
     /**
+     * @event DebridAddTorrentRequestedEvent
+     * @file internal/debrid/client/hook_events.go
+     * @description
+     * DebridAddTorrentRequestedEvent is triggered when Seanime is about to add a torrent to the debrid provider.
+     * Prevent default to bypass the native add call and provide TorrentItemID yourself.
+     */
+    function onDebridAddTorrentRequested(cb: (event: DebridAddTorrentRequestedEvent) => void): void;
+
+    interface DebridAddTorrentRequestedEvent {
+        options?: Debrid_AddTorrentOptions;
+        destination: string;
+        mediaId: number;
+        torrentItemId: string;
+
+        next(): void;
+
+        preventDefault(): void;
+    }
+
+    /**
+     * @event DebridAddTorrentEvent
+     * @file internal/debrid/client/hook_events.go
+     * @description
+     * DebridAddTorrentEvent is triggered after Seanime adds a torrent to the debrid provider and queues it locally.
+     */
+    function onDebridAddTorrent(cb: (event: DebridAddTorrentEvent) => void): void;
+
+    interface DebridAddTorrentEvent {
+        options?: Debrid_AddTorrentOptions;
+        destination: string;
+        mediaId: number;
+        torrentItemId: string;
+
+        next(): void;
+    }
+
+    /**
      * @event DebridLocalDownloadRequestedEvent
      * @file internal/debrid/client/hook_events.go
      * @description
@@ -784,6 +821,39 @@ declare namespace $app {
         torrentName: string;
         destination: string;
         downloadUrl: string;
+    }
+
+    /**
+     * @event DebridLocalDownloadStartedEvent
+     * @file internal/debrid/client/hook_events.go
+     * @description
+     * DebridLocalDownloadStartedEvent is triggered right after Seanime accepts a local debrid download.
+     */
+    function onDebridLocalDownloadStarted(cb: (event: DebridLocalDownloadStartedEvent) => void): void;
+
+    interface DebridLocalDownloadStartedEvent {
+        torrentItemId: string;
+        torrentName: string;
+        destination: string;
+        downloadUrl: string;
+
+        next(): void;
+    }
+
+    /**
+     * @event DebridLocalDownloadCompletedEvent
+     * @file internal/debrid/client/hook_events.go
+     * @description
+     * DebridLocalDownloadCompletedEvent is triggered when Seanime finishes a local debrid download.
+     */
+    function onDebridLocalDownloadCompleted(cb: (event: DebridLocalDownloadCompletedEvent) => void): void;
+
+    interface DebridLocalDownloadCompletedEvent {
+        torrentItemId: string;
+        torrentName: string;
+        destination: string;
+
+        next(): void;
     }
 
 
@@ -1847,6 +1917,45 @@ declare namespace $app {
         localFile?: Anime_LocalFile;
         mediaId: number;
         episode: number;
+    }
+
+
+    /**
+     * @package torrent
+     */
+
+    /**
+     * @event TorrentSearchRequestedEvent
+     * @file internal/torrents/torrent/hook_events.go
+     * @description
+     * TorrentSearchRequestedEvent is triggered before Seanime searches anime torrents.
+     * Prevent default to skip the native search and return SearchData.
+     */
+    function onTorrentSearchRequested(cb: (event: TorrentSearchRequestedEvent) => void): void;
+
+    interface TorrentSearchRequestedEvent {
+        options: Torrent_AnimeSearchOptions;
+        searchData?: Torrent_SearchData;
+
+        next(): void;
+
+        preventDefault(): void;
+    }
+
+    /**
+     * @event TorrentSearchEvent
+     * @file internal/torrents/torrent/hook_events.go
+     * @description
+     * TorrentSearchEvent is triggered after Seanime assembles the torrent search response.
+     * Handlers can mutate SearchData before it is cached and returned.
+     */
+    function onTorrentSearch(cb: (event: TorrentSearchEvent) => void): void;
+
+    interface TorrentSearchEvent {
+        options: Torrent_AnimeSearchOptions;
+        searchData?: Torrent_SearchData;
+
+        next(): void;
     }
 
 
@@ -3654,6 +3763,36 @@ declare namespace $app {
     }
 
     /**
+     * - Filepath: internal/debrid/debrid/debrid.go
+     */
+    interface Debrid_AddTorrentOptions {
+        magnetLink: string;
+        infoHash: string;
+        /**
+         * Real-Debrid only, ID, IDs, or "all"
+         */
+        selectFileId: string;
+    }
+
+    /**
+     * - Filepath: internal/debrid/debrid/debrid.go
+     */
+    interface Debrid_CachedFile {
+        size: number;
+        name: string;
+    }
+
+    /**
+     * - Filepath: internal/debrid/debrid/debrid.go
+     */
+    interface Debrid_TorrentItemInstantAvailability {
+        /**
+         * Key is the file ID (or index)
+         */
+        cachedFiles?: Record<string, Debrid_CachedFile>;
+    }
+
+    /**
      * - Filepath: internal/discordrpc/presence/presence.go
      */
     interface DiscordRPC_AnimeActivity {
@@ -3943,5 +4082,72 @@ declare namespace $app {
      * - Filepath: internal/torrent_clients/torrent_client/torrent.go
      */
     export type TorrentClient_TorrentStatus = "downloading" | "seeding" | "paused" | "other" | "stopped";
+
+    /**
+     * - Filepath: internal/torrents/torrent/search.go
+     */
+    interface Torrent_AnimeSearchOptions {
+        Provider: string;
+        Type: Torrent_AnimeSearchType;
+        Media?: AL_BaseAnime;
+        Query: string;
+        Batch: boolean;
+        EpisodeNumber: number;
+        BestReleases: boolean;
+        Resolution: string;
+        IncludeSpecialProviders: boolean;
+        SkipPreviews: boolean;
+    }
+
+    /**
+     * - Filepath: internal/torrents/torrent/search.go
+     */
+    export type Torrent_AnimeSearchType = "smart" | "simple";
+
+    /**
+     * - Filepath: internal/torrents/torrent/search.go
+     */
+    interface Torrent_Preview {
+        /**
+         * nil if batch
+         */
+        episode?: Anime_Episode;
+        torrent?: HibikeTorrent_AnimeTorrent;
+    }
+
+    /**
+     * - Filepath: internal/torrents/torrent/search.go
+     */
+    interface Torrent_SearchData {
+        /**
+         * Torrents found
+         */
+        torrents?: Array<HibikeTorrent_AnimeTorrent>;
+        /**
+         * TorrentPreview for each torrent
+         */
+        previews?: Array<Torrent_Preview>;
+        /**
+         * Torrent metadata
+         */
+        torrentMetadata?: Record<string, Torrent_TorrentMetadata>;
+        /**
+         * Debrid instant availability
+         */
+        debridInstantAvailability?: Record<string, Debrid_TorrentItemInstantAvailability>;
+        /**
+         * Animap media
+         */
+        animeMetadata?: Metadata_AnimeMetadata;
+        includedSpecialProviders?: Array<string>;
+    }
+
+    /**
+     * - Filepath: internal/torrents/torrent/search.go
+     */
+    interface Torrent_TorrentMetadata {
+        distance: number;
+        metadata?: $habari.Metadata;
+    }
 
 }

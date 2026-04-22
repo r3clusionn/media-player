@@ -30,16 +30,16 @@ const (
 )
 
 type StartStreamOptions struct {
-	MediaId           int
-	EpisodeNumber     int                         // RELATIVE Episode number to identify the file
-	AniDBEpisode      string                      // Animap episode
-	AutoSelect        bool                        // Automatically select the best file to stream
-	Torrent           *hibiketorrent.AnimeTorrent // Selected torrent (Manual selection)
-	FileIndex         *int                        // Index of the file to stream (Manual selection)
-	UserAgent         string
-	ClientId          string
-	PlaybackType      PlaybackType
-	BatchEpisodeFiles *hibiketorrent.BatchEpisodeFiles
+	MediaId           int                              `json:"mediaId"`
+	EpisodeNumber     int                              `json:"episodeNumber"` // RELATIVE Episode number to identify the file
+	AniDBEpisode      string                           `json:"aniDbEpisode"`  // Animap episode
+	AutoSelect        bool                             `json:"autoSelect"`    // Automatically select the best file to stream
+	Torrent           *hibiketorrent.AnimeTorrent      `json:"torrent"`       // Selected torrent (Manual selection)
+	FileIndex         *int                             `json:"fileIndex"`     // Index of the file to stream (Manual selection)
+	UserAgent         string                           `json:"userAgent"`
+	ClientId          string                           `json:"clientId"`
+	PlaybackType      PlaybackType                     `json:"playbackType"`
+	BatchEpisodeFiles *hibiketorrent.BatchEpisodeFiles `json:"batchEpisodeFiles"`
 }
 
 // StartStream is called by the client to start streaming a torrent
