@@ -4,6 +4,48 @@ import type { Anime4KPipeline } from "anime4k-webgpu"
 
 const log = logger("VIDEO CORE ANIME 4K MANAGER")
 
+const anime4kCaptureShader = /* wgsl */`
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn vert_main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+    var positions = array<vec2<f32>, 6>(
+        vec2<f32>(-1.0, -1.0),
+        vec2<f32>(1.0, -1.0),
+        vec2<f32>(-1.0, 1.0),
+        vec2<f32>(-1.0, 1.0),
+        vec2<f32>(1.0, -1.0),
+        vec2<f32>(1.0, 1.0),
+    );
+
+    var uvs = array<vec2<f32>, 6>(
+        vec2<f32>(0.0, 1.0),
+        vec2<f32>(1.0, 1.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(0.0, 0.0),
+        vec2<f32>(1.0, 1.0),
+        vec2<f32>(1.0, 0.0),
+    );
+
+    var output: VertexOutput;
+    output.position = vec4<f32>(positions[vertexIndex], 0.0, 1.0);
+    output.uv = uvs[vertexIndex];
+    return output;
+}
+
+@group(0) @binding(0) var inputTexture: texture_2d<f32>;
+
+@fragment
+fn frag_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let textureSize = vec2<f32>(textureDimensions(inputTexture));
+    let coords = vec2<i32>(clamp(input.uv * textureSize, vec2<f32>(0.0), textureSize - vec2<f32>(1.0)));
+    return textureLoad(inputTexture, coords, 0);
+}
+`
+
 export type Anime4KManagerCanvasCreatedEvent = CustomEvent<{ canvas: HTMLCanvasElement }>
 export type Anime4KManagerOptionChangedEvent = CustomEvent<{ newOption: Anime4KOption }>
 export type Anime4KManagerErrorEvent = CustomEvent<{ message: string }>
@@ -52,12 +94,18 @@ interface RenderStats {
     renderCallbackId: number | null
 }
 
+interface Anime4KWebGPUResources {
+    device?: GPUDevice
+    pipelines?: Anime4KPipeline[]
+    outputTexture?: GPUTexture
+}
+
 export class VideoCoreAnime4KManager extends EventTarget {
     canvas: HTMLCanvasElement | null = null
     private readonly videoElement: HTMLVideoElement
     private settings: VideoCoreSettings
     private _currentOption: Anime4KOption = "off"
-    private _webgpuResources: { device?: GPUDevice; pipelines?: any[] } | null = null
+    private _webgpuResources: Anime4KWebGPUResources | null = null
     private _renderLoopId: number | null = null
     private _abortController: AbortController | null = null
     private _frameDropState: FrameDropState = {
@@ -117,6 +165,130 @@ export class VideoCoreAnime4KManager extends EventTarget {
 
     getCurrentOption(): Anime4KOption {
         return this._currentOption
+    }
+
+    async captureFrame(): Promise<Blob | null> {
+        const device = this._webgpuResources?.device
+        const outputTexture = this._webgpuResources?.outputTexture
+
+        if (!device || !outputTexture) {
+            return null
+        }
+
+        const width = outputTexture.width
+        const height = outputTexture.height
+
+        if (!width || !height) {
+            return null
+        }
+
+        const captureTexture = device.createTexture({
+            label: "anime4k-screenshot-texture",
+            size: [width, height, 1],
+            format: "rgba8unorm",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+        })
+
+        const bindGroupLayout = device.createBindGroupLayout({
+            entries: [{
+                binding: 0,
+                visibility: GPUShaderStage.FRAGMENT,
+                texture: { sampleType: "float" },
+            }],
+        })
+
+        const pipeline = device.createRenderPipeline({
+            layout: device.createPipelineLayout({ bindGroupLayouts: [bindGroupLayout] }),
+            vertex: {
+                module: device.createShaderModule({ code: anime4kCaptureShader }),
+                entryPoint: "vert_main",
+            },
+            fragment: {
+                module: device.createShaderModule({ code: anime4kCaptureShader }),
+                entryPoint: "frag_main",
+                targets: [{ format: "rgba8unorm" }],
+            },
+            primitive: { topology: "triangle-list" },
+        })
+
+        const bindGroup = device.createBindGroup({
+            layout: bindGroupLayout,
+            entries: [{ binding: 0, resource: outputTexture.createView() }],
+        })
+
+        const bytesPerPixel = 4
+        const unpaddedBytesPerRow = width * bytesPerPixel
+        const bytesPerRow = Math.ceil(unpaddedBytesPerRow / 256) * 256
+        const buffer = device.createBuffer({
+            label: "anime4k-screenshot-buffer",
+            size: bytesPerRow * height,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        })
+
+        try {
+            const encoder = device.createCommandEncoder()
+            const pass = encoder.beginRenderPass({
+                colorAttachments: [{
+                    view: captureTexture.createView(),
+                    clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                    loadOp: "clear",
+                    storeOp: "store",
+                }],
+            })
+
+            pass.setPipeline(pipeline)
+            pass.setBindGroup(0, bindGroup)
+            pass.draw(6)
+            pass.end()
+
+            encoder.copyTextureToBuffer(
+                { texture: captureTexture },
+                { buffer, bytesPerRow, rowsPerImage: height },
+                { width, height, depthOrArrayLayers: 1 },
+            )
+
+            device.queue.submit([encoder.finish()])
+
+            await buffer.mapAsync(GPUMapMode.READ)
+
+            const mappedRange = new Uint8Array(buffer.getMappedRange())
+            const pixels = new Uint8ClampedArray(unpaddedBytesPerRow * height)
+
+            for (let row = 0; row < height; row++) {
+                const sourceOffset = row * bytesPerRow
+                const destinationOffset = row * unpaddedBytesPerRow
+                pixels.set(mappedRange.subarray(sourceOffset, sourceOffset + unpaddedBytesPerRow), destinationOffset)
+            }
+
+            const canvas = document.createElement("canvas")
+            const ctx = canvas.getContext("2d")
+            if (!ctx) {
+                canvas.remove()
+                return null
+            }
+
+            canvas.width = width
+            canvas.height = height
+            ctx.putImageData(new ImageData(pixels, width, height), 0, 0)
+
+            return await new Promise((resolve) => {
+                canvas.toBlob((blob) => {
+                    canvas.remove()
+                    resolve(blob)
+                }, "image/png")
+            })
+        }
+        catch (error) {
+            log.error("Failed to capture Anime4K frame", error)
+            return null
+        }
+        finally {
+            if (buffer.mapState === "mapped") {
+                buffer.unmap()
+            }
+            buffer.destroy()
+            captureTexture.destroy()
+        }
     }
 
     addEventListener<K extends keyof VideoCoreAnime4KManagerEventMap>(
@@ -451,8 +623,6 @@ export class VideoCoreAnime4KManager extends EventTarget {
             video: this.videoElement,
             canvas: this.canvas,
             pipelineBuilder: (device, inputTexture) => {
-                this._webgpuResources = { device }
-
                 const commonProps = {
                     device,
                     inputTexture,
@@ -460,7 +630,14 @@ export class VideoCoreAnime4KManager extends EventTarget {
                     targetDimensions,
                 }
 
-                return this.createPipeline(commonProps, anime4k)
+                const pipelines = this.createPipeline(commonProps, anime4k)
+                this._webgpuResources = {
+                    device,
+                    pipelines,
+                    outputTexture: pipelines.at(-1)?.getOutputTexture(),
+                }
+
+                return pipelines
             },
         })
 
