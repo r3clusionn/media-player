@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
   - Added Playback API methods
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - ⚡️ Windows: Use user-default explorer application
+- ⚡️ Denshi: Right-click context menu for inputs
 - 🦺 Denshi: Fixed blank screen after server reconnection
 - 🦺 Transcoder: Fixed 10bit issues with NVENC (?)
 - 🦺 Continuity: Fixed potential progress being ignored

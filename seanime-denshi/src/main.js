@@ -881,6 +881,24 @@ async function restartSeanimeServer() {
 // Main window
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function showEditableContextMenu(webContents, params) {
+    if (!params.isEditable) return
+
+    const template = [
+        { role: "undo", enabled: params.editFlags.canUndo },
+        { role: "redo", enabled: params.editFlags.canRedo },
+        { type: "separator" },
+        { role: "cut", enabled: params.editFlags.canCut },
+        { role: "copy", enabled: params.editFlags.canCopy },
+        { role: "paste", enabled: params.editFlags.canPaste },
+        { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ]
+
+    Menu.buildFromTemplate(template).popup({
+        window: BrowserWindow.fromWebContents(webContents) ?? undefined,
+    })
+}
+
 function createMainWindow() {
     logStartupEvent("Creating main window")
 
@@ -915,6 +933,13 @@ function createMainWindow() {
     }
 
     mainWindow = new BrowserWindow(windowOptions)
+
+    mainWindow.webContents.on("context-menu", (event, params) => {
+        if (!params.isEditable) return
+
+        event.preventDefault()
+        showEditableContextMenu(mainWindow.webContents, params)
+    })
 
     // Hide the title bar on Windows
     if (process.platform === "win32" || process.platform === "linux") {
