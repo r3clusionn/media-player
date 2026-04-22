@@ -594,5 +594,9 @@ func (h *Handler) HandleGetLocalMangaPage(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	headers := c.Response().Header()
+	headers.Set("Access-Control-Allow-Origin", "*")
+	headers.Set("Cross-Origin-Resource-Policy", "cross-origin")
+
 	return c.Stream(http.StatusOK, "image/jpeg", reader)
 }

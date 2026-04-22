@@ -6,14 +6,13 @@ import (
 )
 
 const (
-	Version              = "3.6.2-alpha.2"
+	Version              = "3.6.2-alpha.5"
 	VersionName          = "Kagero"
 	GcTime               = time.Minute * 30
 	ConfigFileName       = "config.toml"
 	MalClientId          = "51cb4294feb400f3ddc66a30f9b9a00f"
 	DiscordApplicationId = "1224777421941899285"
 	AnilistApiUrl        = "https://graphql.anilist.co"
-	IsRspackFrontend     = true
 )
 
 const (

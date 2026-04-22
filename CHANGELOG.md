@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - 🦺 Continuity: Fixed potential progress being ignored
 - 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
 - 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
+- 🦺 Plugin: Fixed $storage API returning stale data
 - 🔒 Server: Security overhaul
   - Passwordless access is now local-only by default
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary

@@ -77,6 +77,7 @@ export function ChapterPage(props: ChapterPageProps) {
                     data-page-index={index}
                     src={HIDE_IMAGES ? "/no-cover.png" : getChapterPageUrl(page.url, pageContainer?.isDownloaded, page.headers)}
                     alt={`Page ${index}`}
+                    crossOrigin="anonymous"
                     className={imageClass}
                     style={{ width: imageWidth, maxWidth: imageMaxWidth }}
                     ref={ref}
@@ -145,6 +146,7 @@ const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement | null>) 
         const handleError = (event: ErrorEvent) => {
             logger("chapter-page").info("retrying")
             if (retries.current >= 3) {
+                logger("chapter-page").info("max retries reached", event.error)
                 setImageStatus(IMAGE_STATUS.ERROR)
                 return
             }
