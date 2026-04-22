@@ -2,12 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## v3.6.2-alpha.2
+## v3.6.2-alpha.5
 
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods #699 and skip data manipulation
-  - Added Auto Downloader hooks
-  - Added Playback API methods
+  - Added Auto Downloader, Torrent search hooks
+  - Added Playback, Scanner, Debrid, Torrent streaming, Torrent search, Auto-select API methods
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - ⚡️ Windows: Use user-default explorer application
 - ⚡️ Denshi: Right-click context menu for inputs

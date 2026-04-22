@@ -482,6 +482,9 @@ func (m *Manager) listenToPlayerEvents() {
 						subReader.SetResponsive()
 						ts.StartSubtitleStream(ts, m.playbackCtx, subReader, 0)
 					}
+				case *videocore.VideoSeekedEvent:
+					m.Logger.Trace().Float64("currentTime", event.CurrentTime).Msg("directstream: Video seeked, refreshing subtitle stream")
+					go m.startSubtitleStreamForTime(cs, playbackInfo, event.CurrentTime, event.Duration)
 				case *videocore.VideoErrorEvent:
 					m.Logger.Debug().Msgf("directstream: Video error, Error: %s", event.Error)
 					cs.StreamError(fmt.Errorf("%s", event.Error))
