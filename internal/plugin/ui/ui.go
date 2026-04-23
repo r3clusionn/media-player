@@ -196,6 +196,7 @@ func (u *UI) Register(callback string) error {
 	//u.context.webviewManager.renderWebviewScheduled()
 	u.context.webviewManager.renderWebviewIframe()
 	u.context.webviewManager.renderWebviewSidebar()
+	u.context.episodeTabManager.renderTabs()
 
 	u.wsEventManager.SendEvent(events.PluginLoaded, u.ext.ID)
 

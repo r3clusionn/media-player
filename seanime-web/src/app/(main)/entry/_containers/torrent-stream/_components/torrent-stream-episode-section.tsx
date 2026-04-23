@@ -172,9 +172,9 @@ export function TorrentStreamEpisodeSection(props: TorrentStreamEpisodeSectionPr
                                         <LuTvMinimalPlay />
                                         Play externally
                                     </DropdownMenuItem>}
-                                    <PluginEpisodeGridItemMenuItems isDropdownMenu={false} type="torrentstream" episode={episode as Anime_Episode} />
+                                    <PluginEpisodeGridItemMenuItems isDropdownMenu={false} type={contextType} episode={episode as Anime_Episode} />
                                 </DropdownMenu> : (
-                                    <PluginEpisodeGridItemMenuItems isDropdownMenu={true} type="torrentstream" episode={episode as Anime_Episode} />
+                                    <PluginEpisodeGridItemMenuItems isDropdownMenu={true} type={contextType} episode={episode as Anime_Episode} />
                                 )}
 
                             </>}

@@ -42,10 +42,14 @@ const (
 	ClientActionRenderEpisodeCardContextMenuItemsEvent ClientEventType = "action:episode-card-context-menu-items:render" // When the client requests the context menu items to display on the episode card
 	ClientActionRenderEpisodeGridItemMenuItemsEvent    ClientEventType = "action:episode-grid-item-menu-items:render"    // When the client requests the context menu items to display on the episode grid item
 	ClientActionClickedEvent                           ClientEventType = "action:clicked"                                // When the user clicks on an action
-	ClientFormSubmittedEvent                           ClientEventType = "form:submitted"                                // When the form registered by the tray is submitted
-	ClientScreenChangedEvent                           ClientEventType = "screen:changed"                                // When the current screen changes
-	ClientEventHandlerTriggeredEvent                   ClientEventType = "handler:triggered"                             // When a custom event registered by the plugin is triggered
-	ClientFieldRefSendValueEvent                       ClientEventType = "field-ref:send-value"                          // When the client sends the value of a field that has a ref
+	ClientAnimeEntryEpisodeTabsRenderEvent             ClientEventType = "anime:entry-episode-tabs:render"
+	ClientAnimeEntryEpisodeTabOpenEvent                ClientEventType = "anime:entry-episode-tab:open"
+	ClientAnimeEntryEpisodeTabSelectEpisodeEvent       ClientEventType = "anime:entry-episode-tab:select-episode"
+	ClientAnimeEntryEpisodeTabStateChangedEvent        ClientEventType = "anime:entry-episode-tab:state-changed"
+	ClientFormSubmittedEvent                           ClientEventType = "form:submitted"       // When the form registered by the tray is submitted
+	ClientScreenChangedEvent                           ClientEventType = "screen:changed"       // When the current screen changes
+	ClientEventHandlerTriggeredEvent                   ClientEventType = "handler:triggered"    // When a custom event registered by the plugin is triggered
+	ClientFieldRefSendValueEvent                       ClientEventType = "field-ref:send-value" // When the client sends the value of a field that has a ref
 
 	ClientDOMQueryResultEvent    ClientEventType = "dom:query-result"     // Result of a DOM query
 	ClientDOMQueryOneResultEvent ClientEventType = "dom:query-one-result" // Result of a DOM query for one element
@@ -86,6 +90,24 @@ type ClientActionRenderMediaCardContextMenuItemsEventPayload struct{}
 type ClientActionRenderAnimeLibraryDropdownItemsEventPayload struct{}
 type ClientActionRenderEpisodeCardContextMenuItemsEventPayload struct{}
 type ClientActionRenderEpisodeGridItemMenuItemsEventPayload struct{}
+type ClientAnimeEntryEpisodeTabsRenderEventPayload struct {
+	MediaID int `json:"mediaId"`
+}
+
+type ClientAnimeEntryEpisodeTabOpenEventPayload struct {
+	MediaID int `json:"mediaId"`
+}
+
+type ClientAnimeEntryEpisodeTabSelectEpisodeEventPayload struct {
+	MediaID       int         `json:"mediaId"`
+	EpisodeNumber int         `json:"episodeNumber"`
+	AniDbEpisode  string      `json:"aniDbEpisode,omitempty"`
+	Episode       interface{} `json:"episode,omitempty"`
+}
+
+type ClientAnimeEntryEpisodeTabStateChangedEventPayload struct {
+	IsOpen bool `json:"isOpen"`
+}
 
 type ClientListCommandPalettesEventPayload struct{}
 
@@ -215,6 +237,8 @@ const (
 	ServerActionRenderEpisodeCardContextMenuItemsEvent ServerEventType = "action:episode-card-context-menu-items:updated" // When the server renders the episode card context menu items
 	ServerActionRenderEpisodeGridItemMenuItemsEvent    ServerEventType = "action:episode-grid-item-menu-items:updated"    // When the server renders the episode grid item menu items
 	ServerActionRenderAnimeLibraryDropdownItemsEvent   ServerEventType = "action:anime-library-dropdown-items:updated"    // When the server renders the anime library dropdown items
+	ServerAnimeEntryEpisodeTabsUpdatedEvent            ServerEventType = "anime:entry-episode-tabs:updated"
+	ServerAnimeEntryEpisodeTabEpisodeCollectionEvent   ServerEventType = "anime:entry-episode-tab:episode-collection"
 	ServerFormResetEvent                               ServerEventType = "form:reset"
 	ServerFormSetValuesEvent                           ServerEventType = "form:set-values"
 	ServerFieldRefSetValueEvent                        ServerEventType = "field-ref:set-value" // Set the value of a field (not in a form)
@@ -351,6 +375,14 @@ type ServerActionRenderEpisodeCardContextMenuItemsEventPayload struct {
 
 type ServerActionRenderEpisodeGridItemMenuItemsEventPayload struct {
 	Items interface{} `json:"items"`
+}
+
+type ServerAnimeEntryEpisodeTabsUpdatedEventPayload struct {
+	Tabs interface{} `json:"tabs"`
+}
+
+type ServerAnimeEntryEpisodeTabEpisodeCollectionEventPayload struct {
+	EpisodeCollection interface{} `json:"episodeCollection"`
 }
 
 type ServerScreenReloadEventPayload struct{}

@@ -80,6 +80,7 @@ type Context struct {
 	trayManager           *TrayManager           // Register and manage tray
 	webviewManager        *WebviewManager        // Register and manage webviews
 	actionManager         *ActionManager         // Register and manage actions
+	episodeTabManager     *EpisodeTabManager     // Register and manage anime entry episode tabs
 	formManager           *FormManager           // Register and manage forms
 	toastManager          *ToastManager          // Register and manage toasts
 	commandPaletteManager *CommandPaletteManager // Register and manage command palette
@@ -146,6 +147,7 @@ func NewContext(ui *UI) *Context {
 	ret.trayManager = NewTrayManager(ret)
 	ret.webviewManager = NewWebviewManager(ret)
 	ret.actionManager = NewActionManager(ret)
+	ret.episodeTabManager = NewEpisodeTabManager(ret)
 	ret.webviewManager = NewWebviewManager(ret)
 	ret.screenManager = NewScreenManager(ret)
 	ret.formManager = NewFormManager(ret)
@@ -204,6 +206,7 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindMangaToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind anime
 	plugin.GlobalAppContext.BindAnimeToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	c.episodeTabManager.bindAnime(obj.Get("anime").ToObject(vm))
 	// Bind continuity
 	plugin.GlobalAppContext.BindContinuityToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind filler manager
@@ -1352,6 +1355,7 @@ func (c *Context) Stop() {
 
 	c.actionManager.UnmountAll()
 	c.actionManager.renderAnimePageButtons()
+	c.episodeTabManager.UnmountAll()
 
 	c.logger.Debug().Msg("plugin: Stopped context")
 }

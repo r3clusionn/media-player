@@ -27,6 +27,10 @@ export enum PluginClientEvents {
     ActionRenderEpisodeCardContextMenuItems = "action:episode-card-context-menu-items:render",
     ActionRenderEpisodeGridItemMenuItems = "action:episode-grid-item-menu-items:render",
     ActionClicked = "action:clicked",
+    AnimeEntryEpisodeTabsRender = "anime:entry-episode-tabs:render",
+    AnimeEntryEpisodeTabOpen = "anime:entry-episode-tab:open",
+    AnimeEntryEpisodeTabSelectEpisode = "anime:entry-episode-tab:select-episode",
+    AnimeEntryEpisodeTabStateChanged = "anime:entry-episode-tab:state-changed",
     FormSubmitted = "form:submitted",
     ScreenChanged = "screen:changed",
     EventHandlerTriggered = "handler:triggered",
@@ -67,6 +71,8 @@ export enum PluginServerEvents {
     ActionRenderEpisodeCardContextMenuItems = "action:episode-card-context-menu-items:updated",
     ActionRenderEpisodeGridItemMenuItems = "action:episode-grid-item-menu-items:updated",
     ActionRenderAnimeLibraryDropdownItems = "action:anime-library-dropdown-items:updated",
+    AnimeEntryEpisodeTabsUpdated = "anime:entry-episode-tabs:updated",
+    AnimeEntryEpisodeTabEpisodeCollection = "anime:entry-episode-tab:episode-collection",
     FormReset = "form:reset",
     FormSetValues = "form:set-values",
     FieldRefSetValue = "field-ref:set-value",
@@ -456,6 +462,79 @@ export function usePluginSendActionClickedEvent() {
 
     return {
         sendActionClickedEvent,
+    }
+}
+
+export type Plugin_Client_AnimeEntryEpisodeTabsRenderEventPayload = {
+    mediaId: number
+}
+
+export function usePluginSendAnimeEntryEpisodeTabsRenderEvent() {
+    const { sendPluginMessage } = useWebsocketSender()
+
+    const sendAnimeEntryEpisodeTabsRenderEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabsRenderEventPayload,
+        extensionID?: string,
+    ) => {
+        sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabsRender, payload, extensionID)
+    }, [])
+
+    return {
+        sendAnimeEntryEpisodeTabsRenderEvent,
+    }
+}
+
+export type Plugin_Client_AnimeEntryEpisodeTabOpenEventPayload = {
+    mediaId: number
+}
+
+export function usePluginSendAnimeEntryEpisodeTabOpenEvent() {
+    const { sendPluginMessage } = useWebsocketSender()
+
+    const sendAnimeEntryEpisodeTabOpenEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabOpenEventPayload, extensionID?: string) => {
+        sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabOpen, payload, extensionID)
+    }, [])
+
+    return {
+        sendAnimeEntryEpisodeTabOpenEvent,
+    }
+}
+
+export type Plugin_Client_AnimeEntryEpisodeTabSelectEpisodeEventPayload = {
+    mediaId: number
+    episodeNumber: number
+    aniDbEpisode: string
+    episode: any
+}
+
+export function usePluginSendAnimeEntryEpisodeTabSelectEpisodeEvent() {
+    const { sendPluginMessage } = useWebsocketSender()
+
+    const sendAnimeEntryEpisodeTabSelectEpisodeEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabSelectEpisodeEventPayload,
+        extensionID?: string,
+    ) => {
+        sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabSelectEpisode, payload, extensionID)
+    }, [])
+
+    return {
+        sendAnimeEntryEpisodeTabSelectEpisodeEvent,
+    }
+}
+
+export type Plugin_Client_AnimeEntryEpisodeTabStateChangedEventPayload = {
+    isOpen: boolean
+}
+
+export function usePluginSendAnimeEntryEpisodeTabStateChangedEvent() {
+    const { sendPluginMessage } = useWebsocketSender()
+
+    const sendAnimeEntryEpisodeTabStateChangedEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabStateChangedEventPayload,
+        extensionID?: string,
+    ) => {
+        sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabStateChanged, payload, extensionID)
+    }, [])
+
+    return {
+        sendAnimeEntryEpisodeTabStateChangedEvent,
     }
 }
 
@@ -988,6 +1067,34 @@ export function usePluginListenActionRenderAnimeLibraryDropdownItemsEvent(cb: (p
     return useWebsocketPluginMessageListener<Plugin_Server_ActionRenderAnimeLibraryDropdownItemsEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.ActionRenderAnimeLibraryDropdownItems,
+        onMessage: cb,
+    })
+}
+
+export type Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload = {
+    tabs: any
+}
+
+export function usePluginListenAnimeEntryEpisodeTabsUpdatedEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload,
+    extensionId: string,
+) => void, extensionID: string) {
+    return useWebsocketPluginMessageListener<Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload>({
+        extensionId: extensionID,
+        type: PluginServerEvents.AnimeEntryEpisodeTabsUpdated,
+        onMessage: cb,
+    })
+}
+
+export type Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload = {
+    episodeCollection: any
+}
+
+export function usePluginListenAnimeEntryEpisodeTabEpisodeCollectionEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload,
+    extensionId: string,
+) => void, extensionID: string) {
+    return useWebsocketPluginMessageListener<Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload>({
+        extensionId: extensionID,
+        type: PluginServerEvents.AnimeEntryEpisodeTabEpisodeCollection,
         onMessage: cb,
     })
 }

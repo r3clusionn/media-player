@@ -74,6 +74,7 @@ type AppContext interface {
 	DirectStreamManager() mo.Option[*directstream.Manager]
 	MediaPlayerRepository() mo.Option[*mediaplayer.Repository]
 	AnilistPlatformRef() mo.Option[*util.Ref[platform.Platform]]
+	MetadataProviderRef() mo.Option[*util.Ref[metadata_provider.Provider]]
 	WSEventManager() mo.Option[events.WSEventManagerInterface]
 
 	IsOffline() bool
@@ -256,6 +257,10 @@ func (a *AppContextImpl) MediaPlayerRepository() mo.Option[*mediaplayer.Reposito
 
 func (a *AppContextImpl) AnilistPlatformRef() mo.Option[*util.Ref[platform.Platform]] {
 	return a.anilistPlatformRef
+}
+
+func (a *AppContextImpl) MetadataProviderRef() mo.Option[*util.Ref[metadata_provider.Provider]] {
+	return a.metadataProviderRef
 }
 
 func (a *AppContextImpl) WSEventManager() mo.Option[events.WSEventManagerInterface] {

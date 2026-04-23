@@ -1582,6 +1582,30 @@ declare namespace $ui {
 
     interface Anime {
         /**
+         * Registers an episode tab on the anime entry page.
+         * The tab can modify the default episode collection and react to episode selection.
+         */
+        registerEntryEpisodeTab(options: {
+            name: string
+            icon?: string
+            shouldShow?: (event: { mediaId: number }) => boolean | Promise<boolean>
+            onEpisodeCollection?: (event: {
+                mediaId: number
+                episodeCollection: $app.Anime_EpisodeCollection
+            }) => $app.Anime_EpisodeCollection | undefined | Promise<$app.Anime_EpisodeCollection | undefined>
+            onSelectEpisode?: (event: {
+                mediaId: number
+                episodeNumber: number
+                aniDbEpisode?: string
+                episode?: $app.Anime_Episode
+            }) => void | Promise<void>
+        }): {
+            name: string
+            icon?: string
+            getIsOpen(): ReadOnlyState<boolean>
+        }
+
+        /**
          * Get an anime entry
          * @param mediaId - The ID of the anime
          * @returns A promise that resolves to an anime entry
