@@ -1,6 +1,6 @@
 import { AL_AnimeCollection_MediaListCollection_Lists } from "@/api/generated/types"
-import { useGetRawAnimeCollection } from "@/api/hooks/anilist.hooks"
-import { useGetRawAnilistMangaCollection } from "@/api/hooks/manga.hooks"
+import { useGetRawAnimeCollection, useGetRawAnimeCollectionTags } from "@/api/hooks/anilist.hooks"
+import { useGetRawAnilistMangaCollection, useGetRawAnilistMangaCollectionTags } from "@/api/hooks/manga.hooks"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { CollectionParams, CollectionType, DEFAULT_COLLECTION_PARAMS, filterEntriesByTitle, filterListEntries } from "@/lib/helpers/filtering"
 import { atomWithImmer } from "jotai-immer"
@@ -27,6 +27,8 @@ export function useHandleUserAnilistLists(debouncedSearchInput: string, type?: "
     const [selectedType, setSelectedType] = useAtom(__myLists_selectedTypeAtom)
     const { data: animeData } = useGetRawAnimeCollection()
     const { data: mangaData } = useGetRawAnilistMangaCollection()
+    const { data: animeTagMap } = useGetRawAnimeCollectionTags()
+    const { data: mangaTagMap } = useGetRawAnilistMangaCollectionTags()
 
     const data = React.useMemo(() => {
         if (type) {
@@ -36,6 +38,12 @@ export function useHandleUserAnilistLists(debouncedSearchInput: string, type?: "
     }, [selectedType, animeData, mangaData, type])
 
     const lists = React.useMemo(() => data?.MediaListCollection?.lists, [data])
+    const mediaTagMap = React.useMemo(() => {
+        if (type) {
+            return type === "anime" ? animeTagMap : mangaTagMap
+        }
+        return selectedType === "anime" ? animeTagMap : mangaTagMap
+    }, [animeTagMap, mangaTagMap, selectedType, type])
 
     const [params, _setParams] = useAtom(__myListsSearch_paramsAtom)
     const [debouncedParams] = useDebounce(params, 500)
@@ -53,7 +61,13 @@ export function useHandleUserAnilistLists(debouncedSearchInput: string, type?: "
     const _filteredLists: AL_AnimeCollection_MediaListCollection_Lists[] = React.useMemo(() => {
         return lists?.map(obj => {
             if (!obj) return undefined
-            const arr = filterListEntries(selectedType as CollectionType, obj?.entries, params, serverStatus?.settings?.anilist?.enableAdultContent)
+            const arr = filterListEntries(
+                selectedType as CollectionType,
+                obj?.entries,
+                params,
+                serverStatus?.settings?.anilist?.enableAdultContent,
+                mediaTagMap,
+            )
             return {
                 name: obj?.name,
                 isCustomList: obj?.isCustomList,
@@ -61,7 +75,7 @@ export function useHandleUserAnilistLists(debouncedSearchInput: string, type?: "
                 entries: arr,
             }
         }).filter(Boolean) ?? []
-    }, [lists, debouncedParams, selectedType, serverStatus?.settings?.anilist?.enableAdultContent])
+    }, [lists, debouncedParams, mediaTagMap, selectedType, serverStatus?.settings?.anilist?.enableAdultContent])
 
     const filteredLists: AL_AnimeCollection_MediaListCollection_Lists[] = React.useMemo(() => {
         return _filteredLists?.map(obj => {

@@ -207,6 +207,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 
 	v1Anilist.GET("/collection/raw", h.HandleGetRawAnimeCollection)
 	v1Anilist.POST("/collection/raw", h.HandleGetRawAnimeCollection)
+	v1Anilist.GET("/collection/raw/tags", h.HandleGetRawAnimeCollectionTags)
 
 	v1Anilist.GET("/media-details/:id", h.HandleGetAnilistAnimeDetails)
 
@@ -390,6 +391,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1Manga.POST("/anilist/collection", h.HandleGetAnilistMangaCollection)
 	v1Manga.GET("/anilist/collection/raw", h.HandleGetRawAnilistMangaCollection)
 	v1Manga.POST("/anilist/collection/raw", h.HandleGetRawAnilistMangaCollection)
+	v1Manga.GET("/anilist/collection/raw/tags", h.HandleGetRawAnilistMangaCollectionTags)
 	v1Manga.POST("/anilist/list", h.HandleAnilistListManga)
 	v1Manga.GET("/collection", h.HandleGetMangaCollection)
 	v1Manga.GET("/latest-chapter-numbers", h.HandleGetMangaLatestChapterNumbersMap)

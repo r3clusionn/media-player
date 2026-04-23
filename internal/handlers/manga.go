@@ -66,6 +66,26 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 	return h.RespondWithData(c, mangaCollection)
 }
 
+// HandleGetRawAnilistMangaCollectionTags
+//
+//	@summary returns the AniList tags for the user's raw manga collection.
+//	@desc This runs a dedicated AniList tags query used by the lists page filters.
+//	@route /api/v1/manga/anilist/collection/raw/tags [GET]
+//	@returns anilist.MediaTagMap
+func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
+	userName := h.App.GetUsername()
+	if userName == "" {
+		return h.RespondWithData(c, anilist.MediaTagMap{})
+	}
+
+	ret, err := h.App.AnilistClientRef.Get().MangaCollectionTags(c.Request().Context(), &userName)
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, anilist.MediaTagMapFromMangaCollectionTags(ret))
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // HandleGetMangaCollection
@@ -351,6 +371,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		Sort                []*anilist.MediaSort   `json:"sort,omitempty"`
 		Status              []*anilist.MediaStatus `json:"status,omitempty"`
 		Genres              []*string              `json:"genres,omitempty"`
+		Tags                []*string              `json:"tags,omitempty"`
 		AverageScoreGreater *int                   `json:"averageScore_greater,omitempty"`
 		Year                *int                   `json:"year,omitempty"`
 		CountryOfOrigin     *string                `json:"countryOfOrigin,omitempty"`
@@ -380,6 +401,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		nil,
 		p.Year,
@@ -401,6 +423,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		p.Year,
 		p.Format,

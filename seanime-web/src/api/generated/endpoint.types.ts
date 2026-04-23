@@ -122,6 +122,7 @@ export type AnilistListAnime_Variables = {
     sort?: Array<AL_MediaSort>
     status?: Array<AL_MediaStatus>
     genres?: Array<string>
+    tags?: Array<string>
     averageScore_greater?: number
     season?: AL_MediaSeason
     seasonYear?: number
@@ -1232,6 +1233,7 @@ export type AnilistListManga_Variables = {
     sort?: Array<AL_MediaSort>
     status?: Array<AL_MediaStatus>
     genres?: Array<string>
+    tags?: Array<string>
     averageScore_greater?: number
     year?: number
     countryOfOrigin?: string

@@ -1159,6 +1159,13 @@ export type AL_MediaSort = "ID" |
 export type AL_MediaStatus = "FINISHED" | "RELEASING" | "NOT_YET_RELEASED" | "CANCELLED" | "HIATUS"
 
 /**
+ * - Filepath: internal/api/anilist/tags.go
+ * - Filename: tags.go
+ * - Package: anilist
+ */
+export type AL_MediaTagMap = Record<number, Array<string>>
+
+/**
  * - Filepath: internal/api/anilist/models_gen.go
  * - Filename: models_gen.go
  * - Package: anilist

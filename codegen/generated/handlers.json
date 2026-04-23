@@ -66,6 +66,36 @@
     }
   },
   {
+    "name": "HandleGetRawAnimeCollectionTags",
+    "trimmedName": "GetRawAnimeCollectionTags",
+    "comments": [
+      "HandleGetRawAnimeCollectionTags",
+      "",
+      "\t@summary returns the AniList tags for the user's raw anime collection.",
+      "\t@desc This runs a dedicated AniList tags query used by the lists page filters.",
+      "\t@returns anilist.MediaTagMap",
+      "\t@route /api/v1/anilist/collection/raw/tags [GET]",
+      ""
+    ],
+    "filepath": "internal/handlers/anilist.go",
+    "filename": "anilist.go",
+    "api": {
+      "summary": "returns the AniList tags for the user's raw anime collection.",
+      "descriptions": [
+        "This runs a dedicated AniList tags query used by the lists page filters."
+      ],
+      "endpoint": "/api/v1/anilist/collection/raw/tags",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "anilist.MediaTagMap",
+      "returnGoType": "anilist.MediaTagMap",
+      "returnTypescriptType": "AL_MediaTagMap"
+    }
+  },
+  {
     "name": "HandleEditAnilistListEntry",
     "trimmedName": "EditAnilistListEntry",
     "comments": [
@@ -375,6 +405,15 @@
         {
           "name": "Genres",
           "jsonName": "genres",
+          "goType": "[]string",
+          "usedStructType": "",
+          "typescriptType": "Array\u003cstring\u003e",
+          "required": false,
+          "descriptions": []
+        },
+        {
+          "name": "Tags",
+          "jsonName": "tags",
           "goType": "[]string",
           "usedStructType": "",
           "typescriptType": "Array\u003cstring\u003e",
@@ -5846,6 +5885,36 @@
     }
   },
   {
+    "name": "HandleGetRawAnilistMangaCollectionTags",
+    "trimmedName": "GetRawAnilistMangaCollectionTags",
+    "comments": [
+      "HandleGetRawAnilistMangaCollectionTags",
+      "",
+      "\t@summary returns the AniList tags for the user's raw manga collection.",
+      "\t@desc This runs a dedicated AniList tags query used by the lists page filters.",
+      "\t@route /api/v1/manga/anilist/collection/raw/tags [GET]",
+      "\t@returns anilist.MediaTagMap",
+      ""
+    ],
+    "filepath": "internal/handlers/manga.go",
+    "filename": "manga.go",
+    "api": {
+      "summary": "returns the AniList tags for the user's raw manga collection.",
+      "descriptions": [
+        "This runs a dedicated AniList tags query used by the lists page filters."
+      ],
+      "endpoint": "/api/v1/manga/anilist/collection/raw/tags",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "anilist.MediaTagMap",
+      "returnGoType": "anilist.MediaTagMap",
+      "returnTypescriptType": "AL_MediaTagMap"
+    }
+  },
+  {
     "name": "HandleGetMangaCollection",
     "trimmedName": "GetMangaCollection",
     "comments": [
@@ -6303,6 +6372,15 @@
         {
           "name": "Genres",
           "jsonName": "genres",
+          "goType": "[]string",
+          "usedStructType": "",
+          "typescriptType": "Array\u003cstring\u003e",
+          "required": false,
+          "descriptions": []
+        },
+        {
+          "name": "Tags",
+          "jsonName": "tags",
           "goType": "[]string",
           "usedStructType": "",
           "typescriptType": "Array\u003cstring\u003e",

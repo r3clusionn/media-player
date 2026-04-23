@@ -43,6 +43,7 @@ type fixtureListAnimeVariables struct {
 	Sort                []*MediaSort   `json:"sort"`
 	Status              []*MediaStatus `json:"status"`
 	Genres              []*string      `json:"genres"`
+	Tags                []*string      `json:"tags"`
 	AverageScoreGreater *int           `json:"averageScore_greater"`
 	Season              *MediaSeason   `json:"season"`
 	SeasonYear          *int           `json:"seasonYear"`
@@ -102,6 +103,7 @@ func (ac *FixtureAnilistClient) CustomQuery(body []byte, logger *zerolog.Logger,
 			vars.Sort,
 			vars.Status,
 			vars.Genres,
+			vars.Tags,
 			vars.AverageScoreGreater,
 			vars.Season,
 			vars.SeasonYear,
@@ -494,6 +496,11 @@ func (ac *FixtureAnilistClient) AnimeCollection(ctx context.Context, userName *s
 
 }
 
+func (ac *FixtureAnilistClient) AnimeCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionTags, error) {
+	ac.logger.Debug().Msg("anilist: Fetching anime collection tags")
+	return ac.realAnilistClient.AnimeCollectionTags(ctx, userName, interceptors...)
+}
+
 func (ac *FixtureAnilistClient) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error) {
 	key := fixtureCollectionKey(userName)
 	fixturePath := testutil.TestDataPath("AnimeCollectionWithRelations")
@@ -635,7 +642,7 @@ func (ac *FixtureAnilistClient) CompleteAnimeByID(ctx context.Context, id *int, 
 	return nil, ac.missingFixtureError("CompleteAnimeByID", *id)
 }
 
-func (ac *FixtureAnilistClient) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
+func (ac *FixtureAnilistClient) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
 	ac.logger.Debug().Msg("anilist: Fetching media list")
 	media, pageInfo, err := baseAnimeFixtureSlice(page, perPage)
 	if err != nil {
@@ -761,6 +768,11 @@ func (ac *FixtureAnilistClient) MangaCollection(ctx context.Context, userName *s
 	return ret, nil
 }
 
+func (ac *FixtureAnilistClient) MangaCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollectionTags, error) {
+	ac.logger.Debug().Msg("anilist: Fetching manga collection tags")
+	return ac.realAnilistClient.MangaCollectionTags(ctx, userName, interceptors...)
+}
+
 func (ac *FixtureAnilistClient) SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*MediaSort, search *string, status []*MediaStatus, interceptors ...clientv2.RequestInterceptor) (*SearchBaseManga, error) {
 	ac.logger.Debug().Msg("anilist: Searching manga")
 	return ac.realAnilistClient.SearchBaseManga(ctx, page, perPage, sort, search, status, interceptors...)
@@ -776,9 +788,9 @@ func (ac *FixtureAnilistClient) MangaDetailsByID(ctx context.Context, id *int, i
 	return ac.realAnilistClient.MangaDetailsByID(ctx, id, interceptors...)
 }
 
-func (ac *FixtureAnilistClient) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
+func (ac *FixtureAnilistClient) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
 	ac.logger.Debug().Msg("anilist: Fetching manga list")
-	return ac.realAnilistClient.ListManga(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
+	return ac.realAnilistClient.ListManga(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
 }
 
 func (ac *FixtureAnilistClient) StudioDetails(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*StudioDetails, error) {

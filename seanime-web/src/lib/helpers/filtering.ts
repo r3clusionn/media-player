@@ -111,6 +111,7 @@ export type CollectionType = "anime" | "manga"
 export type CollectionParams<T extends CollectionType> = {
     sorting: CollectionSorting<T>
     genre: string[] | null
+    tags: string[] | null
     status: AL_MediaStatus | null
     format: AL_MediaFormat | null
     season: AL_MediaSeason | null
@@ -126,6 +127,7 @@ export type CollectionParams<T extends CollectionType> = {
 export const DEFAULT_COLLECTION_PARAMS: CollectionParams<"anime"> = {
     sorting: "SCORE_DESC",
     genre: null,
+    tags: null,
     status: null,
     format: null,
     season: null,
@@ -137,6 +139,7 @@ export const DEFAULT_COLLECTION_PARAMS: CollectionParams<"anime"> = {
 export const DEFAULT_ANIME_COLLECTION_PARAMS: CollectionParams<"anime"> = {
     sorting: "SCORE_DESC",
     genre: null,
+    tags: null,
     status: null,
     format: null,
     season: null,
@@ -148,6 +151,7 @@ export const DEFAULT_ANIME_COLLECTION_PARAMS: CollectionParams<"anime"> = {
 export const DEFAULT_MANGA_COLLECTION_PARAMS: CollectionParams<"manga"> = {
     sorting: "SCORE_DESC",
     genre: null,
+    tags: null,
     status: null,
     format: null,
     season: null,
@@ -187,6 +191,7 @@ export function filterListEntries<T extends AL_MangaCollection_MediaListCollecti
     entries: T | null | undefined,
     params: CollectionParams<V>,
     showAdultContent: boolean | undefined,
+    mediaTagMap?: Record<number, Array<string>> | null,
 ) {
     if (!entries) return []
     let arr = [...entries]
@@ -215,6 +220,15 @@ export function filterListEntries<T extends AL_MangaCollection_MediaListCollecti
     if (!!arr && !!params.genre?.length) {
         arr = arr.filter(n => {
             return params.genre?.every(genre => n.media?.genres?.includes(genre))
+        })
+    }
+
+    if (!!arr && !!params.tags?.length && !!mediaTagMap) {
+        arr = arr.filter(n => {
+            const mediaId = n.media?.id
+            const tags = mediaId ? (mediaTagMap[mediaId] ?? []) : []
+
+            return params.tags?.every(tag => tags.includes(tag))
         })
     }
 
@@ -281,6 +295,7 @@ export function filterCollectionEntries<T extends Anime_LibraryCollectionEntry[]
     entries: T | null | undefined,
     params: CollectionParams<V>,
     showAdultContent: boolean | undefined,
+    mediaTagMap?: Record<number, Array<string>> | null,
 ) {
     if (!entries) return []
     let arr = [...entries]
@@ -307,6 +322,15 @@ export function filterCollectionEntries<T extends Anime_LibraryCollectionEntry[]
     if (!!arr && !!params.genre?.length) {
         arr = arr.filter(n => {
             return params.genre?.every(genre => n.media?.genres?.includes(genre))
+        })
+    }
+
+    if (!!arr && !!params.tags?.length && !!mediaTagMap) {
+        arr = arr.filter(n => {
+            const mediaId = n.media?.id
+            const tags = mediaId ? (mediaTagMap[mediaId] ?? []) : []
+
+            return params.tags?.every(tag => tags.includes(tag))
         })
     }
 
@@ -372,8 +396,9 @@ export function filterAnimeCollectionEntries<T extends Anime_LibraryCollectionEn
     showAdultContent: boolean | undefined,
     continueWatchingList: Anime_Episode[] | null | undefined,
     watchHistory: Continuity_WatchHistory | null | undefined,
+    mediaTagMap?: Record<number, Array<string>> | null,
 ) {
-    let arr = filterCollectionEntries("anime", entries, params, showAdultContent)
+    let arr = filterCollectionEntries("anime", entries, params, showAdultContent, mediaTagMap)
 
     if (params.continueWatchingOnly) {
         arr = arr.filter(n => continueWatchingList?.findIndex(e => e.baseAnime?.id === n.media?.id) !== -1)

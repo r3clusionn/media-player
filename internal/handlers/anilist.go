@@ -64,6 +64,26 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 	return h.RespondWithData(c, animeCollection)
 }
 
+// HandleGetRawAnimeCollectionTags
+//
+//	@summary returns the AniList tags for the user's raw anime collection.
+//	@desc This runs a dedicated AniList tags query used by the lists page filters.
+//	@returns anilist.MediaTagMap
+//	@route /api/v1/anilist/collection/raw/tags [GET]
+func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
+	userName := h.App.GetUsername()
+	if userName == "" {
+		return h.RespondWithData(c, anilist.MediaTagMap{})
+	}
+
+	ret, err := h.App.AnilistClientRef.Get().AnimeCollectionTags(c.Request().Context(), &userName)
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, anilist.MediaTagMapFromAnimeCollectionTags(ret))
+}
+
 // HandleEditAnilistListEntry
 //
 //	@summary updates the user's list entry on Anilist.
@@ -275,6 +295,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		Sort                []*anilist.MediaSort   `json:"sort,omitempty"`
 		Status              []*anilist.MediaStatus `json:"status,omitempty"`
 		Genres              []*string              `json:"genres,omitempty"`
+		Tags                []*string              `json:"tags,omitempty"`
 		AverageScoreGreater *int                   `json:"averageScore_greater,omitempty"`
 		Season              *anilist.MediaSeason   `json:"season,omitempty"`
 		SeasonYear          *int                   `json:"seasonYear,omitempty"`
@@ -305,6 +326,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		p.Season,
 		p.SeasonYear,
@@ -326,6 +348,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		p.Season,
 		p.SeasonYear,

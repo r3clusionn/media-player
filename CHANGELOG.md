@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## v3.6.2-alpha.5
 
+- ⚡️ Search: Support for tags #614
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods #699 and skip data manipulation
   - Added Auto Downloader, Torrent search hooks

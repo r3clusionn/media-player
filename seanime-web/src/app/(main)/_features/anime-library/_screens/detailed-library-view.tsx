@@ -12,11 +12,17 @@ import { MediaEntryCard } from "@/app/(main)/_features/media/_components/media-e
 import { MediaGenreSelector } from "@/app/(main)/_features/media/_components/media-genre-selector"
 import { useNakamaStatus } from "@/app/(main)/_features/nakama/nakama-manager"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
-import { ADVANCED_SEARCH_FORMATS, ADVANCED_SEARCH_SEASONS, ADVANCED_SEARCH_STATUS } from "@/app/(main)/search/_lib/advanced-search-constants"
+import {
+    ADVANCED_SEARCH_FORMATS,
+    ADVANCED_SEARCH_MEDIA_TAGS,
+    ADVANCED_SEARCH_SEASONS,
+    ADVANCED_SEARCH_STATUS,
+} from "@/app/(main)/search/_lib/advanced-search-constants"
 import { PageWrapper } from "@/components/shared/page-wrapper"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { IconButton } from "@/components/ui/button"
 import { Carousel, CarouselContent, CarouselDotButtons } from "@/components/ui/carousel"
+import { Combobox } from "@/components/ui/combobox"
 import { cn } from "@/components/ui/core/styling"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Select } from "@/components/ui/select"
@@ -35,7 +41,7 @@ import { AiOutlineArrowLeft } from "react-icons/ai"
 import { BiTrash } from "react-icons/bi"
 import { FaSortAmountDown } from "react-icons/fa"
 import { FiSearch } from "react-icons/fi"
-import { LuCalendar, LuLeaf } from "react-icons/lu"
+import { LuCalendar, LuLeaf, LuTags } from "react-icons/lu"
 import { MdPersonalVideo } from "react-icons/md"
 import { RiSignalTowerLine } from "react-icons/ri"
 
@@ -305,7 +311,7 @@ export function SearchOptions() {
                 />
             </div>
             <div
-                className="grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_auto_auto] gap-4"
+                className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-[1fr_1fr_1fr_1fr_1fr_1fr_auto_auto] gap-4 items-start"
                 data-detailed-library-view-search-options-grid
             >
                 <Select
@@ -349,6 +355,30 @@ export function SearchOptions() {
                     value={params.status || ""}
                     onValueChange={v => setParams(draft => {
                         draft.status = v as any
+                        return
+                    })}
+                    fieldLabelClass="hidden"
+                />
+                <Combobox
+                    multiple
+                    leftAddon={!params.tags &&
+                        <LuTags className={cn((params.tags !== null && !!params.tags?.length) && "text-indigo-300 font-bold text-xl")} />}
+                    emptyMessage="No options found"
+                    label="Tags"
+                    placeholder="All tags"
+                    className="w-full"
+                    fieldClass="w-full"
+                    options={ADVANCED_SEARCH_MEDIA_TAGS
+                        .filter(tag => {
+                            if (params.isAdult && serverStatus?.settings?.anilist?.enableAdultContent) {
+                                return true
+                            }
+                            return tag.isAdult === false
+                        })
+                        .map(tag => ({ value: tag.name, label: tag.name, textValue: tag.name }))}
+                    value={params.tags ? params.tags : []}
+                    onValueChange={v => setParams(draft => {
+                        draft.tags = v
                         return
                     })}
                     fieldLabelClass="hidden"

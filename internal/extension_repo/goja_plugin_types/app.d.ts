@@ -777,14 +777,14 @@ declare namespace $app {
     function onDebridAddTorrentRequested(cb: (event: DebridAddTorrentRequestedEvent) => void): void;
 
     interface DebridAddTorrentRequestedEvent {
+        next(): void;
+
+        preventDefault(): void;
+
         options?: Debrid_AddTorrentOptions;
         destination: string;
         mediaId: number;
         torrentItemId: string;
-
-        next(): void;
-
-        preventDefault(): void;
     }
 
     /**
@@ -796,12 +796,12 @@ declare namespace $app {
     function onDebridAddTorrent(cb: (event: DebridAddTorrentEvent) => void): void;
 
     interface DebridAddTorrentEvent {
+        next(): void;
+
         options?: Debrid_AddTorrentOptions;
         destination: string;
         mediaId: number;
         torrentItemId: string;
-
-        next(): void;
     }
 
     /**
@@ -832,12 +832,12 @@ declare namespace $app {
     function onDebridLocalDownloadStarted(cb: (event: DebridLocalDownloadStartedEvent) => void): void;
 
     interface DebridLocalDownloadStartedEvent {
+        next(): void;
+
         torrentItemId: string;
         torrentName: string;
         destination: string;
         downloadUrl: string;
-
-        next(): void;
     }
 
     /**
@@ -849,11 +849,11 @@ declare namespace $app {
     function onDebridLocalDownloadCompleted(cb: (event: DebridLocalDownloadCompletedEvent) => void): void;
 
     interface DebridLocalDownloadCompletedEvent {
+        next(): void;
+
         torrentItemId: string;
         torrentName: string;
         destination: string;
-
-        next(): void;
     }
 
 
@@ -1934,12 +1934,12 @@ declare namespace $app {
     function onTorrentSearchRequested(cb: (event: TorrentSearchRequestedEvent) => void): void;
 
     interface TorrentSearchRequestedEvent {
-        options: Torrent_AnimeSearchOptions;
-        searchData?: Torrent_SearchData;
-
         next(): void;
 
         preventDefault(): void;
+
+        options: Torrent_AnimeSearchOptions;
+        searchData?: Torrent_SearchData;
     }
 
     /**
@@ -1952,10 +1952,10 @@ declare namespace $app {
     function onTorrentSearch(cb: (event: TorrentSearchEvent) => void): void;
 
     interface TorrentSearchEvent {
+        next(): void;
+
         options: Torrent_AnimeSearchOptions;
         searchData?: Torrent_SearchData;
-
-        next(): void;
     }
 
 

@@ -30,6 +30,21 @@ query AnimeCollection ($userName: String) {
   }
 }
 
+query AnimeCollectionTags ($userName: String) {
+  MediaListCollection(userName: $userName, forceSingleCompletedList: true, type: ANIME) {
+    lists {
+      entries {
+        media {
+          id
+          tags {
+            name
+          }
+        }
+      }
+    }
+  }
+}
+
 query AnimeCollectionWithRelations ($userName: String) {
   MediaListCollection(userName: $userName, forceSingleCompletedList: true, type: ANIME) {
     lists {
@@ -213,6 +228,7 @@ query ListAnime(
   $sort: [MediaSort]
   $status: [MediaStatus]
   $genres: [String]
+  $tags: [String]
   $averageScore_greater: Int
   $season: MediaSeason
   $seasonYear: Int
@@ -235,6 +251,7 @@ query ListAnime(
       isAdult: $isAdult
       format: $format
       genre_in: $genres
+      tag_in: $tags
       averageScore_greater: $averageScore_greater
       season: $season
       seasonYear: $seasonYear
@@ -252,6 +269,7 @@ query ListAnimeAll(
   $sort: [MediaSort]
   $status: [MediaStatus]
   $genres: [String]
+  $tags: [String]
   $averageScore_greater: Int
   $season: MediaSeason
   $seasonYear: Int
@@ -272,6 +290,7 @@ query ListAnimeAll(
       status_in: $status
       format: $format
       genre_in: $genres
+      tag_in: $tags
       averageScore_greater: $averageScore_greater
       season: $season
       seasonYear: $seasonYear

@@ -30,6 +30,21 @@ query MangaCollection ($userName: String) {
   }
 }
 
+query MangaCollectionTags ($userName: String) {
+  MediaListCollection(userName: $userName, forceSingleCompletedList: true, type: MANGA) {
+    lists {
+      entries {
+        media {
+          id
+          tags {
+            name
+          }
+        }
+      }
+    }
+  }
+}
+
 
 query SearchBaseManga($page: Int, $perPage: Int, $sort: [MediaSort], $search: String, $status: [MediaStatus]){
   Page(page: $page, perPage: $perPage){
@@ -137,6 +152,7 @@ query ListManga(
   $sort: [MediaSort]
   $status: [MediaStatus]
   $genres: [String]
+  $tags: [String]
   $averageScore_greater: Int
   $startDate_greater: FuzzyDateInt
   $startDate_lesser: FuzzyDateInt
@@ -152,7 +168,7 @@ query ListManga(
       currentPage
       lastPage
     },
-    media(type: MANGA, isAdult: $isAdult, countryOfOrigin: $countryOfOrigin, search: $search, sort: $sort, status_in: $status, format: $format, genre_in: $genres, averageScore_greater: $averageScore_greater, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, format_not: NOVEL){
+    media(type: MANGA, isAdult: $isAdult, countryOfOrigin: $countryOfOrigin, search: $search, sort: $sort, status_in: $status, format: $format, genre_in: $genres, tag_in: $tags, averageScore_greater: $averageScore_greater, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, format_not: NOVEL){
       ...baseManga
     }
   }
@@ -165,6 +181,7 @@ query ListMangaAll(
   $sort: [MediaSort]
   $status: [MediaStatus]
   $genres: [String]
+  $tags: [String]
   $averageScore_greater: Int
   $startDate_greater: FuzzyDateInt
   $startDate_lesser: FuzzyDateInt
@@ -179,7 +196,7 @@ query ListMangaAll(
       currentPage
       lastPage
     },
-    media(type: MANGA, countryOfOrigin: $countryOfOrigin, search: $search, sort: $sort, status_in: $status, format: $format, genre_in: $genres, averageScore_greater: $averageScore_greater, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, format_not: NOVEL){
+    media(type: MANGA, countryOfOrigin: $countryOfOrigin, search: $search, sort: $sort, status_in: $status, format: $format, genre_in: $genres,  tag_in: $tags, averageScore_greater: $averageScore_greater, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, format_not: NOVEL){
       ...baseManga
     }
   }

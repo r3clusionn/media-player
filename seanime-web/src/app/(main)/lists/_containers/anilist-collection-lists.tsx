@@ -12,6 +12,7 @@ import {
 import {
     ADVANCED_SEARCH_FORMATS,
     ADVANCED_SEARCH_MEDIA_GENRES,
+    ADVANCED_SEARCH_MEDIA_TAGS,
     ADVANCED_SEARCH_SEASONS,
     ADVANCED_SEARCH_STATUS,
 } from "@/app/(main)/search/_lib/advanced-search-constants"
@@ -34,7 +35,7 @@ import React from "react"
 import { BiTrash } from "react-icons/bi"
 import { FaSortAmountDown } from "react-icons/fa"
 import { FiSearch } from "react-icons/fi"
-import { LuCalendar, LuLeaf } from "react-icons/lu"
+import { LuCalendar, LuLeaf, LuTags } from "react-icons/lu"
 import { MdPersonalVideo } from "react-icons/md"
 import { RiSignalTowerLine } from "react-icons/ri"
 import { TbSwords } from "react-icons/tb"
@@ -217,7 +218,7 @@ export function SearchOptions({
     const [input, setInput] = useAtom(watchListSearchInputAtom)
 
     const highlightTrash = React.useMemo(() => {
-        return !(!input.length && params.sorting === "SCORE_DESC" && (params.genre === null || !params.genre.length) && params.status === null && params.format === null && params.season === null && params.year === null && params.isAdult === false)
+        return !(!input.length && params.sorting === "SCORE_DESC" && (params.tags === null || !params.tags.length) && (params.genre === null || !params.genre.length) && params.status === null && params.format === null && params.season === null && params.year === null && params.isAdult === false)
     }, [params, input])
 
     return (
@@ -249,6 +250,7 @@ export function SearchOptions({
                             ...prev,
                             sorting: "SCORE_DESC",
                             genre: null,
+                            tags: null,
                             status: null,
                             format: null,
                             season: null,
@@ -263,8 +265,8 @@ export function SearchOptions({
             </div>
             <div
                 className={cn(
-                    "grid grid-cols-2 gap-5",
-                    pageType === "anime" ? "xl:grid-cols-6" : "lg:grid-cols-4",
+                    "grid grid-cols-2 gap-5 items-start",
+                    pageType === "anime" ? "xl:grid-cols-7" : "lg:grid-cols-5",
                 )}
                 data-anilist-collection-lists-search-options-grid
             >
@@ -279,6 +281,27 @@ export function SearchOptions({
                     value={params.genre ? params.genre : []}
                     onValueChange={v => setParams(draft => {
                         draft.genre = v
+                        return
+                    })}
+                    fieldLabelClass="hidden"
+                />
+                <Combobox
+                    multiple
+                    leftAddon={!params.tags?.length &&
+                        <LuTags className={cn((params.tags !== null && !!params.tags.length) && "text-indigo-300 font-bold text-xl")} />}
+                    emptyMessage="No options found"
+                    label="Tags" placeholder="All tags" className="w-full"
+                    options={ADVANCED_SEARCH_MEDIA_TAGS
+                        .filter(tag => {
+                            if (params.isAdult && serverStatus?.settings?.anilist?.enableAdultContent) {
+                                return true
+                            }
+                            return tag.isAdult === false
+                        })
+                        .map(tag => ({ value: tag.name, label: tag.name, textValue: tag.name }))}
+                    value={params.tags ? params.tags : []}
+                    onValueChange={v => setParams(draft => {
+                        draft.tags = v
                         return
                     })}
                     fieldLabelClass="hidden"

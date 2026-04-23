@@ -32,6 +32,16 @@ export const API_ENDPOINTS = {
         },
         /**
          *  @description
+         *  Route returns the AniList tags for the user's raw anime collection.
+         *  This runs a dedicated AniList tags query used by the lists page filters.
+         */
+        GetRawAnimeCollectionTags: {
+            key: "ANILIST-get-raw-anime-collection-tags",
+            methods: ["GET"],
+            endpoint: "/api/v1/anilist/collection/raw/tags",
+        },
+        /**
+         *  @description
          *  Route updates the user's list entry on Anilist.
          *  This is used to edit an entry on AniList.
          *  The "type" field is used to determine if the entry is an anime or manga and refreshes the collection accordingly.
@@ -1125,6 +1135,16 @@ export const API_ENDPOINTS = {
         },
         /**
          *  @description
+         *  Route returns the AniList tags for the user's raw manga collection.
+         *  This runs a dedicated AniList tags query used by the lists page filters.
+         */
+        GetRawAnilistMangaCollectionTags: {
+            key: "MANGA-get-raw-anilist-manga-collection-tags",
+            methods: ["GET"],
+            endpoint: "/api/v1/manga/anilist/collection/raw/tags",
+        },
+        /**
+         *  @description
          *  Route returns the user's main manga collection.
          *  This is an object that contains all the user's manga entries in a structured format.
          */
@@ -1639,8 +1659,8 @@ export const API_ENDPOINTS = {
          *  Route returns the episode list for the given media and provider.
          *  It returns the episode list for the given media and provider.
          *  The episodes are cached using a file cache.
-         *  The episode list is just a list of episodes with no video sources, it's what the client uses to display the episodes and subsequently fetch the sources.
-         *  The episode list might be nil or empty if nothing could be found, but the media will always be returned.
+         *  The episode list is just a list of episodes with no video sources, it's what the client uses to display the episodes and subsequently
+         *     fetch the sources. The episode list might be nil or empty if nothing could be found, but the media will always be returned.
          */
         GetOnlineStreamEpisodeList: {
             key: "ONLINESTREAM-get-online-stream-episode-list",
