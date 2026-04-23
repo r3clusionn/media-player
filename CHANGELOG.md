@@ -13,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - ⚡️ Denshi: Right-click context menu for inputs
 - ⚡️ VideoCore: Increased subtitle parsing speed for local files
 - ⚡️ Denshi Player: Fullscreen with double click instead of double right-click
+- ⚡️ Search: Global search no longer filters out adult entries
 - 🦺 Denshi: Fixed blank screen after server reconnection
 - 🦺 Transcoder: Potential fix for 10bit issues with NVENC (?)
 - 🦺 Continuity: Fixed potential progress being ignored

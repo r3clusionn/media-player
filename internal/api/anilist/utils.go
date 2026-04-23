@@ -58,3 +58,49 @@ func GetSeasonInfo(now time.Time, kind GetSeasonKind) (MediaSeason, int) {
 
 	return seasons[index], year
 }
+
+///////////////////////////////////////////////////////////////
+
+func FromListAnimeAll(l *ListAnimeAll) *ListAnime {
+	if l == nil {
+		return nil
+	}
+
+	ret := &ListAnime{Page: nil}
+	if l.GetPage() != nil {
+		ret.Page = &ListAnime_Page{
+			Media: l.GetPage().GetMedia(),
+			PageInfo: &ListAnime_Page_PageInfo{
+				CurrentPage: l.GetPage().GetPageInfo().GetCurrentPage(),
+				HasNextPage: l.GetPage().GetPageInfo().GetHasNextPage(),
+				LastPage:    l.GetPage().GetPageInfo().GetLastPage(),
+				PerPage:     l.GetPage().GetPageInfo().GetPerPage(),
+				Total:       l.GetPage().GetPageInfo().GetTotal(),
+			},
+		}
+	}
+
+	return ret
+}
+
+func FromListMangaAll(l *ListMangaAll) *ListManga {
+	if l == nil {
+		return nil
+	}
+
+	ret := &ListManga{Page: nil}
+	if l.GetPage() != nil {
+		ret.Page = &ListManga_Page{
+			Media: l.GetPage().GetMedia(),
+			PageInfo: &ListManga_Page_PageInfo{
+				CurrentPage: l.GetPage().GetPageInfo().GetCurrentPage(),
+				HasNextPage: l.GetPage().GetPageInfo().GetHasNextPage(),
+				LastPage:    l.GetPage().GetPageInfo().GetLastPage(),
+				PerPage:     l.GetPage().GetPageInfo().GetPerPage(),
+				Total:       l.GetPage().GetPageInfo().GetTotal(),
+			},
+		}
+	}
+
+	return ret
+}

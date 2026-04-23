@@ -368,9 +368,9 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		*p.PerPage = 20
 	}
 
-	isAdult := false
+	var isAdult *bool = nil
 	if p.IsAdult != nil {
-		isAdult = *p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent
+		isAdult = new(*p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent)
 	}
 
 	cacheKey := anilist.ListMangaCacheKey(
@@ -385,7 +385,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Year,
 		p.Format,
 		p.CountryOfOrigin,
-		&isAdult,
+		isAdult,
 	)
 
 	cached, ok := anilistListMangaCache.Get(cacheKey)
@@ -405,7 +405,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Year,
 		p.Format,
 		p.CountryOfOrigin,
-		&isAdult,
+		isAdult,
 		h.App.Logger,
 		h.App.GetUserAnilistToken(),
 	)

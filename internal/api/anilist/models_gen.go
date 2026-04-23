@@ -399,6 +399,26 @@ type CharacterSubmissionEdge struct {
 	SubmittedVoiceActors []*StaffSubmission `json:"submittedVoiceActors,omitempty"`
 }
 
+// Notification for when a character submission is accepted, partially accepted, or rejected
+type CharacterSubmissionUpdateNotification struct {
+	// The id of the Notification
+	ID int `json:"id"`
+	// The type of notification
+	Type *NotificationType `json:"type,omitempty"`
+	// The notification context text
+	Contexts []*string `json:"contexts,omitempty"`
+	// The status of the submission
+	Status *string `json:"status,omitempty"`
+	// The notes of the submission
+	Notes *string `json:"notes,omitempty"`
+	// The time the notification was created at
+	CreatedAt *int `json:"createdAt,omitempty"`
+	// The character that was modified.
+	Character *Character `json:"character,omitempty"`
+}
+
+func (CharacterSubmissionUpdateNotification) IsNotificationUnion() {}
+
 // Deleted data type
 type Deleted struct {
 	// If an item has been successfully deleted
@@ -1036,6 +1056,28 @@ type MediaSubmissionEdge struct {
 	Media                *Media             `json:"media,omitempty"`
 }
 
+// Notification for when a media submission is accepted, partially accepted, or rejected
+type MediaSubmissionUpdateNotification struct {
+	// The id of the Notification
+	ID int `json:"id"`
+	// The type of notification
+	Type *NotificationType `json:"type,omitempty"`
+	// The notification context text
+	Contexts []*string `json:"contexts,omitempty"`
+	// The status of the submission
+	Status *string `json:"status,omitempty"`
+	// The notes of the submission
+	Notes *string `json:"notes,omitempty"`
+	// The time the notification was created at
+	CreatedAt *int `json:"createdAt,omitempty"`
+	// The media that was created or modified. If this submission was to create a new media and it was rejected, this will be null.
+	Media *Media `json:"media,omitempty"`
+	// The title of the media that was submitted. If this submission was to edit an existing media, this will be null.
+	SubmittedTitle *string `json:"submittedTitle,omitempty"`
+}
+
+func (MediaSubmissionUpdateNotification) IsNotificationUnion() {}
+
 // A tag that describes a theme or element of the media
 type MediaTag struct {
 	// The id of the tag
@@ -1561,6 +1603,26 @@ type StaffSubmission struct {
 	Locked    *bool `json:"locked,omitempty"`
 	CreatedAt *int  `json:"createdAt,omitempty"`
 }
+
+// Notification for when a staff submission is accepted, partially accepted, or rejected
+type StaffSubmissionUpdateNotification struct {
+	// The id of the Notification
+	ID int `json:"id"`
+	// The type of notification
+	Type *NotificationType `json:"type,omitempty"`
+	// The notification context text
+	Contexts []*string `json:"contexts,omitempty"`
+	// The status of the submission
+	Status *string `json:"status,omitempty"`
+	// The notes of the submission
+	Notes *string `json:"notes,omitempty"`
+	// The time the notification was created at
+	CreatedAt *int `json:"createdAt,omitempty"`
+	// The staff that was modified.
+	Staff *Staff `json:"staff,omitempty"`
+}
+
+func (StaffSubmissionUpdateNotification) IsNotificationUnion() {}
 
 // The distribution of the watching/reading status of media or a user's list
 type StatusDistribution struct {
@@ -3754,6 +3816,12 @@ const (
 	NotificationTypeMediaMerge NotificationType = "MEDIA_MERGE"
 	// An anime or manga on the user's list has been deleted from the site
 	NotificationTypeMediaDeletion NotificationType = "MEDIA_DELETION"
+	// A user's submission has been accepted, partially accepted, or rejected
+	NotificationTypeMediaSubmissionUpdate NotificationType = "MEDIA_SUBMISSION_UPDATE"
+	// A user's staff submission has been accepted, partially accepted, or rejected
+	NotificationTypeStaffSubmissionUpdate NotificationType = "STAFF_SUBMISSION_UPDATE"
+	// A user's character submission has been accepted, partially accepted, or rejected
+	NotificationTypeCharacterSubmissionUpdate NotificationType = "CHARACTER_SUBMISSION_UPDATE"
 )
 
 var AllNotificationType = []NotificationType{
@@ -3774,11 +3842,14 @@ var AllNotificationType = []NotificationType{
 	NotificationTypeMediaDataChange,
 	NotificationTypeMediaMerge,
 	NotificationTypeMediaDeletion,
+	NotificationTypeMediaSubmissionUpdate,
+	NotificationTypeStaffSubmissionUpdate,
+	NotificationTypeCharacterSubmissionUpdate,
 }
 
 func (e NotificationType) IsValid() bool {
 	switch e {
-	case NotificationTypeActivityMessage, NotificationTypeActivityReply, NotificationTypeFollowing, NotificationTypeActivityMention, NotificationTypeThreadCommentMention, NotificationTypeThreadSubscribed, NotificationTypeThreadCommentReply, NotificationTypeAiring, NotificationTypeActivityLike, NotificationTypeActivityReplyLike, NotificationTypeThreadLike, NotificationTypeThreadCommentLike, NotificationTypeActivityReplySubscribed, NotificationTypeRelatedMediaAddition, NotificationTypeMediaDataChange, NotificationTypeMediaMerge, NotificationTypeMediaDeletion:
+	case NotificationTypeActivityMessage, NotificationTypeActivityReply, NotificationTypeFollowing, NotificationTypeActivityMention, NotificationTypeThreadCommentMention, NotificationTypeThreadSubscribed, NotificationTypeThreadCommentReply, NotificationTypeAiring, NotificationTypeActivityLike, NotificationTypeActivityReplyLike, NotificationTypeThreadLike, NotificationTypeThreadCommentLike, NotificationTypeActivityReplySubscribed, NotificationTypeRelatedMediaAddition, NotificationTypeMediaDataChange, NotificationTypeMediaMerge, NotificationTypeMediaDeletion, NotificationTypeMediaSubmissionUpdate, NotificationTypeStaffSubmissionUpdate, NotificationTypeCharacterSubmissionUpdate:
 		return true
 	}
 	return false

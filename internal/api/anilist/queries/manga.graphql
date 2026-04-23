@@ -158,6 +158,33 @@ query ListManga(
   }
 }
 
+query ListMangaAll(
+  $page: Int
+  $search: String
+  $perPage: Int
+  $sort: [MediaSort]
+  $status: [MediaStatus]
+  $genres: [String]
+  $averageScore_greater: Int
+  $startDate_greater: FuzzyDateInt
+  $startDate_lesser: FuzzyDateInt
+  $format: MediaFormat
+  $countryOfOrigin: CountryCode
+) {
+  Page(page: $page, perPage: $perPage){
+    pageInfo{
+      hasNextPage
+      total
+      perPage
+      currentPage
+      lastPage
+    },
+    media(type: MANGA, countryOfOrigin: $countryOfOrigin, search: $search, sort: $sort, status_in: $status, format: $format, genre_in: $genres, averageScore_greater: $averageScore_greater, startDate_greater: $startDate_greater, startDate_lesser: $startDate_lesser, format_not: NOVEL){
+      ...baseManga
+    }
+  }
+}
+
 fragment baseManga on Media {
   id
   idMal

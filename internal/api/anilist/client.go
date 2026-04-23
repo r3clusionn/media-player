@@ -210,6 +210,13 @@ func (ac *AnilistClientImpl) CompleteAnimeByID(ctx context.Context, id *int, int
 
 func (ac *AnilistClientImpl) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
 	ac.logger.Debug().Msg("anilist: Fetching media list")
+	if isAdult == nil {
+		ret, err := ac.Client.ListAnimeAll(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		return FromListAnimeAll(ret), nil
+	}
 	return ac.Client.ListAnime(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
 }
 
@@ -235,6 +242,13 @@ func (ac *AnilistClientImpl) MangaDetailsByID(ctx context.Context, id *int, inte
 
 func (ac *AnilistClientImpl) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
 	ac.logger.Debug().Msg("anilist: Fetching manga list")
+	if isAdult == nil {
+		ret, err := ac.Client.ListMangaAll(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		return FromListMangaAll(ret), nil
+	}
 	return ac.Client.ListManga(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
 }
 

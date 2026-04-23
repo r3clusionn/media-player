@@ -293,9 +293,9 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		*p.PerPage = 20
 	}
 
-	isAdult := false
+	var isAdult *bool = nil
 	if p.IsAdult != nil {
-		isAdult = *p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent
+		isAdult = new(*p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent)
 	}
 
 	cacheKey := anilist.ListAnimeCacheKey(
@@ -309,7 +309,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		p.Season,
 		p.SeasonYear,
 		p.Format,
-		&isAdult,
+		isAdult,
 		p.CountryOfOrigin,
 	)
 
@@ -330,7 +330,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 		p.Season,
 		p.SeasonYear,
 		p.Format,
-		&isAdult,
+		isAdult,
 		p.CountryOfOrigin,
 		h.App.Logger,
 		h.App.GetUserAnilistToken(),

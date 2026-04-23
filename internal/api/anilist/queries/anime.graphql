@@ -245,6 +245,43 @@ query ListAnime(
   }
 }
 
+query ListAnimeAll(
+  $page: Int
+  $search: String
+  $perPage: Int
+  $sort: [MediaSort]
+  $status: [MediaStatus]
+  $genres: [String]
+  $averageScore_greater: Int
+  $season: MediaSeason
+  $seasonYear: Int
+  $format: MediaFormat
+) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+      total
+      perPage
+      currentPage
+      lastPage
+    }
+    media(
+      type: ANIME
+      search: $search
+      sort: $sort
+      status_in: $status
+      format: $format
+      genre_in: $genres
+      averageScore_greater: $averageScore_greater
+      season: $season
+      seasonYear: $seasonYear
+      format_not: MUSIC
+    ) {
+      ...baseAnime
+    }
+  }
+}
+
 query ListRecentAnime ($page: Int, $perPage: Int, $airingAt_greater: Int, $airingAt_lesser: Int, $notYetAired: Boolean = false) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
