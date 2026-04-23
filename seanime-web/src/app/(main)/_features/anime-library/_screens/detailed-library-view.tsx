@@ -362,7 +362,7 @@ export function SearchOptions() {
                 <Combobox
                     multiple
                     leftAddon={!params.tags &&
-                        <LuTags className={cn((params.tags !== null && !!params.tags?.length) && "text-indigo-300 font-bold text-xl")} />}
+                        <LuTags />}
                     emptyMessage="No options found"
                     label="Tags"
                     placeholder="All tags"
