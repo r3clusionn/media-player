@@ -26,6 +26,7 @@ type EpisodeCardProps = {
     topTitle?: string
     meta?: string
     type?: "carousel" | "grid"
+    contextType?: string // used for plugin context menu item filtering
     isInvalid?: boolean
     containerClass?: string
     episodeNumber?: number
@@ -78,6 +79,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
         forceSingleContainer,
         anime,
         episode,
+        contextType,
         additionalContextMenuItems,
         fallbackImage,
         ...rest
@@ -166,7 +168,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
 
                     {additionalContextMenuItems}
 
-                    <PluginEpisodeCardContextMenuItems episode={props.episode} />
+                    <PluginEpisodeCardContextMenuItems episode={props.episode} type={contextType} />
 
                 </ContextMenuGroup>
             }
