@@ -22,21 +22,19 @@
   });
 
   // node_modules/abslink/src/types.js
-  var WireValueType;
-  (function(WireValueType2) {
-    WireValueType2["RAW"] = "RAW";
-    WireValueType2["PROXY"] = "PROXY";
-    WireValueType2["THROW"] = "THROW";
-    WireValueType2["HANDLER"] = "HANDLER";
-  })(WireValueType || (WireValueType = {}));
-  var MessageType;
-  (function(MessageType2) {
-    MessageType2["GET"] = "GET";
-    MessageType2["SET"] = "SET";
-    MessageType2["APPLY"] = "APPLY";
-    MessageType2["CONSTRUCT"] = "CONSTRUCT";
-    MessageType2["RELEASE"] = "RELEASE";
-  })(MessageType || (MessageType = {}));
+  var WireValueType = {
+    RAW: "RAW",
+    PROXY: "PROXY",
+    THROW: "THROW",
+    HANDLER: "HANDLER"
+  };
+  var MessageType = {
+    GET: "GET",
+    SET: "SET",
+    APPLY: "APPLY",
+    CONSTRUCT: "CONSTRUCT",
+    RELEASE: "RELEASE"
+  };
 
   // node_modules/abslink/src/abslink.js
   var proxyMarker = /* @__PURE__ */ Symbol("Abslink.proxy");
@@ -49,16 +47,12 @@
     serialize(obj, ep) {
       const markerID = obj[proxyMarker];
       expose(obj, ep, markerID);
-      return markerID;
+      return [markerID, []];
     },
     deserialize(markerID, ep) {
-      return wrap(ep, void 0, markerID);
+      return wrap(ep, markerID);
     }
   };
-  function closeEndPoint(endpoint) {
-    if ("close" in endpoint && typeof endpoint.close === "function")
-      endpoint.close();
-  }
   var throwTransferHandler = {
     canHandle: (value) => isObject(value) && throwMarker in value,
     serialize({ value }) {
@@ -75,7 +69,7 @@
       } else {
         serialized = { isError: false, value };
       }
-      return serialized;
+      return [serialized, []];
     },
     deserialize(serialized) {
       if (serialized.isError) {
@@ -126,10 +120,7 @@
             returnValue = RawValue.apply(parent, argumentList);
             break;
           case MessageType.CONSTRUCT:
-            {
-              const value = new RawValue(...argumentList);
-              returnValue = proxy(value);
-            }
+            returnValue = new RawValue(...argumentList);
             break;
           case MessageType.RELEASE:
             returnValue = void 0;
@@ -143,27 +134,28 @@
       Promise.resolve(returnValue).catch((value) => {
         return { value, [throwMarker]: 0 };
       }).then((returnValue2) => {
-        const wireValue = toWireValue(returnValue2, ep);
-        ep.postMessage({ ...wireValue, id, markerID: rootMarkerID });
+        if (type === MessageType.CONSTRUCT)
+          returnValue2 = proxy(returnValue2);
+        const [wireValue, transfer] = toWireValue(returnValue2, ep);
+        ep.postMessage({ ...wireValue, id, markerID: rootMarkerID }, transfer);
         if (type === MessageType.RELEASE) {
           ep.off("message", callback);
-          if (finalizer in obj && typeof obj[finalizer] === "function") {
-            obj[finalizer]();
-          }
+          obj[finalizer]?.();
+          ep.close?.();
         }
       }).catch((_) => {
-        const wireValue = toWireValue({
+        const [wireValue, transfer] = toWireValue({
           value: new TypeError("Unserializable return value"),
           [throwMarker]: 0
         }, ep);
-        ep.postMessage({ ...wireValue, id, markerID: rootMarkerID });
+        ep.postMessage({ ...wireValue, id, markerID: rootMarkerID }, transfer);
       });
     });
     return obj;
   }
-  function wrap(ep, target, rootMarkerID) {
+  function wrap(endpoint, rootMarkerID) {
     const pendingListeners = /* @__PURE__ */ new Map();
-    ep.on("message", (data) => {
+    endpoint.on("message", (data) => {
       if (!data?.id) {
         return;
       }
@@ -177,7 +169,7 @@
         pendingListeners.delete(data.id);
       }
     });
-    return createProxy({ endpoint: ep, pendingListeners, nextRequestId: 1 }, [], target, rootMarkerID);
+    return createProxy({ endpoint, pendingListeners, rootMarkerID });
   }
   function throwIfProxyReleased(isReleased) {
     if (isReleased) {
@@ -186,7 +178,7 @@
   }
   async function releaseEndpoint(epWithPendingListeners) {
     await requestResponseMessage(epWithPendingListeners, { type: MessageType.RELEASE });
-    closeEndPoint(epWithPendingListeners.endpoint);
+    epWithPendingListeners.endpoint.close?.();
   }
   var proxyCounter = /* @__PURE__ */ new WeakMap();
   var proxyFinalizers = "FinalizationRegistry" in globalThis && new FinalizationRegistry((epWithPendingListeners) => {
@@ -210,11 +202,11 @@
       proxyFinalizers.unregister(proxy2);
     }
   }
-  function createProxy(epWithPendingListeners, path = [], target = function() {
-  }, rootMarkerID) {
+  function createProxy(epWithPendingListeners, path = []) {
     let isProxyReleased = false;
     const propProxyCache = /* @__PURE__ */ new Map();
-    const proxy2 = new Proxy(target, {
+    const proxy2 = new Proxy(function() {
+    }, {
       get(_target, prop) {
         throwIfProxyReleased(isProxyReleased);
         if (prop === releaseProxy) {
@@ -236,7 +228,6 @@
           }
           const r = requestResponseMessage(epWithPendingListeners, {
             type: MessageType.GET,
-            markerID: rootMarkerID,
             path: path.map((p) => p.toString())
           }).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
           return r.then.bind(r);
@@ -245,50 +236,55 @@
         if (cachedProxy) {
           return cachedProxy;
         }
-        const propProxy = createProxy(epWithPendingListeners, [...path, prop], void 0, rootMarkerID);
+        const propProxy = createProxy(epWithPendingListeners, [...path, prop]);
         propProxyCache.set(prop, propProxy);
         return propProxy;
       },
       set(_target, prop, rawValue) {
         throwIfProxyReleased(isProxyReleased);
-        const value = toWireValue(rawValue, epWithPendingListeners.endpoint);
+        const [value, transfer] = toWireValue(rawValue, epWithPendingListeners.endpoint);
         return requestResponseMessage(epWithPendingListeners, {
           type: MessageType.SET,
-          markerID: rootMarkerID,
           path: [...path, prop].map((p) => p.toString()),
           value
-        }).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
+        }, transfer).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
       },
       apply(_target, _thisArg, rawArgumentList) {
         throwIfProxyReleased(isProxyReleased);
         const last = path[path.length - 1];
         if (last === "bind") {
-          return createProxy(epWithPendingListeners, path.slice(0, -1), void 0, rootMarkerID);
+          return createProxy(epWithPendingListeners, path.slice(0, -1));
         }
-        const argumentList = processArguments(rawArgumentList, epWithPendingListeners);
+        const [argumentList, transfer] = processArguments(rawArgumentList, epWithPendingListeners);
         return requestResponseMessage(epWithPendingListeners, {
           type: MessageType.APPLY,
-          markerID: rootMarkerID,
           path: path.map((p) => p.toString()),
           argumentList
-        }).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
+        }, transfer).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
       },
       construct(_target, rawArgumentList) {
         throwIfProxyReleased(isProxyReleased);
-        const argumentList = processArguments(rawArgumentList, epWithPendingListeners);
+        const [argumentList, transfer] = processArguments(rawArgumentList, epWithPendingListeners);
         return requestResponseMessage(epWithPendingListeners, {
           type: MessageType.CONSTRUCT,
-          markerID: rootMarkerID,
           path: path.map((p) => p.toString()),
           argumentList
-        }).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
+        }, transfer).then((v) => fromWireValue(v, epWithPendingListeners.endpoint));
       }
     });
     registerProxy(proxy2, epWithPendingListeners);
     return proxy2;
   }
+  var transferCache = /* @__PURE__ */ new WeakMap();
   function processArguments(argumentList, epWithPendingListeners) {
-    return argumentList.map((v) => toWireValue(v, epWithPendingListeners.endpoint));
+    const wireValues = [];
+    const transferables = [];
+    for (const argument of argumentList) {
+      const [wireValue, transfer] = toWireValue(argument, epWithPendingListeners.endpoint);
+      wireValues.push(wireValue);
+      transferables.push(...transfer);
+    }
+    return [wireValues, transferables];
   }
   function proxy(obj) {
     return Object.assign(obj, { [proxyMarker]: randomId() });
@@ -296,18 +292,18 @@
   function toWireValue(value, ep) {
     for (const [name, handler] of transferHandlers) {
       if (handler.canHandle(value)) {
-        const serializedValue = handler.serialize(value, ep);
-        return {
+        const [serializedValue, transfer] = handler.serialize(value, ep);
+        return [{
           type: WireValueType.HANDLER,
           name,
           value: serializedValue
-        };
+        }, transfer];
       }
     }
-    return {
+    return [{
       type: WireValueType.RAW,
       value
-    };
+    }, transferCache.get(value) ?? []];
   }
   function fromWireValue(value, ep) {
     switch (value.type) {
@@ -317,20 +313,35 @@
         return value.value;
     }
   }
-  function requestResponseMessage(ep, msg) {
+  function requestResponseMessage(ep, msg, transfer) {
     return new Promise((resolve) => {
       const id = randomId();
       ep.pendingListeners.set(id, resolve);
-      ep.endpoint.postMessage({ id, ...msg });
+      ep.endpoint.postMessage({ id, ...msg, markerID: ep.rootMarkerID }, transfer);
     });
   }
+  var hex = [];
+  var alphabet = "0123456789abcdef";
+  for (let i = 0; i < 256; i++) {
+    hex[i] = alphabet[i >> 4 & 15] + alphabet[i & 15];
+  }
+  var step = 0;
+  var buffer = "";
   function randomId() {
-    return Math.trunc(Math.random() * Number.MAX_SAFE_INTEGER).toString();
+    let i = 0;
+    if (!buffer || step + 16 > 256 * 2) {
+      for (buffer = "", step = 0; i < 256; ++i) {
+        buffer += hex[Math.random() * 256 | 0];
+      }
+    }
+    return buffer.substring(step, ++step + 16);
   }
 
   // node_modules/abslink/adapters/w3c.js
   function createWrapper(channel, messageable) {
     const listeners = /* @__PURE__ */ new WeakMap();
+    channel.start?.();
+    messageable.start?.();
     return {
       on(event, listener) {
         const unwrapped = (event2) => listener(event2.data);
@@ -354,16 +365,18 @@
         }
         listeners.delete(listener);
       },
-      postMessage(message) {
-        messageable.postMessage(message);
+      postMessage(message, transfer) {
+        messageable.postMessage(message, transfer);
       },
-      [finalizer]: () => {
-        channel.terminate?.();
-        messageable.terminate?.();
+      close() {
+        if (channel !== globalThis)
+          channel.close?.();
+        if (messageable !== globalThis)
+          messageable.close?.();
       }
     };
   }
-  function expose2(obj, channel = self, messageable = channel) {
+  function expose2(obj, channel = globalThis, messageable = channel) {
     return expose(obj, createWrapper(channel, messageable));
   }
 
@@ -1113,9 +1126,9 @@
       }
       return name;
     };
-    function RegisteredClass(name, constructor, instancePrototype, rawDestructor, baseClass, getActualType, upcast, downcast) {
+    function RegisteredClass(name, constructor2, instancePrototype, rawDestructor, baseClass, getActualType, upcast, downcast) {
       this.name = name;
-      this.constructor = constructor;
+      this.constructor = constructor2;
       this.instancePrototype = instancePrototype;
       this.rawDestructor = rawDestructor;
       this.baseClass = baseClass;
@@ -1479,7 +1492,7 @@
         } else {
           basePrototype = ClassHandle.prototype;
         }
-        var constructor = createNamedFunction(name, function(...args) {
+        var constructor2 = createNamedFunction(name, function(...args) {
           if (Object.getPrototypeOf(this) !== instancePrototype) {
             throw new BindingError(`Use 'new' to construct ${name}`);
           }
@@ -1492,9 +1505,9 @@
           }
           return body.apply(this, args);
         });
-        var instancePrototype = Object.create(basePrototype, { constructor: { value: constructor } });
-        constructor.prototype = instancePrototype;
-        var registeredClass = new RegisteredClass(name, constructor, instancePrototype, rawDestructor, baseClass, getActualType, upcast, downcast);
+        var instancePrototype = Object.create(basePrototype, { constructor: { value: constructor2 } });
+        constructor2.prototype = instancePrototype;
+        var registeredClass = new RegisteredClass(name, constructor2, instancePrototype, rawDestructor, baseClass, getActualType, upcast, downcast);
         if (registeredClass.baseClass) {
           registeredClass.baseClass.__derivedClasses ??= [];
           registeredClass.baseClass.__derivedClasses.push(registeredClass);
@@ -1503,7 +1516,7 @@
         var pointerConverter = new RegisteredPointer(name + "*", registeredClass, false, false, false);
         var constPointerConverter = new RegisteredPointer(name + " const*", registeredClass, false, true, false);
         registeredPointers[rawType] = { pointerType: pointerConverter, constPointerType: constPointerConverter };
-        replacePublicSymbol(legalFunctionName, constructor);
+        replacePublicSymbol(legalFunctionName, constructor2);
         return [referenceConverter, pointerConverter, constPointerConverter];
       });
     };
@@ -2211,12 +2224,12 @@
       return UTF8Decoder.decode(heapOrArray.buffer ? heapOrArray.buffer instanceof ArrayBuffer ? heapOrArray.subarray(idx, endPtr) : heapOrArray.slice(idx, endPtr) : new Uint8Array(heapOrArray.slice(idx, endPtr)));
     };
     var printChar = (stream, curr) => {
-      var buffer = printCharBuffers[stream];
+      var buffer2 = printCharBuffers[stream];
       if (curr === 0 || curr === 10) {
-        (stream === 1 ? out : err)(UTF8ArrayToString(buffer));
-        buffer.length = 0;
+        (stream === 1 ? out : err)(UTF8ArrayToString(buffer2));
+        buffer2.length = 0;
       } else {
-        buffer.push(curr);
+        buffer2.push(curr);
       }
     };
     function _fd_write(fd, iov, iovcnt, pnum) {
@@ -2239,8 +2252,8 @@
     var randomFill = (view) => {
       (randomFill = initRandomFill())(view);
     };
-    var _random_get = (buffer, size) => {
-      randomFill((growMemViews(), HEAPU8).subarray(buffer, buffer + size));
+    var _random_get = (buffer2, size) => {
+      randomFill((growMemViews(), HEAPU8).subarray(buffer2, buffer2 + size));
       return 0;
     };
     PThread.init();
@@ -2451,7 +2464,9 @@
     "black",
     "ultrablack"
   ];
-  var IS_FIREFOX = navigator.userAgent.toLowerCase().includes("firefox");
+  var UA = navigator.userAgent.toLowerCase();
+  var IS_FIREFOX = UA.includes("firefox");
+  var IS_SAFARI = /applewebkit\/[\d.]+ \(khtml, like gecko\)(?!.*chrome\/)/.test(UA);
   var a = "BT601";
   var b = "BT709";
   var c = "SMPTE240M";
@@ -2469,7 +2484,7 @@
   }
   var THREAD_COUNT = !IS_FIREFOX && self.crossOriginIsolated ? Math.min(Math.max(1, navigator.hardwareConcurrency - 2), 8) : 1;
   var SUPPORTS_GROWTH = !!WebAssembly.Memory.prototype.toResizableBuffer;
-  var SHOULD_REFERENCE_MEMORY = !IS_FIREFOX && (SUPPORTS_GROWTH || THREAD_COUNT > 1);
+  var SHOULD_REFERENCE_MEMORY = !IS_FIREFOX && !IS_SAFARI && (SUPPORTS_GROWTH || THREAD_COUNT > 1);
   var IDENTITY_MATRIX = new Float32Array([
     1,
     0,
@@ -3183,7 +3198,7 @@ void main() {
           const img = validImages[i];
           const layer = instanceCount;
           this.gl.pixelStorei(this.gl.UNPACK_ROW_LENGTH, img.stride);
-          if (IS_FIREFOX) {
+          if (IS_FIREFOX || IS_SAFARI) {
             const sourceView = new Uint8Array(heap.buffer, img.bitmap, img.stride * img.h);
             const bitmapData = new Uint8Array(sourceView);
             this.gl.texSubImage3D(
@@ -3275,16 +3290,18 @@ void main() {
   };
 
   // node_modules/jassub/dist/worker/worker.js
+  var constructor = /* @__PURE__ */ Symbol.for("constructor");
   var ASSRenderer = class {
-    _offCanvas;
     _wasm;
     _subtitleColorSpace;
     _videoColorSpace;
     _malloc;
     _gpurender;
     debug = false;
-    _ready;
-    constructor(data, getFont) {
+    constructor(...args) {
+      return this[constructor](...args);
+    }
+    async [constructor](data, getFont, ctrl) {
       this._availableFonts = Object.fromEntries(Object.entries(data.availableFonts).map(([k, v]) => [k.trim().toLowerCase(), v]));
       this.debug = data.debug;
       this.queryFonts = data.queryFonts;
@@ -3292,14 +3309,6 @@ void main() {
       this._defaultFont = data.defaultFont.trim().toLowerCase();
       const _fetch2 = globalThis.fetch;
       globalThis.fetch = (_) => _fetch2(data.wasmUrl);
-      const handleMessage = ({ data: data2 }) => {
-        if (data2.name === "offscreenCanvas") {
-          this._offCanvas = data2.ctrl;
-          this._gpurender.setCanvas(this._offCanvas);
-          removeEventListener("message", handleMessage);
-        }
-      };
-      addEventListener("message", handleMessage);
       try {
         const testCanvas = new OffscreenCanvas(1, 1);
         if (testCanvas.getContext("webgl2")) {
@@ -3310,21 +3319,21 @@ void main() {
       } catch {
         this._gpurender = new Canvas2DRenderer();
       }
-      this._ready = jassub_worker_default({ __url: data.wasmUrl, __out: (log) => this._log(log) }).then(async ({ _malloc, JASSUB }) => {
-        this._malloc = _malloc;
-        this._wasm = new JASSUB(data.width, data.height, this._defaultFont);
-        this._wasm.setThreads(THREAD_COUNT);
-        this._loadInitialFonts(data.fonts);
-        this._wasm.createTrackMem(data.subContent ?? await fetchtext(data.subUrl));
-        this._subtitleColorSpace = LIBASS_YCBCR_MAP[this._wasm.trackColorSpace];
-        if (data.libassMemoryLimit > 0 || data.libassGlyphLimit > 0) {
-          this._wasm.setMemoryLimits(data.libassGlyphLimit || 0, data.libassMemoryLimit || 0);
-        }
-        this._checkColorSpace();
-      });
-    }
-    ready() {
-      return this._ready;
+      this._gpurender.setCanvas(ctrl);
+      this._loadedInitialFonts = !data.fonts.length;
+      const { _malloc, JASSUB } = await jassub_worker_default({ __url: data.wasmUrl, __out: (log) => this._log(log) });
+      this._malloc = _malloc;
+      this._wasm = new JASSUB(data.width, data.height, this._defaultFont);
+      this._wasm.setThreads(THREAD_COUNT);
+      if (!this._loadedInitialFonts)
+        await this._loadInitialFonts(data.fonts);
+      this._wasm.createTrackMem(data.subContent ?? await fetchtext(data.subUrl));
+      this._subtitleColorSpace = LIBASS_YCBCR_MAP[this._wasm.trackColorSpace];
+      if (data.libassMemoryLimit > 0 || data.libassGlyphLimit > 0) {
+        this._wasm.setMemoryLimits(data.libassGlyphLimit || 0, data.libassMemoryLimit || 0);
+      }
+      this._checkColorSpace();
+      return this;
     }
     // this passes a string of track data to libass, be it styles, events etc, which it then processes and adds to the track
     // useful for streaming subtitles
@@ -3402,7 +3411,7 @@ void main() {
     }
     async addFonts(fontOrURLs) {
       if (!fontOrURLs.length)
-        return;
+        return false;
       const strings = [];
       const uint8s = [];
       for (const fontOrURL of fontOrURLs) {
@@ -3414,7 +3423,7 @@ void main() {
       }
       if (uint8s.length)
         this._allocFonts(uint8s);
-      return await Promise.allSettled(strings.map((url) => this._asyncWrite(url)));
+      return !!await Promise.allSettled(strings.map((url) => this._asyncWrite(url)));
     }
     // we don't want to run _findAvailableFont before initial fonts are loaded
     // because it could duplicate fonts
@@ -3422,6 +3431,7 @@ void main() {
     async _loadInitialFonts(fontOrURLs) {
       await this.addFonts(fontOrURLs);
       this._loadedInitialFonts = true;
+      this._wasm.reloadFonts();
     }
     _getFont;
     _availableFonts = {};
@@ -3482,7 +3492,6 @@ void main() {
       this._gpurender.resizeCanvas(width, height);
     }
     async [finalizer]() {
-      await this._ready;
       this._wasm.quitLibrary();
       this._gpurender.destroy();
       this._wasm = null;
@@ -3490,8 +3499,6 @@ void main() {
       this._availableFonts = {};
     }
     _draw(time, repaint = false) {
-      if (!this._offCanvas || !this._gpurender)
-        return;
       const result = this._wasm.rawRender(time, Number(repaint));
       if (this._wasm.changed === 0 && !repaint)
         return;

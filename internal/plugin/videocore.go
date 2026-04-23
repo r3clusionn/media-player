@@ -109,8 +109,22 @@ func (a *AppContextImpl) BindVideoCoreToContextObj(vm *goja.Runtime, obj *goja.O
 
 }
 
+func (p *VideoCore) getDenshiClientId() string {
+	wsEventManager, ok := p.ctx.WSEventManager().Get()
+	if ok {
+		ids := wsEventManager.GetClientIds()
+		for _, id := range ids {
+			platform := wsEventManager.GetClientPlatform(id)
+			if platform == "denshi" {
+				return id
+			}
+		}
+	}
+	return ""
+}
+
 // playStream resolves once the stream is initiated, not when playback completes.
-func (p *VideoCore) playStream(clientId string, streamUrl string, anidbEpisode string, media *anilist.BaseAnime) goja.Value {
+func (p *VideoCore) playStream(streamUrl string, anidbEpisode string, media *anilist.BaseAnime) goja.Value {
 	promise, resolve, reject := p.vm.NewPromise()
 
 	dsManager, ok := p.ctx.DirectStreamManager().Get()
@@ -124,15 +138,17 @@ func (p *VideoCore) playStream(clientId string, streamUrl string, anidbEpisode s
 		return p.vm.ToValue(promise)
 	}
 
-	opts := directstream.PlayURLStreamOptions{
-		ClientId:     clientId,
-		StreamUrl:    streamUrl,
-		AnidbEpisode: anidbEpisode,
-		Media:        media,
-	}
-
 	go func() {
-		playErr := dsManager.PlayURLStream(context.Background(), opts)
+		// get the denshi client id
+		clientId := p.getDenshiClientId()
+
+		opts := directstream.PlayUrlStreamOptions{
+			ClientId:     clientId,
+			StreamUrl:    streamUrl,
+			AnidbEpisode: anidbEpisode,
+			Media:        media,
+		}
+		playErr := dsManager.PlayUrlStream(context.Background(), opts)
 		p.scheduler.ScheduleAsync(func() error {
 			if playErr != nil {
 				reject(p.vm.NewGoError(playErr))
@@ -147,7 +163,7 @@ func (p *VideoCore) playStream(clientId string, streamUrl string, anidbEpisode s
 }
 
 // playLocalFile resolves once the stream is initiated, not when playback completes.
-func (p *VideoCore) playLocalFile(clientId string, path string) goja.Value {
+func (p *VideoCore) playLocalFile(path string) goja.Value {
 	promise, resolve, reject := p.vm.NewPromise()
 
 	dsManager, ok := p.ctx.DirectStreamManager().Get()
@@ -168,6 +184,9 @@ func (p *VideoCore) playLocalFile(clientId string, path string) goja.Value {
 	}
 
 	go func() {
+		// get the denshi client id
+		clientId := p.getDenshiClientId()
+
 		lfs, _, err := db_bridge.GetLocalFiles(db)
 		if err != nil {
 			p.scheduler.ScheduleAsync(func() error {

@@ -15,38 +15,38 @@ import (
 // URL Stream
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-var _ Stream = (*URLStream)(nil)
+var _ Stream = (*UrlStream)(nil)
 
-// URLStream is an HTTP-proxied stream sourced from an arbitrary URL (e.g. from a plugin).
-type URLStream struct {
+// UrlStream is an HTTP-proxied stream sourced from an arbitrary URL (e.g. from a plugin).
+type UrlStream struct {
 	httpBaseStream
 }
 
-func (s *URLStream) Type() nativeplayer.StreamType {
+func (s *UrlStream) Type() nativeplayer.StreamType {
 	return nativeplayer.StreamTypeURL
 }
 
-func (s *URLStream) LoadPlaybackInfo() (*nativeplayer.PlaybackInfo, error) {
+func (s *UrlStream) LoadPlaybackInfo() (*nativeplayer.PlaybackInfo, error) {
 	return s.httpBaseStream.loadPlaybackInfo(s.Type())
 }
 
-func (s *URLStream) GetStreamHandler() http.Handler {
+func (s *UrlStream) GetStreamHandler() http.Handler {
 	return s.httpBaseStream.getStreamHandler(s)
 }
 
-func (s *URLStream) GetAttachmentByName(filename string) (*mkvparser.AttachmentInfo, bool) {
+func (s *UrlStream) GetAttachmentByName(filename string) (*mkvparser.AttachmentInfo, bool) {
 	return getAttachmentByName(s.manager.playbackCtx, s, filename)
 }
 
-type PlayURLStreamOptions struct {
+type PlayUrlStreamOptions struct {
 	StreamUrl    string
 	AnidbEpisode string
 	Media        *anilist.BaseAnime
 	ClientId     string
 }
 
-// PlayURLStream starts built-in player playback for an arbitrary HTTP URL with progress tracking.
-func (m *Manager) PlayURLStream(ctx context.Context, opts PlayURLStreamOptions) error {
+// PlayUrlStream starts built-in player playback for an arbitrary HTTP URL with progress tracking.
+func (m *Manager) PlayUrlStream(ctx context.Context, opts PlayUrlStreamOptions) error {
 	m.ResetOpenState(opts.ClientId)
 
 	episodeCollection, err := anime.NewEpisodeCollection(anime.NewEpisodeCollectionOptions{
@@ -64,7 +64,7 @@ func (m *Manager) PlayURLStream(ctx context.Context, opts PlayURLStreamOptions) 
 		return fmt.Errorf("cannot play URL stream, could not find episode: %s", opts.AnidbEpisode)
 	}
 
-	stream := &URLStream{
+	stream := &UrlStream{
 		httpBaseStream: httpBaseStream{
 			streamUrl: opts.StreamUrl,
 			filepath:  "",

@@ -10,7 +10,6 @@ import (
 	"seanime/internal/library/anime"
 	"seanime/internal/mkvparser"
 	"seanime/internal/nativeplayer"
-	"seanime/internal/util"
 	"seanime/internal/util/result"
 	"seanime/internal/videocore"
 	"strconv"
@@ -819,7 +818,7 @@ func (m *Manager) FetchStreamInfo(streamUrl string) (info *StreamInfo, canStream
 }
 
 func (m *Manager) FetchStreamInfoWithHeaders(streamUrl string, headers http.Header) (info *StreamInfo, canStream bool) {
-	hasExtension, isArchive := IsArchive(streamUrl)
+	_, isArchive := IsArchive(streamUrl)
 
 	m.Logger.Debug().Str("url", streamUrl).Msg("directstream(http): Fetching stream info")
 
@@ -830,19 +829,19 @@ func (m *Manager) FetchStreamInfoWithHeaders(streamUrl string, headers http.Head
 	}
 
 	// If the stream URL has an extension, we can stream it
-	if hasExtension {
-		// Strip query params before checking extension
-		cleanUrl := streamUrl
-		if idx := strings.IndexByte(cleanUrl, '?'); idx != -1 {
-			cleanUrl = cleanUrl[:idx]
-		}
-		ext := filepath.Ext(cleanUrl)
-		// If not a valid video extension, we can't stream it
-		if !util.IsValidVideoExtension(ext) {
-			m.Logger.Warn().Str("url", streamUrl).Str("ext", ext).Msg("directstream(http): Stream URL has an invalid video extension, cannot stream")
-			return nil, false
-		}
-	}
+	// if hasExtension {
+	// 	// Strip query params before checking extension
+	// 	cleanUrl := streamUrl
+	// 	if idx := strings.IndexByte(cleanUrl, '?'); idx != -1 {
+	// 		cleanUrl = cleanUrl[:idx]
+	// 	}
+	// 	ext := filepath.Ext(cleanUrl)
+	// 	// If not a valid video extension, we can't stream it
+	// 	if !util.IsValidVideoExtension(ext) {
+	// 		m.Logger.Warn().Str("url", streamUrl).Str("ext", ext).Msg("directstream(http): Stream URL has an invalid video extension, cannot stream")
+	// 		return nil, false
+	// 	}
+	// }
 
 	// We'll fetch headers to get the info
 	// If the headers are not available, we can't stream it

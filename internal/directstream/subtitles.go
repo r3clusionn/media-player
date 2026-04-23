@@ -90,7 +90,7 @@ func (m *Manager) startSubtitleStreamForTime(stream Stream, playbackInfo *native
 		reader := s.file.NewReader()
 		reader.SetResponsive()
 		s.StartSubtitleStream(s, m.playbackCtx, reader, offset)
-	case *URLStream:
+	case *UrlStream:
 		reader, err := s.getReader()
 		if err != nil {
 			m.Logger.Warn().Err(err).Int64("offset", offset).Msg("directstream: Failed to create subtitle reader after seek")
