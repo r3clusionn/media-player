@@ -2,11 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## v3.6.2-alpha.5
+## v3.7.0
 
+- 🔒 Security overhaul
+  - Passwordless access is now local-only by default
+  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
+  - Config: Added `server.accessAllowlist` `server.trustedProxies` and `server.externalUrl` (Experimental)
+  - Improved Electron security for renderers
+  - Added security checks for server-side Electron macOS updater
+  - Improved client identity security checks
 - ⚡️ Search: Support for tags #614
 - ⚡️ Plugins: New APIs and Hooks
-  - Added VideoCore play methods #699 and skip data manipulation
+  - Added VideoCore play methods (#699) and skip data manipulation
   - Added Auto Downloader, Torrent search hooks
   - Added Playback, Scanner, Debrid, Torrent streaming, Torrent search, Auto-select API methods
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
@@ -22,15 +29,6 @@ All notable changes to this project will be documented in this file.
 - 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
 - 🦺 Plugin: Fixed $storage API returning stale data
 - 🦺 VideoCore: Fixed screenshots with Anime4K
-- 🔒 Server: Security overhaul
-  - Passwordless access is now local-only by default
-  - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary
-  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
-  - Added `server.trustedProxies` and `server.externalUrl` handling for forwarded host/proto normalization and proxy-aware secure cookies
-  - Added `server.accessAllowlist`
-  - Improved Electron security for renderers
-  - Added security checks for server-side Electron macOS updater
-  - Improved client identity security checks
 
 ## v3.6.1
 

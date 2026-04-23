@@ -1829,7 +1829,7 @@ declare namespace $ui {
     interface TorrentstreamStartStreamOptions {
         mediaId: number
         episodeNumber: number
-        aniDBEpisode: string
+        aniDbEpisode: string
         autoSelect?: boolean
         torrent?: $app.HibikeTorrent_AnimeTorrent
         fileIndex?: number

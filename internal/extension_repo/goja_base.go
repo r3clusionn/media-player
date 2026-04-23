@@ -193,7 +193,7 @@ func (g *gojaProviderBase) awaitAndExportValue(ctx context.Context, value any) (
 
 	switch v := value.(type) {
 	case nil:
-		return nil, fmt.Errorf("cannot wait for nil promise")
+		return nil, nil
 	case *goja.Promise:
 		if err := gojautil.WaitForPromise(ctx, v); err != nil {
 			return nil, err
@@ -206,7 +206,7 @@ func (g *gojaProviderBase) awaitAndExportValue(ctx context.Context, value any) (
 		return g.awaitAndExportValue(ctx, v.Result())
 	case goja.Value:
 		if v == nil {
-			return nil, fmt.Errorf("cannot wait for nil promise")
+			return nil, nil
 		}
 
 		if promise, ok := v.Export().(*goja.Promise); ok {
