@@ -11,9 +11,10 @@ All notable changes to this project will be documented in this file.
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
 - ⚡️ Windows: Use user-default explorer application
 - ⚡️ Denshi: Right-click context menu for inputs
-- ⚡️ VideoCore: Increased subtitle parsing speed
+- ⚡️ VideoCore: Increased subtitle parsing speed for local files
+- ⚡️ Denshi Player: Fullscreen with double click instead of double right-click
 - 🦺 Denshi: Fixed blank screen after server reconnection
-- 🦺 Transcoder: Fixed 10bit issues with NVENC (?)
+- 🦺 Transcoder: Potential fix for 10bit issues with NVENC (?)
 - 🦺 Continuity: Fixed potential progress being ignored
 - 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
 - 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
@@ -22,12 +23,12 @@ All notable changes to this project will be documented in this file.
 - 🔒 Server: Security overhaul
   - Passwordless access is now local-only by default
   - Passwordless CORS now follows the same trust rules as the HTTP and WebSocket boundary
+  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
   - Added `server.trustedProxies` and `server.externalUrl` handling for forwarded host/proto normalization and proxy-aware secure cookies
   - Added `server.accessAllowlist`
-  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
-  - Added `securemode = "lax"` which disables baseline security improvements
+  - Improved Electron security for renderers
+  - Added security checks for server-side Electron macOS updater
   - Improved client identity security checks
-  - Improved baseline security across Denshi renderers and macOS updater
 
 ## v3.6.1
 

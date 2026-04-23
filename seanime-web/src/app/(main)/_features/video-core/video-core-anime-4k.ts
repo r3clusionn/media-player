@@ -27,11 +27,18 @@ export const VideoCoreAnime4K = () => {
     const manager = useAtomValue(vc_anime4kManager)
     const [selectedOption] = useAtom(vc_anime4kOption)
 
+    const resizeCanvas = React.useEffectEvent(() => {
+        if (!video || !manager) return
+
+        const rect = video.getBoundingClientRect()
+        if (!rect.width || !rect.height) return
+
+        manager.resize(rect.width, rect.height)
+    })
+
     // Update manager with real video size
     React.useEffect(() => {
-        if (manager) {
-            manager.updateCanvasSize({ width: video?.videoWidth || 0, height: video?.videoHeight || 0 })
-        }
+        resizeCanvas()
     }, [manager, video])
 
     // Handle option changes
@@ -47,11 +54,35 @@ export const VideoCoreAnime4K = () => {
     }, [video, manager, selectedOption, isMiniPlayer, isPip, seeking])
 
     // Handle option changes
-    React.useLayoutEffect(() => {
-        if (video && manager) {
-            manager.resize(realVideoSize.width, realVideoSize.height)
+    // React.useLayoutEffect(() => {
+    //     resizeCanvas()
+    // }, [realVideoSize.width, realVideoSize.height])
+
+    React.useEffect(() => {
+        if (!video || !manager) return
+
+        let resizeFrame = 0
+
+        const handleResize = () => {
+            if (resizeFrame) {
+                cancelAnimationFrame(resizeFrame)
+            }
+
+            resizeFrame = requestAnimationFrame(() => {
+                resizeFrame = 0
+                resizeCanvas()
+            })
         }
-    }, [realVideoSize])
+
+        window.addEventListener("resize", handleResize)
+
+        return () => {
+            window.removeEventListener("resize", handleResize)
+            if (resizeFrame) {
+                cancelAnimationFrame(resizeFrame)
+            }
+        }
+    }, [manager, video])
 
     return null
 }

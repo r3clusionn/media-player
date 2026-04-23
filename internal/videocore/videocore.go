@@ -372,8 +372,7 @@ func normalizeSkipDataEntry(entry *SkipDataEntry) *SkipDataEntry {
 		return nil
 	}
 
-	clone := *entry
-	return &clone
+	return new(*entry)
 }
 
 func normalizeSkipData(skipData *SkipData) *SkipData {

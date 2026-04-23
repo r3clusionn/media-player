@@ -1242,44 +1242,42 @@ export function VideoCore(props: VideoCoreProps) {
         // log.info("Video clicked")
         // check if right click
 
-        if (inline) {
-            if (e.type === "click") {
-                const now = Date.now()
-                if (!debouncedMenuOpen) {
-                    togglePlay()
-                }
-                if (lastClickTime.current && now - lastClickTime.current < 300) {
-                    fullscreenManager?.toggleFullscreen()
-                } else {
-                    setTimeout(() => {
-                        setBusy(false)
-                    }, 100)
-                }
-                lastClickTime.current = now
-            }
-
-            if (e.type === "contextmenu") {
-                e.preventDefault()
-            }
-            return
-        }
-
         if (e.type === "click") {
+            const now = Date.now()
             if (!debouncedMenuOpen) {
                 togglePlay()
             }
-            setTimeout(() => {
-                setBusy(false)
-            }, 100)
-        }
-
-        if (e.type === "contextmenu") {
-            const now = Date.now()
-            if (lastClickTime.current && now - lastClickTime.current < 500) {
+            if (lastClickTime.current && now - lastClickTime.current < 300) {
                 fullscreenManager?.toggleFullscreen()
+            } else {
+                setTimeout(() => {
+                    setBusy(false)
+                }, 100)
             }
             lastClickTime.current = now
         }
+
+        if (e.type === "contextmenu") {
+            e.preventDefault()
+        }
+        return
+
+        // if (e.type === "click") {
+        //     if (!debouncedMenuOpen) {
+        //         togglePlay()
+        //     }
+        //     setTimeout(() => {
+        //         setBusy(false)
+        //     }, 100)
+        // }
+        //
+        // if (e.type === "contextmenu") {
+        //     const now = Date.now()
+        //     if (lastClickTime.current && now - lastClickTime.current < 500) {
+        //         fullscreenManager?.toggleFullscreen()
+        //     }
+        //     lastClickTime.current = now
+        // }
     }
 
     const handleDoubleClick = (e: React.SyntheticEvent<HTMLVideoElement>) => {
