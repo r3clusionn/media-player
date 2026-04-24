@@ -11,9 +11,9 @@ import (
 //----------------------------------------------------------------------------------------------------------------------
 
 func TestScanner_Scan(t *testing.T) {
-	harness := newScannerFixtureHarness(t)
+	wrapper := newScannerFixtureWrapper(t)
 	wsEventManager := events.NewMockWSEventManager(util.NewLogger())
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name  string
@@ -47,8 +47,8 @@ func TestScanner_Scan(t *testing.T) {
 			scanner := &Scanner{
 				DirPath:             dir,
 				Enhanced:            false,
-				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
-				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
+				PlatformRef:         util.NewRef[platform.Platform](wrapper.Platform),
+				MetadataProviderRef: util.NewRef(wrapper.MetadataProvider),
 				Logger:              util.NewLogger(),
 				WSEventManager:      wsEventManager,
 				ExistingLocalFiles:  existingLfs,

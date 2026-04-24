@@ -1,13 +1,12 @@
 package nakama
 
 import (
-	"sync"
-	"testing"
-	"time"
-
 	"seanime/internal/database/models"
 	"seanime/internal/events"
 	"seanime/internal/util"
+	"sync"
+	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -15,7 +14,7 @@ import (
 
 func TestWatchPartyPlaybackStatusIgnoresStaleSequence(t *testing.T) {
 	// old messages should not trigger any sync work once we've seen a newer sequence.
-	h := newWatchPartySyncHarness(false)
+	h := newWatchPartySyncWrapper(false)
 	h.setPeerSession(1.2)
 	h.player.setStatus(&WatchPartyPlaybackStatus{Paused: false, CurrentTime: 12, Duration: 100})
 	h.wpm.lastRxSequence = 5
@@ -34,7 +33,7 @@ func TestWatchPartyPlaybackStatusIgnoresStaleSequence(t *testing.T) {
 
 func TestWatchPartyPlaybackStatusResumesAndSeeksOnce(t *testing.T) {
 	// host resume should only do one resume path and one corrective seek.
-	h := newWatchPartySyncHarness(false)
+	h := newWatchPartySyncWrapper(false)
 	h.setPeerSession(1.2)
 	h.player.setStatus(&WatchPartyPlaybackStatus{Paused: true, CurrentTime: 10, Duration: 100})
 
@@ -54,7 +53,7 @@ func TestWatchPartyPlaybackStatusResumesAndSeeksOnce(t *testing.T) {
 
 func TestWatchPartySyncPlaybackPositionSkipsWhilePendingSeekIsFresh(t *testing.T) {
 	// a recent local seek should suppress another correction until the first one settles.
-	h := newWatchPartySyncHarness(false)
+	h := newWatchPartySyncWrapper(false)
 	session := h.setPeerSession(1.0)
 	h.player.setStatus(&WatchPartyPlaybackStatus{Paused: false, CurrentTime: 16, Duration: 100})
 	h.wpm.pendingSeekTime = time.Now().Add(-100 * time.Millisecond)
@@ -73,7 +72,7 @@ func TestWatchPartySyncPlaybackPositionSkipsWhilePendingSeekIsFresh(t *testing.T
 
 func TestWatchPartyPlaybackStatusPauseStartsCatchUp(t *testing.T) {
 	// when the host pauses far ahead of the peer, we should catch up before pausing.
-	h := newWatchPartySyncHarness(false)
+	h := newWatchPartySyncWrapper(false)
 	h.setPeerSession(1.0)
 	h.player.setPullSequence(
 		&WatchPartyPlaybackStatus{Paused: false, CurrentTime: 7.5, Duration: 100},
@@ -95,7 +94,7 @@ func TestWatchPartyPlaybackStatusPauseStartsCatchUp(t *testing.T) {
 
 func TestWatchPartyCheckAndManageBufferingPausesAndResumes(t *testing.T) {
 	// host playback should pause for buffering peers and resume once everyone is ready.
-	h := newWatchPartySyncHarness(true)
+	h := newWatchPartySyncWrapper(true)
 	peer := &WatchPartySessionParticipant{ID: "peer-1", Username: "peer", IsReady: false, IsBuffering: true}
 	h.setHostSession(peer)
 	h.player.setStatus(&WatchPartyPlaybackStatus{Paused: false, CurrentTime: 20, Duration: 100})
@@ -118,7 +117,7 @@ func TestWatchPartyCheckAndManageBufferingPausesAndResumes(t *testing.T) {
 
 func TestWatchPartyCalculateBufferStateDetectsStallsAndSeeks(t *testing.T) {
 	// stall detection should take two bad samples, then reset once playback jumps like a seek.
-	h := newWatchPartySyncHarness(false)
+	h := newWatchPartySyncWrapper(false)
 
 	isBuffering, health := h.wpm.calculateBufferState(&WatchPartyPlaybackStatus{Paused: false, CurrentTime: 10, Duration: 100})
 	require.False(t, isBuffering)
@@ -149,12 +148,12 @@ func TestWatchPartyCalculateBufferStateDetectsStallsAndSeeks(t *testing.T) {
 	require.Zero(t, h.wpm.stallCount)
 }
 
-type watchPartySyncHarness struct {
+type watchPartySyncWrapper struct {
 	wpm    *WatchPartyManager
 	player *fakeWatchPartyPlayer
 }
 
-func newWatchPartySyncHarness(isHost bool) *watchPartySyncHarness {
+func newWatchPartySyncWrapper(isHost bool) *watchPartySyncWrapper {
 	logger := util.NewLogger()
 	manager := &Manager{
 		logger:         logger,
@@ -168,13 +167,13 @@ func newWatchPartySyncHarness(isHost bool) *watchPartySyncHarness {
 	player := &fakeWatchPartyPlayer{}
 	wpm.playbackController = player
 
-	return &watchPartySyncHarness{
+	return &watchPartySyncWrapper{
 		wpm:    wpm,
 		player: player,
 	}
 }
 
-func (h *watchPartySyncHarness) setPeerSession(syncThreshold float64) *WatchPartySession {
+func (h *watchPartySyncWrapper) setPeerSession(syncThreshold float64) *WatchPartySession {
 	session := &WatchPartySession{
 		ID: "session-1",
 		Participants: map[string]*WatchPartySessionParticipant{
@@ -195,7 +194,7 @@ func (h *watchPartySyncHarness) setPeerSession(syncThreshold float64) *WatchPart
 	return session
 }
 
-func (h *watchPartySyncHarness) setHostSession(peer *WatchPartySessionParticipant) *WatchPartySession {
+func (h *watchPartySyncWrapper) setHostSession(peer *WatchPartySessionParticipant) *WatchPartySession {
 	session := &WatchPartySession{
 		ID: "session-1",
 		Participants: map[string]*WatchPartySessionParticipant{

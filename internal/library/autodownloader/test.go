@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-type TestHarness struct {
+type TestWrapper struct {
 	SearchResults    []*hibiketorrent.AnimeTorrent
 	GetLatestResults []*hibiketorrent.AnimeTorrent
 	Database         *db.Database
@@ -23,15 +23,15 @@ type TestHarness struct {
 }
 
 type TestTorrentProvider struct {
-	harness *TestHarness
+	wrapper *TestWrapper
 }
 
 func (f TestTorrentProvider) Search(opts hibiketorrent.AnimeSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.harness.SearchResults, nil
+	return f.wrapper.SearchResults, nil
 }
 
 func (f TestTorrentProvider) SmartSearch(opts hibiketorrent.AnimeSmartSearchOptions) ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.harness.SearchResults, nil
+	return f.wrapper.SearchResults, nil
 }
 
 func (f TestTorrentProvider) GetTorrentInfoHash(torrent *hibiketorrent.AnimeTorrent) (string, error) {
@@ -43,7 +43,7 @@ func (f TestTorrentProvider) GetTorrentMagnetLink(torrent *hibiketorrent.AnimeTo
 }
 
 func (f TestTorrentProvider) GetLatest() ([]*hibiketorrent.AnimeTorrent, error) {
-	return f.harness.GetLatestResults, nil
+	return f.wrapper.GetLatestResults, nil
 }
 
 func (f TestTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
@@ -57,7 +57,7 @@ func (f TestTorrentProvider) GetSettings() hibiketorrent.AnimeProviderSettings {
 
 var _ hibiketorrent.AnimeProvider = (*TestTorrentProvider)(nil)
 
-func (f *TestHarness) New(t *testing.T) *AutoDownloader {
+func (f *TestWrapper) New(t *testing.T) *AutoDownloader {
 	t.Helper()
 	env := testutil.NewTestEnv(t)
 
@@ -73,7 +73,7 @@ func (f *TestHarness) New(t *testing.T) *AutoDownloader {
 	providers := f.Providers
 	if len(providers) == 0 {
 		providers = map[string]hibiketorrent.AnimeProvider{
-			"fake": TestTorrentProvider{harness: f},
+			"fake": TestTorrentProvider{wrapper: f},
 		}
 	}
 

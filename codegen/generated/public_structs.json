@@ -51473,8 +51473,8 @@
   {
     "filepath": "../internal/library/autodownloader/test.go",
     "filename": "test.go",
-    "name": "TestHarness",
-    "formattedName": "AutoDownloader_TestHarness",
+    "name": "TestWrapper",
+    "formattedName": "AutoDownloader_TestWrapper",
     "package": "autodownloader",
     "fields": [
       {
@@ -51541,12 +51541,12 @@
     "package": "autodownloader",
     "fields": [
       {
-        "name": "harness",
-        "jsonName": "harness",
-        "goType": "TestHarness",
-        "typescriptType": "AutoDownloader_TestHarness",
-        "usedTypescriptType": "AutoDownloader_TestHarness",
-        "usedStructName": "autodownloader.TestHarness",
+        "name": "wrapper",
+        "jsonName": "wrapper",
+        "goType": "TestWrapper",
+        "typescriptType": "AutoDownloader_TestWrapper",
+        "usedTypescriptType": "AutoDownloader_TestWrapper",
+        "usedStructName": "autodownloader.TestWrapper",
         "required": false,
         "public": false,
         "comments": []

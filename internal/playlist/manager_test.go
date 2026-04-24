@@ -28,7 +28,7 @@ import (
 func TestPlaylistManagerSendCurrentPlaylistToClient(t *testing.T) {
 	t.Run("no playlist sends nil playlist", func(t *testing.T) {
 		// this keeps the UI bootstrap path honest when nothing is playing yet.
-		h := newPlaylistTestHarness(t)
+		h := newPlaylistTestWrapper(t)
 		h.manager.clientId = "web"
 
 		h.manager.sendCurrentPlaylistToClient()
@@ -41,7 +41,7 @@ func TestPlaylistManagerSendCurrentPlaylistToClient(t *testing.T) {
 
 	t.Run("active playlist sends playlist and episode", func(t *testing.T) {
 		// once a playlist is active, the client should receive both the queue and the selected episode.
-		h := newPlaylistTestHarness(t)
+		h := newPlaylistTestWrapper(t)
 		h.manager.clientId = "web"
 		episodeOne := newStreamPlaylistEpisode(101, 1, "1")
 		playlist := newPlaylistFixture("queue", episodeOne)
@@ -66,7 +66,7 @@ func TestPlaylistManagerSendCurrentPlaylistToClient(t *testing.T) {
 
 func TestPlaylistManagerPlayEpisodeNextWithoutCurrentEpisode(t *testing.T) {
 	// calling next with no current episode should pick the first incomplete entry instead of hanging on the mutex.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	h.manager.clientId = "web"
 	episodeOne := newStreamPlaylistEpisode(201, 1, "1")
 	episodeTwo := newStreamPlaylistEpisode(201, 2, "2")
@@ -99,7 +99,7 @@ func TestPlaylistManagerPlayEpisodeNextWithoutCurrentEpisode(t *testing.T) {
 
 func TestPlaylistManagerPlayEpisodePrevious(t *testing.T) {
 	// previous should switch back to the earlier entry and notify the client with that episode.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	h.manager.clientId = "web"
 	episodeOne := newStreamPlaylistEpisode(301, 1, "1")
 	episodeTwo := newStreamPlaylistEpisode(301, 2, "2")
@@ -123,7 +123,7 @@ func TestPlaylistManagerPlayEpisodePrevious(t *testing.T) {
 
 func TestPlaylistManagerMarkCurrentAsCompletedPersistsAndUpdatesProgress(t *testing.T) {
 	// completing an episode should update both the stored playlist and the AniList progress bridge.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	h.manager.clientId = "web"
 	episodeOne := newStreamPlaylistEpisode(401, 4, "4")
 	playlist := newPlaylistFixture("queue", episodeOne)
@@ -159,7 +159,7 @@ func TestPlaylistManagerMarkCurrentAsCompletedPersistsAndUpdatesProgress(t *test
 
 func TestPlaylistManagerStopPlaylistDeletesCompletedPlaylistAndResetsState(t *testing.T) {
 	// stopping an already-finished playlist should clear in-memory state and remove the stored queue.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	h.manager.clientId = "web"
 	episodeOne := newStreamPlaylistEpisode(501, 1, "1")
 	episodeOne.IsCompleted = true
@@ -196,7 +196,7 @@ func TestPlaylistManagerStopPlaylistDeletesCompletedPlaylistAndResetsState(t *te
 
 func TestPlaylistManagerListenToEventsStartsPlaylistAndServesCurrentPlaylist(t *testing.T) {
 	// the common client flow is start playlist first, then ask for the current queue state.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	episodeOne := newStreamPlaylistEpisode(601, 1, "1")
 	episodeTwo := newStreamPlaylistEpisode(601, 2, "2")
 	playlist := newPlaylistFixture("queue", episodeOne, episodeTwo)
@@ -233,7 +233,7 @@ func TestPlaylistManagerListenToEventsStartsPlaylistAndServesCurrentPlaylist(t *
 
 func TestPlaylistManagerNativeLifecycleAdvancesToNextEpisode(t *testing.T) {
 	// the normal native-player loop is: load metadata, complete the episode, then move to the next one on ended.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	episodeOne := newStreamPlaylistEpisode(701, 1, "1")
 	episodeTwo := newStreamPlaylistEpisode(701, 2, "2")
 	playlist := newPlaylistFixture("queue", episodeOne, episodeTwo)
@@ -277,7 +277,7 @@ func TestPlaylistManagerNativeLifecycleAdvancesToNextEpisode(t *testing.T) {
 
 func TestPlaylistManagerNativeTerminationStopsPlaylist(t *testing.T) {
 	// when the native player closes during playback, the playlist should stop and clear its state.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	episodeOne := newStreamPlaylistEpisode(801, 1, "1")
 	playlist := newPlaylistFixture("queue", episodeOne)
 	h.manager.clientId = "web"
@@ -303,7 +303,7 @@ func TestPlaylistManagerNativeTerminationStopsPlaylist(t *testing.T) {
 
 func TestPlaylistManagerListenToEventsReopensCurrentEpisode(t *testing.T) {
 	// reopen should send the currently selected episode back to the client without changing selection.
-	h := newPlaylistTestHarness(t)
+	h := newPlaylistTestWrapper(t)
 	episodeOne := newStreamPlaylistEpisode(901, 1, "1")
 	playlist := newPlaylistFixture("queue", episodeOne)
 	h.manager.currentPlaylistData = mo.Some(&playlistData{playlist: playlist, options: newClientPlaylistOptions("web")})
@@ -318,7 +318,7 @@ func TestPlaylistManagerListenToEventsReopensCurrentEpisode(t *testing.T) {
 	require.Same(t, episodeOne, playPayload.PlaylistEpisode)
 }
 
-type playlistTestHarness struct {
+type playlistTestWrapper struct {
 	database        *db.Database
 	wsEventManager  *recordingPlaylistWSEventManager
 	platform        *testmocks.FakePlatform
@@ -328,7 +328,7 @@ type playlistTestHarness struct {
 	manager         *Manager
 }
 
-func newPlaylistTestHarness(t *testing.T) *playlistTestHarness {
+func newPlaylistTestWrapper(t *testing.T) *playlistTestWrapper {
 	t.Helper()
 
 	env := testutil.NewTestEnv(t)
@@ -389,7 +389,7 @@ func newPlaylistTestHarness(t *testing.T) *playlistTestHarness {
 	manager.state.Store(StateIdle)
 	manager.playerType.Store("")
 
-	return &playlistTestHarness{
+	return &playlistTestWrapper{
 		database:        database,
 		wsEventManager:  wsEventManager,
 		platform:        platformImpl,
@@ -400,7 +400,7 @@ func newPlaylistTestHarness(t *testing.T) *playlistTestHarness {
 	}
 }
 
-func (h *playlistTestHarness) sendPlaylistClientEvent(t *testing.T, clientID string, payload ClientEvent) {
+func (h *playlistTestWrapper) sendPlaylistClientEvent(t *testing.T, clientID string, payload ClientEvent) {
 	t.Helper()
 	h.waitForClientSubscriber(t, "playlist-manager")
 
@@ -411,7 +411,7 @@ func (h *playlistTestHarness) sendPlaylistClientEvent(t *testing.T, clientID str
 	})
 }
 
-func (h *playlistTestHarness) sendVideoCoreClientEvent(clientID string, eventType videocore.ClientEventType, payload interface{}) {
+func (h *playlistTestWrapper) sendVideoCoreClientEvent(clientID string, eventType videocore.ClientEventType, payload interface{}) {
 	h.wsEventManager.MockSendClientEvent(&events.WebsocketClientEvent{
 		ClientID: clientID,
 		Type:     events.VideoCoreEventType,
@@ -422,7 +422,7 @@ func (h *playlistTestHarness) sendVideoCoreClientEvent(clientID string, eventTyp
 	})
 }
 
-func (h *playlistTestHarness) sendNativeLoadedSequence(t *testing.T, clientID string, episode *anime.PlaylistEpisode) {
+func (h *playlistTestWrapper) sendNativeLoadedSequence(t *testing.T, clientID string, episode *anime.PlaylistEpisode) {
 	t.Helper()
 
 	h.sendVideoCoreClientEvent(clientID, videocore.PlayerEventVideoLoaded, map[string]interface{}{
@@ -444,7 +444,7 @@ func (h *playlistTestHarness) sendNativeLoadedSequence(t *testing.T, clientID st
 	})
 }
 
-func (h *playlistTestHarness) waitForClientSubscriber(t *testing.T, id string) {
+func (h *playlistTestWrapper) waitForClientSubscriber(t *testing.T, id string) {
 	t.Helper()
 
 	require.Eventually(t, func() bool {
@@ -452,7 +452,7 @@ func (h *playlistTestHarness) waitForClientSubscriber(t *testing.T, id string) {
 	}, time.Second, 10*time.Millisecond)
 }
 
-func (h *playlistTestHarness) persistPlaylist(t *testing.T, playlist *anime.Playlist) {
+func (h *playlistTestWrapper) persistPlaylist(t *testing.T, playlist *anime.Playlist) {
 	t.Helper()
 
 	data, err := json.Marshal(playlist.Episodes)

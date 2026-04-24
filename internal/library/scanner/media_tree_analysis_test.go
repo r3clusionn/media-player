@@ -13,9 +13,9 @@ import (
 )
 
 func TestMediaTreeAnalysis(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	anilistRateLimiter := harness.AnilistRateLimiter
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	anilistRateLimiter := wrapper.AnilistRateLimiter
 
 	tests := []struct {
 		name                          string
@@ -76,7 +76,7 @@ func TestMediaTreeAnalysis(t *testing.T) {
 
 			mta, err := NewMediaTreeAnalysis(&MediaTreeAnalysisOptions{
 				tree:                tree,
-				metadataProviderRef: util.NewRef(harness.MetadataProvider),
+				metadataProviderRef: util.NewRef(wrapper.MetadataProvider),
 				rateLimiter:         limiter.NewLimiter(time.Minute, 25),
 			})
 			if err != nil {
@@ -102,9 +102,9 @@ func TestMediaTreeAnalysis(t *testing.T) {
 }
 
 func TestMediaTreeAnalysis2(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	anilistRateLimiter := harness.AnilistRateLimiter
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	anilistRateLimiter := wrapper.AnilistRateLimiter
 
 	tests := []struct {
 		name    string
@@ -148,7 +148,7 @@ func TestMediaTreeAnalysis2(t *testing.T) {
 
 			mta, err := NewMediaTreeAnalysis(&MediaTreeAnalysisOptions{
 				tree:                tree,
-				metadataProviderRef: util.NewRef(harness.MetadataProvider),
+				metadataProviderRef: util.NewRef(wrapper.MetadataProvider),
 				rateLimiter:         limiter.NewLimiter(time.Minute, 25),
 			})
 			if err != nil {

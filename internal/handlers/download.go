@@ -263,24 +263,14 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("invalid version string"))
 	}
 
-	// Get downloads directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return h.RespondWithError(c, fmt.Errorf("failed to get home directory: %w", err))
-	}
-	downloadsDir := filepath.Join(homeDir, "Downloads")
-	if err := os.MkdirAll(downloadsDir, 0755); err != nil {
-		return h.RespondWithError(c, fmt.Errorf("failed to create downloads directory: %w", err))
-	}
-
-	stageDir, err := os.MkdirTemp(downloadsDir, "seanime-denshi-update-")
+	stageDir, err := os.MkdirTemp("", "seanime-denshi-update-")
 	if err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to create update staging directory: %w", err))
 	}
 	defer os.RemoveAll(stageDir)
 
 	// Download the file
-	h.App.Logger.Info().Str("url", b.DownloadUrl).Msg("Downloading macOS update")
+	h.App.Logger.Info().Str("url", b.DownloadUrl).Msg("app: Downloading macOS update")
 	resp, err := http.Get(b.DownloadUrl)
 	if err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to download update: %w", err))
@@ -308,7 +298,7 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("failed to finalize zip file: %w", err))
 	}
 
-	h.App.Logger.Info().Str("path", zipPath).Msg("Downloaded update")
+	h.App.Logger.Info().Str("path", zipPath).Msg("app: Downloaded update")
 	if err := validateMacAppArchive(zipPath, "Seanime Denshi.app"); err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to validate update archive: %w", err))
 	}
@@ -320,7 +310,7 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("failed to create extract directory: %w", err))
 	}
 
-	h.App.Logger.Info().Str("path", extractDir).Msg("Extracting update")
+	h.App.Logger.Info().Str("path", extractDir).Msg("app: Extracting update")
 	if err := extractMacAppArchive(zipPath, extractDir, "Seanime Denshi.app"); err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to extract zip: %w", err))
 	}
@@ -338,18 +328,18 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 	}
 
 	// Run xattr -c to remove quarantine attributes
-	h.App.Logger.Info().Str("path", appPath).Msg("Removing quarantine attributes")
+	h.App.Logger.Info().Str("path", appPath).Msg("app: Removing quarantine attributes")
 	if err := util.ClearMacAppQuarantine(appPath); err != nil {
-		h.App.Logger.Warn().Err(err).Msg("Failed to remove quarantine attributes natively, falling back to xattr")
+		h.App.Logger.Warn().Err(err).Msg("app: Failed to remove quarantine attributes natively, falling back to xattr")
 		xattrCmd := util.NewCmd("xattr", "-cr", appPath)
 		if err := xattrCmd.Run(); err != nil {
-			h.App.Logger.Warn().Err(err).Msg("Failed to remove quarantine attributes, continuing anyway")
+			h.App.Logger.Warn().Err(err).Msg("app: Failed to remove quarantine attributes, continuing anyway")
 		}
 	}
 
 	// Move to Applications folder
 	applicationsPath := "/Applications/Seanime Denshi.app"
-	h.App.Logger.Info().Str("destination", applicationsPath).Msg("Installing update into Applications")
+	h.App.Logger.Info().Str("destination", applicationsPath).Msg("app: Installing update into Applications")
 	if err := installMacAppBundle(appPath, applicationsPath, nil); err != nil {
 		return h.RespondWithError(c, err)
 	}

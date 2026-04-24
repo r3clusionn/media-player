@@ -13,9 +13,9 @@ import (
 )
 
 func TestFileHydrator_HydrateMetadata(t *testing.T) {
-	harness := newScannerFixtureHarness(t)
-	logger := harness.Logger
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerFixtureWrapper(t)
+	logger := wrapper.Logger
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, animeCollection)
 
@@ -90,7 +90,7 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 				animeCollection,
 				tt.expectedMediaId,
 				anilist.AnimeCollectionEntryPatch{Status: &currentStatus},
-				harness.AnilistClient,
+				wrapper.AnilistClient,
 			)
 			allMedia := animeCollection.GetAllAnime()
 
@@ -103,7 +103,7 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			lfs := harness.LocalFiles(tt.paths...)
+			lfs := wrapper.LocalFiles(tt.paths...)
 
 			// +---------------------+
 			// |   MediaContainer    |
@@ -143,10 +143,10 @@ func TestFileHydrator_HydrateMetadata(t *testing.T) {
 			fh := &FileHydrator{
 				LocalFiles:          lfs,
 				AllMedia:            mc.NormalizedMedia,
-				CompleteAnimeCache:  harness.CompleteAnimeCache,
-				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
-				AnilistRateLimiter:  harness.AnilistRateLimiter,
-				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
+				CompleteAnimeCache:  wrapper.CompleteAnimeCache,
+				PlatformRef:         util.NewRef[platform.Platform](wrapper.Platform),
+				AnilistRateLimiter:  wrapper.AnilistRateLimiter,
+				MetadataProviderRef: util.NewRef(wrapper.MetadataProvider),
 				Logger:              logger,
 				ScanLogger:          scanLogger,
 				Config:              config,

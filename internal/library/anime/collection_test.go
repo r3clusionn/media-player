@@ -9,7 +9,7 @@ import (
 )
 
 func TestNewLibraryCollectionContinueWatchingList(t *testing.T) {
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 
 	localFiles := make([]*anime.LocalFile, 0)
 	localFiles = append(localFiles, anime.NewTestLocalFiles(
@@ -68,7 +68,7 @@ func TestNewLibraryCollectionContinueWatchingList(t *testing.T) {
 }
 
 func TestNewLibraryCollectionMergesRepeatingAndHydratesStats(t *testing.T) {
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 
 	localFiles := anime.NewTestLocalFiles(
 		anime.TestLocalFileGroup{
@@ -138,7 +138,7 @@ func TestNewLibraryCollectionMergesRepeatingAndHydratesStats(t *testing.T) {
 }
 
 func TestNewLibraryCollectionGroupsUnknownIgnoredAndUnmatchedFiles(t *testing.T) {
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 
 	localFiles := anime.NewTestLocalFiles(
 		anime.TestLocalFileGroup{

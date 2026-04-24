@@ -1188,15 +1188,15 @@ func TestIntegration(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a new fake
-			harness := &TestHarness{
+			wrapper := &TestWrapper{
 				GetLatestResults: tt.torrents,
 				SearchResults:    tt.torrents,
 			}
-			ad := harness.New(t)
+			ad := wrapper.New(t)
 			ad.SetAnimeCollection(animeCollection)
 
 			// Add local files to the database
-			_, err = harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+			_, err = wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 			require.NoError(t, err)
 
 			// Set user progress
@@ -1381,7 +1381,7 @@ func TestDelayIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fake := &TestHarness{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
+			fake := &TestWrapper{GetLatestResults: tt.torrents, SearchResults: tt.torrents}
 			ad := fake.New(t)
 			ad.SetAnimeCollection(testAnimeCollection.Copy())
 
@@ -1433,7 +1433,7 @@ func TestRunCheckUsesMatchVerifiedHook(t *testing.T) {
 		return event.Next()
 	})
 
-	harness := &TestHarness{
+	wrapper := &TestWrapper{
 		GetLatestResults: []*hibiketorrent.AnimeTorrent{
 			{Name: "[SubsPlease] Totally Different Show - 01 (1080p)", InfoHash: "forced_match", Seeders: 100},
 		},
@@ -1441,10 +1441,10 @@ func TestRunCheckUsesMatchVerifiedHook(t *testing.T) {
 			{Name: "[SubsPlease] Totally Different Show - 01 (1080p)", InfoHash: "forced_match", Seeders: 100},
 		},
 	}
-	ad := harness.New(t)
+	ad := wrapper.New(t)
 	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
 
-	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	_, err := wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 	require.NoError(t, err)
 
 	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
@@ -1483,11 +1483,11 @@ func TestRunCheckUsesBestCandidateSelectedHook(t *testing.T) {
 		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "best_candidate", Seeders: 100},
 		{Name: "[AltGroup] Sousou no Frieren - 01 (720p)", InfoHash: "override_candidate", Seeders: 50},
 	}
-	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
-	ad := harness.New(t)
+	wrapper := &TestWrapper{GetLatestResults: torrents, SearchResults: torrents}
+	ad := wrapper.New(t)
 	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
 
-	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	_, err := wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 	require.NoError(t, err)
 
 	err = db_bridge.InsertAutoDownloaderProfile(ad.database, &anime.AutoDownloaderProfile{
@@ -1529,11 +1529,11 @@ func TestRunCheckUsesBeforeQueueDelayedTorrentHook(t *testing.T) {
 	torrents := []*hibiketorrent.AnimeTorrent{
 		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "delay_hook", MagnetLink: "magnet:?xt=urn:btih:delay_hook", Seeders: 100},
 	}
-	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
-	ad := harness.New(t)
+	wrapper := &TestWrapper{GetLatestResults: torrents, SearchResults: torrents}
+	ad := wrapper.New(t)
 	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
 
-	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	_, err := wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 	require.NoError(t, err)
 
 	err = db_bridge.InsertAutoDownloaderProfile(ad.database, &anime.AutoDownloaderProfile{
@@ -1584,11 +1584,11 @@ func TestRunCheckUsesBeforeFetchTorrentsHook(t *testing.T) {
 		return event.Next()
 	})
 
-	harness := &TestHarness{}
-	ad := harness.New(t)
+	wrapper := &TestWrapper{}
+	ad := wrapper.New(t)
 	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
 
-	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	_, err := wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 	require.NoError(t, err)
 
 	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{
@@ -1623,11 +1623,11 @@ func TestRunCheckTriggersRunCompletedHook(t *testing.T) {
 	torrents := []*hibiketorrent.AnimeTorrent{
 		{Name: "[SubsPlease] Sousou no Frieren - 01 (1080p)", InfoHash: "run_completed", Seeders: 100},
 	}
-	harness := &TestHarness{GetLatestResults: torrents, SearchResults: torrents}
-	ad := harness.New(t)
+	wrapper := &TestWrapper{GetLatestResults: torrents, SearchResults: torrents}
+	ad := wrapper.New(t)
 	ad.SetAnimeCollection(newTestAnimeCollection(t, frierenMediaId))
 
-	_, err := harness.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
+	_, err := wrapper.Database.InsertLocalFiles(&models.LocalFiles{Value: []byte("[]")})
 	require.NoError(t, err)
 
 	err = db_bridge.InsertAutoDownloaderRule(ad.database, &anime.AutoDownloaderRule{

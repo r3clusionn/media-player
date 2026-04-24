@@ -11,7 +11,7 @@ import (
 func TestNewMissingEpisodes(t *testing.T) {
 	// missing episodes now collapse each show down to the next thing you need,
 	// and anything silenced should be split into its own list.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 
 	localFiles := anime.NewTestLocalFiles(
 		anime.TestLocalFileGroup{

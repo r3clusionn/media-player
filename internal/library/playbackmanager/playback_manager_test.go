@@ -24,7 +24,7 @@ import (
 
 func TestPlaybackManagerUnitNewDefaultsAndSetters(t *testing.T) {
 	// keep the constructor honest so the rest of the tests can rely on the default state.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 
 	require.NotNil(t, h.playbackManager.settings)
 	require.NotNil(t, h.playbackManager.historyMap)
@@ -49,7 +49,7 @@ func TestPlaybackManagerUnitNewDefaultsAndSetters(t *testing.T) {
 
 func TestPlaybackManagerUnitCheckOrLoadAnimeCollectionCachesResult(t *testing.T) {
 	// the first call should hit the platform, and later calls should reuse the cached collection.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	expectedCollection := &anilist.AnimeCollection{}
 	h.platform = testmocks.NewFakePlatformBuilder().WithAnimeCollection(expectedCollection).Build()
 	h.playbackManager.platformRef = util.NewRef[platform.Platform](h.platform)
@@ -71,7 +71,7 @@ func TestPlaybackManagerUnitCheckOrLoadAnimeCollectionCachesResult(t *testing.T)
 
 func TestPlaybackManagerUnitGetNextEpisodeAndCurrentMediaID(t *testing.T) {
 	// these are tiny state readers, so keep them focused on the state machine rules.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	localFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
 		LibraryPath:      "/Anime",
 		FilePathTemplate: "/Anime/Frieren/%ep.mkv",
@@ -100,7 +100,7 @@ func TestPlaybackManagerUnitGetNextEpisodeAndCurrentMediaID(t *testing.T) {
 
 func TestPlaybackManagerUnitPlaybackStatusSubscriptionLifecycle(t *testing.T) {
 	// subscription cleanup matters because the manager broadcasts on these channels from goroutines.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	subscriber := h.playbackManager.SubscribeToPlaybackStatus("unit")
 
 	storedSubscriber, ok := h.playbackManager.playbackStatusSubscribers.Get("unit")
@@ -122,7 +122,7 @@ func TestPlaybackManagerUnitPlaybackStatusSubscriptionLifecycle(t *testing.T) {
 
 func TestPlaybackManagerUnitRegisterMediaPlayerCallbackStopsAfterFalse(t *testing.T) {
 	// callbacks are just another subscriber under the hood, so we can drive one directly.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	received := make(chan PlaybackEvent, 1)
 
 	h.playbackManager.RegisterMediaPlayerCallback(func(event PlaybackEvent) bool {
@@ -167,7 +167,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("disabled autoplay is a no-op", func(t *testing.T) {
 		// if the setting is off, the queue should stay untouched.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 		h.playbackManager.nextEpisodeLocalFile = mo.Some(localFiles[1])
 
@@ -177,7 +177,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("missing next episode stays quiet", func(t *testing.T) {
 		// multiple clients can race this request, so no-next should just return nil.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.settings.AutoPlayNextEpisode = true
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 
@@ -187,7 +187,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("play errors get wrapped", func(t *testing.T) {
 		// once autoplay is enabled and a next file exists, play-next failures should bubble up with context.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.settings.AutoPlayNextEpisode = true
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 		h.playbackManager.nextEpisodeLocalFile = mo.Some(localFiles[1])
@@ -201,7 +201,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 	t.Run("local playback fails if collection refresh fails", func(t *testing.T) {
 		// this should stop before touching the media player when collection loading fails.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.platform = testmocks.NewFakePlatformBuilder().WithAnimeCollectionError(errors.New("collection failed")).Build()
 		h.playbackManager.platformRef = util.NewRef[platform.Platform](h.platform)
 
@@ -211,7 +211,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 
 	t.Run("stream playback blocks offline mode", func(t *testing.T) {
 		// offline mode is a hard stop even when the caller passed a media and episode.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.isOfflineRef.Set(true)
 
 		err := h.playbackManager.StartStreamingUsingMediaPlayer("stream", &StartPlayingOptions{Payload: "https://example.com"}, testmocks.NewBaseAnime(154587, "Frieren"), "1")
@@ -222,7 +222,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 	t.Run("stream playback rejects missing data", func(t *testing.T) {
 		// callers need to provide both the media and the anidb episode before we can track a stream.
 		media := testmocks.NewBaseAnime(154587, "Frieren")
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 
 		err := h.playbackManager.StartStreamingUsingMediaPlayer("stream", &StartPlayingOptions{Payload: "https://example.com"}, nil, "1")
 		require.EqualError(t, err, "cannot start streaming, not enough data provided")
@@ -234,7 +234,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 
 func TestPlaybackManagerUnitLocalPlaybackStatusAndProgressTracking(t *testing.T) {
 	// this drives the local-file tracking handlers directly so state changes and progress syncing stay covered.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 
 	media := testmocks.NewBaseAnimeBuilder(154587, "Frieren").
@@ -318,7 +318,7 @@ func TestPlaybackManagerUnitLocalPlaybackStatusAndProgressTracking(t *testing.T)
 
 func TestPlaybackManagerUnitStreamPlaybackStatusAndProgressTracking(t *testing.T) {
 	// this covers the stream tracking handlers, including progress sync when a streamed episode completes.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 
 	media := testmocks.NewBaseAnimeBuilder(201, "Dungeon Meshi").
@@ -399,7 +399,7 @@ func TestPlaybackManagerUnitStreamPlaybackStatusAndProgressTracking(t *testing.T
 
 func TestPlaybackManagerUnitManualProgressTrackingSyncsProgress(t *testing.T) {
 	// manual tracking should hold the current episode in memory and sync it when the user asks for it.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 
 	media := testmocks.NewBaseAnimeBuilder(909, "Orb").
 		WithUserPreferredTitle("Orb").
@@ -443,7 +443,7 @@ func TestPlaybackManagerUnitManualProgressTrackingSyncsProgress(t *testing.T) {
 
 func TestPlaybackManagerLiveRepositoryEventsReachCallbacks(t *testing.T) {
 	// this uses the real repository subscription wiring, but it stays in-memory and never launches a player.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	repo := mediaplayer.NewRepository(&mediaplayer.NewRepositoryOptions{
 		Logger:         util.NewLogger(),
 		Default:        "",
@@ -482,7 +482,7 @@ func TestPlaybackManagerLiveRepositoryEventsReachCallbacks(t *testing.T) {
 
 func TestPlaybackManagerLiveRepositoryStreamCompletionSyncsProgress(t *testing.T) {
 	// this exercises the real repository subscription loop and proves stream completion can drive a progress sync.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 	media := testmocks.NewBaseAnimeBuilder(700, "Lazarus").
 		WithUserPreferredTitle("Lazarus").
@@ -537,7 +537,7 @@ func TestPlaybackManagerLiveRepositoryStreamCompletionSyncsProgress(t *testing.T
 	require.True(t, h.playbackManager.historyMap["Stream"].ProgressUpdated)
 }
 
-type playbackManagerTestHarness struct {
+type playbackManagerTestWrapper struct {
 	database        *db.Database
 	wsEventManager  *recordingWSEventManager
 	refreshCalls    int
@@ -545,7 +545,7 @@ type playbackManagerTestHarness struct {
 	playbackManager *PlaybackManager
 }
 
-func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
+func newPlaybackManagerTestWrapper(t *testing.T) *playbackManagerTestWrapper {
 	t.Helper()
 
 	env := testutil.NewTestEnv(t)
@@ -562,7 +562,7 @@ func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
 	platformInterface := platform.Platform(platformImpl)
 	var provider metadata_provider.Provider
 
-	h := &playbackManagerTestHarness{
+	h := &playbackManagerTestWrapper{
 		database:       database,
 		wsEventManager: wsEventManager,
 		platform:       platformImpl,
@@ -584,7 +584,7 @@ func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
 	return h
 }
 
-func (h *playbackManagerTestHarness) seedAutoUpdateProgress(t *testing.T, enabled bool) {
+func (h *playbackManagerTestWrapper) seedAutoUpdateProgress(t *testing.T, enabled bool) {
 	t.Helper()
 
 	_, err := h.database.UpsertSettings(&models.Settings{

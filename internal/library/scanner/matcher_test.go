@@ -148,9 +148,9 @@ func TestSeasonSignalsIgnoreQualifiedRomanNumerals(t *testing.T) {
 }
 
 func TestMatcher2(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -158,7 +158,7 @@ func TestMatcher2(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -263,9 +263,9 @@ func TestMatcher2(t *testing.T) {
 }
 
 func TestMatcher3(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -273,7 +273,7 @@ func TestMatcher3(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -950,27 +950,27 @@ func TestMatcherWithOfflineDB(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	harness := newScannerFixtureHarness(t)
-	logger := harness.Logger
+	wrapper := newScannerFixtureWrapper(t)
+	logger := wrapper.Logger
 
 	scanLogger, err := NewConsoleScanLogger()
 	if err != nil {
 		t.Fatal("expected result, got error:", err.Error())
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	t.Log("Initializing MediaFetcher with anime-offline-database...")
 
 	mf, err := NewMediaFetcher(t.Context(), &MediaFetcherOptions{
 		Enhanced:                   true,
 		EnhanceWithOfflineDatabase: true, // Use offline database
-		PlatformRef:                util.NewRef[platform.Platform](harness.Platform),
+		PlatformRef:                util.NewRef[platform.Platform](wrapper.Platform),
 		LocalFiles:                 []*anime.LocalFile{}, // Empty, we don't need local files for fetching
-		CompleteAnimeCache:         harness.CompleteAnimeCache,
-		MetadataProviderRef:        util.NewRef(harness.MetadataProvider),
+		CompleteAnimeCache:         wrapper.CompleteAnimeCache,
+		MetadataProviderRef:        util.NewRef(wrapper.MetadataProvider),
 		Logger:                     logger,
-		AnilistRateLimiter:         harness.AnilistRateLimiter,
+		AnilistRateLimiter:         wrapper.AnilistRateLimiter,
 		ScanLogger:                 scanLogger,
 		DisableAnimeCollection:     true, // Only use offline database
 	})
@@ -1383,9 +1383,9 @@ func TestGetFileFormatType(t *testing.T) {
 }
 
 func TestMatcher_applyMatchingRule(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -1393,7 +1393,7 @@ func TestMatcher_applyMatchingRule(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name             string

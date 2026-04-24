@@ -7,9 +7,9 @@ import (
 )
 
 func TestScanLogger(t *testing.T) {
-	harness := newScannerFixtureHarness(t)
-	logger := harness.Logger
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerFixtureWrapper(t)
+	logger := wrapper.Logger
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -39,7 +39,7 @@ func TestScanLogger(t *testing.T) {
 
 		t.Run(tt.name, func(t *testing.T) {
 
-			scanLogger, err := NewScanLogger(harness.Env.RootPath("logs"))
+			scanLogger, err := NewScanLogger(wrapper.Env.RootPath("logs"))
 			if err != nil {
 				t.Fatal("expected result, got error:", err.Error())
 			}
@@ -48,7 +48,7 @@ func TestScanLogger(t *testing.T) {
 			// |   Local Files       |
 			// +---------------------+
 
-			lfs := harness.LocalFiles(tt.paths...)
+			lfs := wrapper.LocalFiles(tt.paths...)
 
 			// +---------------------+
 			// |   MediaContainer    |
@@ -87,10 +87,10 @@ func TestScanLogger(t *testing.T) {
 			fh := FileHydrator{
 				LocalFiles:          lfs,
 				AllMedia:            mc.NormalizedMedia,
-				CompleteAnimeCache:  harness.CompleteAnimeCache,
-				PlatformRef:         util.NewRef[platform.Platform](harness.Platform),
-				MetadataProviderRef: util.NewRef(harness.MetadataProvider),
-				AnilistRateLimiter:  harness.AnilistRateLimiter,
+				CompleteAnimeCache:  wrapper.CompleteAnimeCache,
+				PlatformRef:         util.NewRef[platform.Platform](wrapper.Platform),
+				MetadataProviderRef: util.NewRef(wrapper.MetadataProvider),
+				AnilistRateLimiter:  wrapper.AnilistRateLimiter,
 				Logger:              logger,
 				ScanLogger:          scanLogger,
 				ScanSummaryLogger:   nil,

@@ -146,7 +146,7 @@ declare namespace $ui {
          * @param deps - Array of dependencies that trigger the effect
          * @returns A function to clean up the effect
          */
-        effect(fn: () => void, deps: State<any>[]): () => void
+        effect(fn: () => void, deps: (State<any> | ReadOnlyState<any>)[]): () => void
 
         /**
          * Makes a fetch request.
