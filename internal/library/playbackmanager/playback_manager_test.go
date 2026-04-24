@@ -6,6 +6,7 @@ import (
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/continuity"
 	"seanime/internal/database/db"
+	"seanime/internal/database/db_bridge"
 	"seanime/internal/database/models"
 	"seanime/internal/events"
 	"seanime/internal/library/anime"
@@ -314,6 +315,98 @@ func TestPlaybackManagerUnitLocalPlaybackStatusAndProgressTracking(t *testing.T)
 	require.True(t, h.playbackManager.nextEpisodeLocalFile.IsPresent())
 	require.Same(t, localFiles[2], h.playbackManager.nextEpisodeLocalFile.MustGet())
 	require.Equal(t, events.PlaybackManagerProgressTrackingStopped, h.wsEventManager.lastType())
+}
+
+func TestPlaybackManagerTrackingStartedUsesNewLocalFileState(t *testing.T) {
+	// the first status event for a new file should use the new file's metadata, not whatever was playing before.
+	h := newPlaybackManagerTestWrapper(t)
+
+	oldMedia := testmocks.NewBaseAnimeBuilder(130003, "Bocchi the Rock!").
+		WithUserPreferredTitle("Bocchi the Rock!").
+		WithEpisodes(12).
+		Build()
+	newMedia := testmocks.NewBaseAnimeBuilder(166617, "Fate/strange Fake").
+		WithUserPreferredTitle("Fate/strange Fake").
+		WithEpisodes(13).
+		Build()
+
+	oldFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
+		LibraryPath:      "/Anime",
+		FilePathTemplate: "/Anime/Bocchi/%ep.mkv",
+		MediaID:          oldMedia.ID,
+		Episodes: []anime.TestLocalFileEpisode{
+			{Episode: 10, AniDBEpisode: "10", Type: anime.LocalFileTypeMain},
+		},
+	})
+	newFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
+		LibraryPath:      "/Anime",
+		FilePathTemplate: "/Anime/Fate/%ep.mkv",
+		MediaID:          newMedia.ID,
+		Episodes: []anime.TestLocalFileEpisode{
+			{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+			{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+		},
+	})
+	allFiles := append(append([]*anime.LocalFile{}, oldFiles...), newFiles...)
+
+	prevLocalFiles := db_bridge.CurrLocalFiles
+	prevLocalFilesDbID := db_bridge.CurrLocalFilesDbId
+	_, err := db_bridge.InsertLocalFiles(h.database, allFiles)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		db_bridge.CurrLocalFiles = prevLocalFiles
+		db_bridge.CurrLocalFilesDbId = prevLocalFilesDbID
+	})
+
+	wrapper := anime.NewLocalFileWrapper(allFiles)
+	oldWrapperEntry, ok := wrapper.GetLocalEntryById(oldMedia.ID)
+	require.True(t, ok)
+
+	statusCurrent := anilist.MediaListStatusCurrent
+	oldEntry := &anilist.AnimeListEntry{Media: oldMedia, Progress: new(9)}
+	newEntry := &anilist.AnimeListEntry{Media: newMedia, Progress: new(0)}
+	h.playbackManager.SetAnimeCollection(&anilist.AnimeCollection{
+		MediaListCollection: &anilist.AnimeCollection_MediaListCollection{
+			Lists: []*anilist.AnimeCollection_MediaListCollection_Lists{{
+				Status: new(statusCurrent),
+				Entries: []*anilist.AnimeCollection_MediaListCollection_Lists_Entries{
+					oldEntry,
+					newEntry,
+				},
+			}},
+		},
+	})
+
+	h.playbackManager.currentMediaListEntry = mo.Some(oldEntry)
+	h.playbackManager.currentLocalFile = mo.Some(oldFiles[0])
+	h.playbackManager.currentLocalFileWrapperEntry = mo.Some(oldWrapperEntry)
+
+	subscriber := h.playbackManager.SubscribeToPlaybackStatus("unit-local-start")
+	status := &mediaplayer.PlaybackStatus{
+		Filename:             newFiles[0].Name,
+		Filepath:             newFiles[0].Path,
+		CompletionPercentage: 0.001,
+		CurrentTimeInSeconds: 1,
+		DurationInSeconds:    1200,
+		PlaybackType:         mediaplayer.PlaybackTypeFile,
+	}
+
+	h.playbackManager.handleTrackingStarted(status)
+
+	changedEvent := expectPlaybackEvent[PlaybackStatusChangedEvent](t, subscriber.EventCh)
+	require.Equal(t, 1, changedEvent.State.EpisodeNumber)
+	require.Equal(t, "1", changedEvent.State.AniDbEpisode)
+	require.Equal(t, newMedia.ID, changedEvent.State.MediaId)
+	require.Equal(t, newMedia.GetPreferredTitle(), changedEvent.State.MediaTitle)
+	require.Equal(t, newFiles[0].Name, changedEvent.State.Filename)
+	require.True(t, changedEvent.State.CanPlayNext)
+
+	startedEvent := expectPlaybackEvent[VideoStartedEvent](t, subscriber.EventCh)
+	require.Equal(t, newFiles[0].Name, startedEvent.Filename)
+	require.Equal(t, newFiles[0].Path, startedEvent.Filepath)
+	require.Same(t, newEntry, h.playbackManager.currentMediaListEntry.MustGet())
+	require.Same(t, newFiles[0], h.playbackManager.currentLocalFile.MustGet())
+	require.Equal(t, events.PlaybackManagerProgressTrackingStarted, h.wsEventManager.lastType())
 }
 
 func TestPlaybackManagerUnitStreamPlaybackStatusAndProgressTracking(t *testing.T) {

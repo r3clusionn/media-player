@@ -23,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - ⚡️ Denshi Player: Fullscreen with double click instead of double right-click
 - ⚡️ Search: Global search no longer filters out adult entries
 - 🦺 Denshi: Fixed blank screen after server reconnection
+- 🦺 Playback: Fixed stale data being used for events
 - 🦺 Transcoder: Potential fix for 10bit issues with NVENC (?)
 - 🦺 Continuity: Fixed potential progress being ignored
 - 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
