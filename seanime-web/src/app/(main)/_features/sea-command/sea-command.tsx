@@ -211,7 +211,7 @@ export function SeaCommand() {
                     onValueChange: setActiveItemId,
                 }}
                 overlayClass="bg-black/30"
-                contentClass="max-w-2xl"
+                contentClass="max-w-2xl sea-command-content"
                 commandClass="h-[300px]"
             >
 

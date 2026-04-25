@@ -110,6 +110,7 @@ export function AdvancedSearchOptions() {
                         return
                     })}
                     fieldLabelClass="hidden"
+                    data-advanced-search-options-tags
                 />
                 {params.type === "anime" && <Select
                     leftAddon={<MdPersonalVideo className={cn((params.format !== null && !!params.format) && "text-indigo-300 font-bold text-xl")} />}

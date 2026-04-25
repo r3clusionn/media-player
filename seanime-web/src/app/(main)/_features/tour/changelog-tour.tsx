@@ -1,3 +1,4 @@
+import { useSeaCommand } from "@/app/(main)/_features/sea-command/sea-command.tsx"
 import { SeaImage } from "@/components/shared/sea-image"
 import { useAtom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
@@ -15,6 +16,7 @@ function useSetupTour(): Record<string, () => TourStep[]> {
     const serverStatus = useServerStatus()
     const [, openScannerModal] = useAtom(__scanner_modalIsOpen)
     const [settingsTab, setSettingsTab] = useAtom(__settings_tabAtom)
+    const { setSeaCommandOpen, setSeaCommandInput } = useSeaCommand()
 
     const get3_5_0 = (): TourStep[] => {
         return [
@@ -117,7 +119,6 @@ function useSetupTour(): Record<string, () => TourStep[]> {
             {
                 id: "entry",
                 title: "New Player Features",
-                // content: "Use the 'H' keybind to quickly look up characters in the player. Use 'Z' to toggle Stats for Nerds.",
                 content: <div>
                     <SeaImage
                         src="https://github.com/5rahim/hibike/blob/main/changelog/3_5-videocore-characters.png?raw=true"
@@ -136,8 +137,67 @@ function useSetupTour(): Record<string, () => TourStep[]> {
         ]
     }
 
+    const get3_7_0 = (): TourStep[] => {
+        return [
+            {
+                id: "changelog-1",
+                content: (
+                    <div>
+                        <h4 className="text-xl font-bold text-white">What's New in 3.7.0?</h4>
+                        <p>Let's take a look at some of the new features.</p>
+                    </div>
+                ),
+                route: "/",
+                nextLabel: "Start",
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "security",
+                title: "Security Improvements",
+                content: "3.7.0 includes several security improvements, including secure modes. Check out the documentation for more information.",
+                route: "/",
+                advanceOnTargetClick: true,
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "search",
+                target: "[data-advanced-search-options-tags='true']",
+                title: "Tags",
+                content: "The search page now supports searching by tags.",
+                route: "/search",
+                advanceOnTargetClick: false,
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "search",
+                target: ".sea-command-content",
+                title: "Adult Entries in Global Search",
+                content: "Global search no longer filters out adult entries if you have adult content enabled. (Reminder: Press 's' to open global search)",
+                route: "/search",
+                advanceOnTargetClick: false,
+                ignoreOutsideClick: true,
+                prepare: async () => {
+                    setSeaCommandOpen(true)
+                    setTimeout(() => {
+                        setSeaCommandInput("/search ")
+                    }, 200)
+                    // wait 500ms
+                    return new Promise(resolve => setTimeout(resolve, 500))
+                },
+            },
+            {
+                id: "changelog-2",
+                title: "Bug Fixes",
+                content: "Several bugs have been fixed in this release, including some related to Seanime Denshi and plugins. Read the full changelog for more details.",
+                route: "/",
+                ignoreOutsideClick: true,
+            },
+        ]
+    }
+
     return {
         "3.5.0": get3_5_0,
+        "3.7.0": get3_7_0,
     }
 }
 
