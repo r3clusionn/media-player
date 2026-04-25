@@ -40,8 +40,8 @@ func respondWithAbort(c echo.Context, code int, err error) error {
 	return errGuardResponseWritten
 }
 
-func isStrictModeSensitive(req *http.Request, _ string) bool {
-	return security.IsStrict() && !isRequestFromTrustedLocal(req)
+func isStrictModeSensitive(req *http.Request, serverPassword string) bool {
+	return serverPassword == "" && security.IsStrict() && !isRequestFromTrustedLocal(req)
 }
 
 func reqHasOriginMetadata(req *http.Request) bool {
@@ -62,6 +62,93 @@ func isCrossSiteBrowserRequest(req *http.Request) bool {
 
 func isPathNeedingTrustedLocalBoundary(path string) bool {
 	return path == "/events" || strings.HasPrefix(path, "/api/")
+}
+
+func isHardenedTrustedRequestHost(req *http.Request) bool {
+	view := createRequestBoundaryView(req)
+	if view.hostname == "" {
+		return false
+	}
+
+	host := view.hostname
+	if host == "localhost" {
+		return true
+	}
+
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+
+	return addr.IsLoopback()
+}
+
+func isTrustedHardenedOriginURL(parsed *url.URL) bool {
+	if parsed == nil {
+		return false
+	}
+
+	if parsed.Scheme == "app" && parsed.Host == "-" {
+		return true
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+	if host == "localhost" {
+		return true
+	}
+
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+
+	return addr.IsLoopback()
+}
+
+func isRequestFromTrustedHardenedOrigin(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	rawOrigin := strings.TrimSpace(req.Header.Get("Origin"))
+	if rawOrigin == "" {
+		rawOrigin = strings.TrimSpace(req.Header.Get("Referer"))
+	}
+	parsed, ok := parseTrustedOrigin(rawOrigin)
+	if !ok {
+		return false
+	}
+
+	return isTrustedHardenedOriginURL(parsed)
+}
+
+func hasHardenedLocalClientBoundary(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	view := createRequestBoundaryView(req)
+	if !view.clientIP.IsValid() || !view.clientIP.IsLoopback() {
+		return false
+	}
+
+	if hasForwardedHeaders(req) && !view.trustedProxy {
+		return false
+	}
+
+	return true
+}
+
+func isRequestFromTrustedHardenedLocal(req *http.Request) bool {
+	if !hasHardenedLocalClientBoundary(req) {
+		return false
+	}
+
+	if !isHardenedTrustedRequestHost(req) {
+		return false
+	}
+
+	return isRequestFromTrustedHardenedOrigin(req)
 }
 
 // isTrustedRequestHost checks if the request originates from a trusted host such as localhost, a loopback, or private network address.
@@ -88,6 +175,29 @@ func isTrustedRequestHost(req *http.Request) bool {
 func isRequestPermitted(req *http.Request, serverPassword string, accessAllowlist []string) bool {
 	if serverPassword != "" || security.IsLax() {
 		return true
+	}
+
+	if security.IsHardened() {
+		allowlistedHost := isAllowlistedRequestHost(req, accessAllowlist)
+		if !isHardenedTrustedRequestHost(req) && !allowlistedHost {
+			return false
+		}
+
+		if !reqHasOriginMetadata(req) {
+			if isCrossSiteBrowserRequest(req) {
+				return false
+			}
+			if allowlistedHost {
+				return true
+			}
+			return hasHardenedLocalClientBoundary(req)
+		}
+
+		if isRequestFromAllowlistedOrigin(req, accessAllowlist) {
+			return true
+		}
+
+		return isRequestFromTrustedHardenedLocal(req)
 	}
 
 	if !isTrustedRequestHost(req) && !isAllowlistedRequestHost(req, accessAllowlist) {
@@ -120,6 +230,9 @@ func isTrustedCORSOrigin(rawOrigin string, serverPassword string, accessAllowlis
 	}
 	if isAllowlistedOrigin(parsed, accessAllowlist) {
 		return true
+	}
+	if security.IsHardened() {
+		return isTrustedHardenedOriginURL(parsed)
 	}
 
 	host := strings.ToLower(parsed.Hostname())
@@ -156,7 +269,14 @@ func (h *Handler) trustedLocalRequestMiddleware(next echo.HandlerFunc) echo.Hand
 
 // isTrustedRequest determines whether the request is from a trusted source based on server password, security mode, or request origin.
 func isTrustedRequest(req *http.Request, serverPassword string) bool {
-	return serverPassword != "" || security.IsLax() || isRequestFromTrustedOrigin(req)
+	if serverPassword != "" || security.IsLax() {
+		return true
+	}
+	if security.IsHardened() {
+		return isRequestFromTrustedHardenedLocal(req)
+	}
+
+	return isRequestFromTrustedOrigin(req)
 }
 
 // guardPrivilegedSettingsMutation checks and denies unauthorized privileged settings modifications, returning an error if access is forbidden.

@@ -4,6 +4,7 @@ import { AutoSelectProfileButton } from "@/app/(main)/settings/_components/autos
 import { SettingsCard } from "@/app/(main)/settings/_components/settings-card"
 import { SettingsIsDirty, SettingsSubmitButton } from "@/app/(main)/settings/_components/settings-submit-button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { defineSchema, Field, Form } from "@/components/ui/form"
 import React from "react"
@@ -230,6 +231,10 @@ export function TorrentstreamSettings(props: TorrentstreamSettingsProps) {
                                         leftIcon={<FcFolder />}
                                         help="Where the torrents will be downloaded to while streaming. Leave empty to use the default cache directory."
                                         shouldExist
+                                    />
+                                    <Alert
+                                        intent="warning"
+                                        description="Choose an empty directory to avoid losing data."
                                     />
                                 </AccordionContent>
                             </AccordionItem>

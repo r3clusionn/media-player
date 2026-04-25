@@ -199,27 +199,78 @@ func TestCanAccessLocalServer(t *testing.T) {
 		name            string
 		origin          string
 		reqHost         string
+		remoteAddr      string
 		serverPassword  string
 		accessAllowlist []string
 		secureMode      string
 		want            bool
 	}{
 		{
-			name:    "allows passwordless local host without browser metadata",
-			reqHost: "127.0.0.1:43211",
-			want:    true,
+			name:       "allows passwordless local host without browser metadata",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
 		},
 		{
-			name:    "allows passwordless trusted local origin",
-			origin:  "http://127.0.0.1:43211",
-			reqHost: "127.0.0.1:43211",
-			want:    true,
+			name:       "allows passwordless trusted local origin",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects passwordless spoofed local host without local client boundary",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects passwordless spoofed trusted local origin without local client boundary",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects passwordless spoofed local host in hardened mode",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeHardened,
+			want:       false,
+		},
+		{
+			name:       "rejects passwordless spoofed trusted local origin in hardened mode",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeHardened,
+			want:       false,
 		},
 		{
 			name:    "rejects passwordless untrusted origin even on local host",
 			origin:  "https://evil.example",
 			reqHost: "127.0.0.1:43211",
 			want:    false,
+		},
+		{
+			name:       "allows passwordless same-server lan host by default",
+			reqHost:    "192.168.1.10:43211",
+			remoteAddr: "192.168.1.10:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects passwordless same-server lan host in hardened mode",
+			reqHost:    "192.168.1.10:43211",
+			remoteAddr: "192.168.1.10:51111",
+			secureMode: security.SecureModeHardened,
+			want:       false,
+		},
+		{
+			name:       "rejects passwordless same-server lan host in strict mode",
+			reqHost:    "192.168.1.10:43211",
+			remoteAddr: "192.168.1.10:51111",
+			secureMode: security.SecureModeStrict,
+			want:       false,
 		},
 		{
 			name:    "rejects passwordless arbitrary domain host",
@@ -236,6 +287,13 @@ func TestCanAccessLocalServer(t *testing.T) {
 			name:           "allows authenticated requests regardless of host",
 			reqHost:        "evil.example",
 			serverPassword: "configured",
+			want:           true,
+		},
+		{
+			name:           "allows authenticated requests regardless of host in strict mode",
+			reqHost:        "evil.example",
+			serverPassword: "configured",
+			secureMode:     security.SecureModeStrict,
 			want:           true,
 		},
 		{
@@ -275,6 +333,9 @@ func TestCanAccessLocalServer(t *testing.T) {
 
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
 			req.Host = tt.reqHost
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr
+			}
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			} else if tt.name == "rejects passwordless cross-site browser requests without origin metadata" {
@@ -299,6 +360,23 @@ func TestTrustedCORSOrigin(t *testing.T) {
 			name:   "allows trusted local origin",
 			origin: "http://127.0.0.1:43211",
 			want:   true,
+		},
+		{
+			name:   "allows private lan origin by default",
+			origin: "http://192.168.1.10:43211",
+			want:   true,
+		},
+		{
+			name:       "rejects private lan origin in hardened mode",
+			origin:     "http://192.168.1.10:43211",
+			secureMode: security.SecureModeHardened,
+			want:       false,
+		},
+		{
+			name:       "rejects private lan origin in strict mode",
+			origin:     "http://192.168.1.10:43211",
+			secureMode: security.SecureModeStrict,
+			want:       false,
 		},
 		{
 			name:            "allows allowlisted public origin",
@@ -354,6 +432,8 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 		name           string
 		origin         string
 		reqHost        string
+		remoteAddr     string
+		secureMode     string
 		serverPassword string
 		nextMedia      *models.MediaPlayerSettings
 		nextTorrent    *models.TorrentSettings
@@ -376,9 +456,10 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 			want: true,
 		},
 		{
-			name:    "allows trusted local origin when passwordless",
-			origin:  "http://127.0.0.1:43211",
-			reqHost: "127.0.0.1:43211",
+			name:       "allows trusted local origin when passwordless",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
 			nextMedia: &models.MediaPlayerSettings{
 				Default: "mpv",
 				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
@@ -392,9 +473,10 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 			want: true,
 		},
 		{
-			name:    "allows trusted lan origin when it is the same server",
-			origin:  "http://192.168.1.10:43211",
-			reqHost: "192.168.1.10:43211",
+			name:       "allows spoofed trusted local origin by default",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
 			nextMedia: &models.MediaPlayerSettings{
 				Default: "mpv",
 				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
@@ -406,6 +488,24 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
 			},
 			want: true,
+		},
+		{
+			name:       "rejects spoofed trusted local origin in hardened mode",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeHardened,
+			nextMedia: &models.MediaPlayerSettings{
+				Default: "mpv",
+				VlcPath: "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: false,
 		},
 		{
 			name:    "rejects untrusted origin when command sinks change",
@@ -460,8 +560,16 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// random websites should not be able to flip command sinks on passwordless servers.
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/settings", nil)
 			req.Host = tt.reqHost
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr
+			}
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
@@ -501,6 +609,8 @@ func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
 		name           string
 		origin         string
 		reqHost        string
+		remoteAddr     string
+		secureMode     string
 		serverPassword string
 		next           *models.MediastreamSettings
 		want           bool
@@ -517,14 +627,38 @@ func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
 			want: true,
 		},
 		{
-			name:    "allows trusted local origin when ffmpeg path changes",
-			origin:  "http://127.0.0.1:43211",
-			reqHost: "127.0.0.1:43211",
+			name:       "allows trusted local origin when ffmpeg path changes",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
 			next: &models.MediastreamSettings{
 				FfmpegPath:  "/tmp/ffmpeg-wrapper",
 				FfprobePath: "ffprobe",
 			},
 			want: true,
+		},
+		{
+			name:       "allows spoofed trusted local origin when ffmpeg path changes by default",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			next: &models.MediastreamSettings{
+				FfmpegPath:  "/tmp/ffmpeg-wrapper",
+				FfprobePath: "ffprobe",
+			},
+			want: true,
+		},
+		{
+			name:       "rejects spoofed trusted local origin when ffmpeg path changes in hardened mode",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeHardened,
+			next: &models.MediastreamSettings{
+				FfmpegPath:  "/tmp/ffmpeg-wrapper",
+				FfprobePath: "ffprobe",
+			},
+			want: false,
 		},
 		{
 			name:    "rejects untrusted origin when ffprobe path changes",
@@ -552,8 +686,16 @@ func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// remote sites should not be able to repoint ffmpeg or ffprobe on passwordless servers.
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
 			req := httptest.NewRequest(http.MethodPatch, "/api/v1/mediastream/settings", nil)
 			req.Host = tt.reqHost
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr
+			}
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
@@ -588,15 +730,18 @@ func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
 		origin         string
 		reqHost        string
 		path           string
+		remoteAddr     string
+		secureMode     string
 		serverPassword string
 		want           bool
 	}{
 		{
-			name:    "allows trusted local origin when passwordless",
-			origin:  "http://127.0.0.1:43211",
-			reqHost: "127.0.0.1:43211",
-			path:    "/api/v1/extensions/external/install",
-			want:    true,
+			name:       "allows trusted local origin when passwordless",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			path:       "/api/v1/extensions/external/install",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
 		},
 		{
 			name:    "rejects untrusted origin when passwordless",
@@ -604,6 +749,23 @@ func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
 			reqHost: "192.168.1.10:43211",
 			path:    "/api/v1/extensions/external/install",
 			want:    false,
+		},
+		{
+			name:       "allows spoofed trusted local origin when passwordless by default",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			path:       "/api/v1/extensions/external/install",
+			remoteAddr: "203.0.113.10:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects spoofed trusted local origin when passwordless in hardened mode",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			path:       "/api/v1/extensions/external/install",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeHardened,
+			want:       false,
 		},
 		{
 			name:           "allows authenticated extension management without trusted origin",
@@ -621,18 +783,27 @@ func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
 			want:    false,
 		},
 		{
-			name:    "allows trusted local origin for playground execution when passwordless",
-			origin:  "http://127.0.0.1:43211",
-			reqHost: "127.0.0.1:43211",
-			path:    "/api/v1/extensions/playground/run",
-			want:    true,
+			name:       "allows trusted local origin for playground execution when passwordless",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			path:       "/api/v1/extensions/playground/run",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
 			req := httptest.NewRequest(http.MethodPost, tt.path, nil)
 			req.Host = tt.reqHost
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr
+			}
 			if tt.origin != "" {
 				req.Header.Set("Origin", tt.origin)
 			}
@@ -671,6 +842,7 @@ func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
 
 	security.SetSecureMode(security.SecureModeStrict)
 	assert.True(t, isStrictModeSensitive(req, ""))
+	assert.False(t, isStrictModeSensitive(req, "configured"))
 
 	security.SetSecureMode(security.SecureModeLax)
 	assert.False(t, isStrictModeSensitive(req, ""))

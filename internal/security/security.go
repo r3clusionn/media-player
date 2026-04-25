@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	SecureModeDefault = ""
-	SecureModeLax     = "lax"
-	SecureModeStrict  = "strict"
+	SecureModeDefault  = ""
+	SecureModeHardened = "hardened"
+	SecureModeLax      = "lax"
+	SecureModeStrict   = "strict"
 )
 
 type SecurityContext struct {
@@ -22,6 +23,8 @@ var GlobalSecurityContext = util.NewRef(&SecurityContext{})
 
 func NormalizeMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case SecureModeHardened:
+		return SecureModeHardened
 	case SecureModeLax:
 		return SecureModeLax
 	case SecureModeStrict:
@@ -46,6 +49,11 @@ func IsStrict() bool {
 
 func IsLax() bool {
 	return GlobalSecurityContext.Get().SecureMode == SecureModeLax
+}
+
+func IsHardened() bool {
+	mode := GlobalSecurityContext.Get().SecureMode
+	return mode == SecureModeHardened || mode == SecureModeStrict
 }
 
 func SetRequestBoundaryConfig(trustedProxies []string, externalURL string) {

@@ -23,7 +23,7 @@ type Config struct {
 		Systray         bool
 		DoHUrl          string
 		Password        string
-		SecureMode      string   // empty = baseline defaults, "lax" disables baseline request-boundary restrictions, "strict" enables extra restrictions
+		SecureMode      string   // empty = current baseline defaults, "hardened" opts into a stricter passwordless boundary, "lax" disables baseline request-boundary restrictions, "strict" includes hardened plus extra restrictions
 		AccessAllowlist []string // Additional remote hosts/origins allowed through the passwordless API/events boundary
 		TrustedProxies  []string // Explicit reverse proxies allowed to supply forwarded client IP/host/proto headers
 		ExternalURL     string   // Canonical public URL used for proxy-aware secure cookies and request normalization
@@ -139,10 +139,10 @@ func NewConfig(options *ConfigOptions, logger *zerolog.Logger) (*Config, error) 
 	viper.SetDefault("server.host", defaultHost)
 	viper.SetDefault("server.port", defaultPort)
 	viper.SetDefault("server.offline", false)
-	viper.SetDefault("server.secureMode", "")
-	viper.SetDefault("server.accessAllowlist", []string{})
-	viper.SetDefault("server.trustedProxies", []string{})
-	viper.SetDefault("server.externalURL", "")
+	//viper.SetDefault("server.secureMode", "")
+	//viper.SetDefault("server.accessAllowlist", []string{})
+	//viper.SetDefault("server.trustedProxies", []string{})
+	//viper.SetDefault("server.externalURL", "")
 	// Use the binary's directory as the working directory environment variable on macOS
 	viper.SetDefault("server.useBinaryPath", true)
 	// viper.SetDefault("server.systray", true)

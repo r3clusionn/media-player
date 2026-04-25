@@ -160,10 +160,6 @@ func (h *Handler) HandlePreloadMediastreamMediaContainer(c echo.Context) error {
 }
 
 func (h *Handler) HandleMediastreamGetSubtitles(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
-		return err
-	}
-
 	c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Response().Header().Set("Pragma", "no-cache")
 	c.Response().Header().Set("Expires", "0")
@@ -171,10 +167,6 @@ func (h *Handler) HandleMediastreamGetSubtitles(c echo.Context) error {
 }
 
 func (h *Handler) HandleMediastreamGetAttachments(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
-		return err
-	}
-
 	// tell the client not to cache the response
 	c.Response().Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 	c.Response().Header().Set("Pragma", "no-cache")
@@ -187,10 +179,6 @@ func (h *Handler) HandleMediastreamGetAttachments(c echo.Context) error {
 //
 
 func (h *Handler) HandleMediastreamDirectPlay(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
-		return err
-	}
-
 	client := "1"
 	return h.App.MediastreamRepository.ServeEchoDirectPlay(c, client)
 }
@@ -200,10 +188,6 @@ func (h *Handler) HandleMediastreamDirectPlay(c echo.Context) error {
 //
 
 func (h *Handler) HandleMediastreamTranscode(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
-		return err
-	}
-
 	client := "1"
 	return h.App.MediastreamRepository.ServeEchoTranscodeStream(c, client)
 }
@@ -227,10 +211,6 @@ func (h *Handler) HandleMediastreamShutdownTranscodeStream(c echo.Context) error
 //
 
 func (h *Handler) HandleMediastreamFile(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
-		return err
-	}
-
 	client := "1"
 	fp := c.QueryParam("path")
 	libraryPaths := h.App.Settings.GetLibrary().GetLibraryPaths()
