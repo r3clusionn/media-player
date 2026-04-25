@@ -4,13 +4,6 @@ All notable changes to this project will be documented in this file.
 
 ## v3.7.0
 
-- 🔒 Security overhaul
-  - Passwordless access is now local-only by default
-  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
-  - Config: Added `server.accessAllowlist` `server.trustedProxies` and `server.externalUrl` (Experimental)
-  - Improved Electron security for renderers
-  - Added security checks for server-side Electron macOS updater
-  - Improved client identity security checks
 - ⚡️ Search: Support for tags #614
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods (#699) and skip data manipulation
@@ -31,6 +24,12 @@ All notable changes to this project will be documented in this file.
 - 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
 - 🦺 Plugin: Fixed $storage API returning stale data
 - 🦺 VideoCore: Fixed screenshots with Anime4K
+- 🔒 Security overhaul
+  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
+  - Config: Added `server.accessAllowlist` `server.trustedProxies` and `server.externalUrl` (Experimental)
+  - Improved Electron security for renderers
+  - Added security checks for server-side Electron macOS updater
+  - Improved client identity security checks
 - 🏗️ Denshi: App startup no longer relies on websocket connection
 
 ## v3.6.1
