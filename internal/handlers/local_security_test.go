@@ -827,6 +827,165 @@ func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
 	})
 }
 
+func TestCanConsumeMedia(t *testing.T) {
+	tests := []struct {
+		name            string
+		origin          string
+		reqHost         string
+		remoteAddr      string
+		serverPassword  string
+		accessAllowlist []string
+		secureMode      string
+		want            bool
+	}{
+		{
+			name:           "allows authenticated public playback in strict mode",
+			origin:         "https://demo.example",
+			reqHost:        "demo.example",
+			remoteAddr:     "203.0.113.10:51111",
+			serverPassword: "configured",
+			secureMode:     security.SecureModeStrict,
+			want:           true,
+		},
+		{
+			name:            "allows allowlisted public playback in strict mode",
+			origin:          "https://demo.example",
+			reqHost:         "demo.example",
+			remoteAddr:      "203.0.113.10:51111",
+			accessAllowlist: []string{"https://demo.example"},
+			secureMode:      security.SecureModeStrict,
+			want:            true,
+		},
+		{
+			name:       "rejects public playback without auth or allowlist in strict mode",
+			origin:     "https://demo.example",
+			reqHost:    "demo.example",
+			remoteAddr: "203.0.113.10:51111",
+			secureMode: security.SecureModeStrict,
+			want:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			security.SetSecureMode(tt.secureMode)
+			t.Cleanup(func() {
+				security.SetSecureMode("")
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/mediastream/request", nil)
+			req.Host = tt.reqHost
+			if tt.remoteAddr != "" {
+				req.RemoteAddr = tt.remoteAddr
+			}
+			if tt.origin != "" {
+				req.Header.Set("Origin", tt.origin)
+			}
+
+			assert.Equal(t, tt.want, canConsumeMedia(req, tt.serverPassword, tt.accessAllowlist))
+		})
+	}
+}
+
+func TestGuardPrivilegedMediaPlayer(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	e := echo.New()
+	h := &Handler{App: &core.App{Config: &core.Config{}}}
+
+	t.Run("allows authenticated public playback in strict mode", func(t *testing.T) {
+		// hosted playback should still work once the normal request boundary is satisfied.
+		security.SetSecureMode(security.SecureModeStrict)
+		h.App.Config.Server.Password = "configured"
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/playback-manager/play", nil)
+		req.Host = "demo.example"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "https://demo.example")
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		settings := &models.Settings{
+			MediaPlayer: &models.MediaPlayerSettings{
+				Default: "mpv",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+		}
+
+		err := h.guardPrivilegedMediaPlayer(c, settings)
+		assert.NoError(t, err)
+	})
+
+	t.Run("rejects passwordless public playback with privileged media-player settings", func(t *testing.T) {
+		// custom executables should still stay behind the normal privileged request check.
+		security.SetSecureMode(security.SecureModeStrict)
+		h.App.Config.Server.Password = ""
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/playback-manager/play", nil)
+		req.Host = "demo.example"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "https://demo.example")
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		settings := &models.Settings{
+			MediaPlayer: &models.MediaPlayerSettings{
+				Default: "mpv",
+				MpvPath: "/tmp/mpv-wrapper",
+				MpvArgs: "--no-config",
+			},
+		}
+
+		err := h.guardPrivilegedMediaPlayer(c, settings)
+		assert.ErrorIs(t, err, errGuardResponseWritten)
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+}
+
+func TestMediaConsumptionHandlersDoNotUseStrictLocalOnlyBoundary(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	security.SetSecureMode(security.SecureModeStrict)
+	e := echo.New()
+	h := &Handler{App: &core.App{Config: &core.Config{}}}
+	h.App.Config.Server.Password = "configured"
+
+	t.Run("directstream play local file falls through to binding for authenticated hosted requests", func(t *testing.T) {
+		// this should no longer short-circuit on the old strict local-only guard.
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/directstream/play/localfile", strings.NewReader(`{"path":`))
+		req.Host = "demo.example"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "https://demo.example")
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.HandleDirectstreamPlayLocalFile(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+
+	t.Run("mediastream request falls through to binding for authenticated hosted requests", func(t *testing.T) {
+		// hosted playback requests should hit normal request validation instead of a strict local-only block.
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/mediastream/request", strings.NewReader(`{"path":`))
+		req.Host = "demo.example"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "https://demo.example")
+		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.HandleRequestMediastreamMediaContainer(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+	})
+}
+
 func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
 	t.Cleanup(func() {
 		security.SetSecureMode("")

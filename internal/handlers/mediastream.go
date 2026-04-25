@@ -65,7 +65,7 @@ func (h *Handler) HandleSaveMediastreamSettings(c echo.Context) error {
 //	@returns mediastream.MediaContainer
 //	@route /api/v1/mediastream/request [POST]
 func (h *Handler) HandleRequestMediastreamMediaContainer(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+	if err := h.guardMediaConsumption(c); err != nil {
 		return err
 	}
 
@@ -119,7 +119,7 @@ func (h *Handler) HandleRequestMediastreamMediaContainer(c echo.Context) error {
 //	@returns bool
 //	@route /api/v1/mediastream/preload [POST]
 func (h *Handler) HandlePreloadMediastreamMediaContainer(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+	if err := h.guardMediaConsumption(c); err != nil {
 		return err
 	}
 

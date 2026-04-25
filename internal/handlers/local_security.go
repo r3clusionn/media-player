@@ -365,14 +365,26 @@ func canUsePrivilegedExtensionManagement(req *http.Request, serverPassword strin
 	return isTrustedRequest(req, serverPassword)
 }
 
-// guardPrivilegedMediaPlayer restricts access to privileged media player actions based on security settings and request origin validation.
-func (h *Handler) guardPrivilegedMediaPlayer(c echo.Context, settings *models.Settings) error {
+func canConsumeMedia(req *http.Request, serverPassword string, accessAllowlist []string) bool {
+	return isRequestPermitted(req, serverPassword, accessAllowlist)
+}
+
+func (h *Handler) guardMediaConsumption(c echo.Context) error {
 	if h == nil || h.App == nil || h.App.Config == nil {
 		return nil
 	}
 
-	if security.IsStrict() && usesExternalMediaPlayer(settings) && !isRequestFromTrustedLocal(c.Request()) {
-		return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	if canConsumeMedia(c.Request(), h.App.Config.Server.Password, h.App.Config.Server.AccessAllowlist) {
+		return nil
+	}
+
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+}
+
+// guardPrivilegedMediaPlayer restricts access to privileged media player actions based on security settings and request origin validation.
+func (h *Handler) guardPrivilegedMediaPlayer(c echo.Context, settings *models.Settings) error {
+	if h == nil || h.App == nil || h.App.Config == nil {
+		return nil
 	}
 
 	if isTrustedRequest(c.Request(), h.App.Config.Server.Password) || !isPrivilegedMediaPlayer(settings) {
@@ -606,6 +618,7 @@ func isRequestFromTrustedOrigin(req *http.Request) bool {
 	return isReqSameLiteralHost(req, parsed)
 }
 
+// note: this rejects requests from hosted instances
 func isRequestFromTrustedLocal(req *http.Request) bool {
 	if req == nil {
 		return false

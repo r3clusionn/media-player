@@ -18,7 +18,7 @@ import (
 //	@returns mediastream.MediaContainer
 //	@route /api/v1/directstream/play/localfile [POST]
 func (h *Handler) HandleDirectstreamPlayLocalFile(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+	if err := h.guardMediaConsumption(c); err != nil {
 		return err
 	}
 
@@ -107,8 +107,8 @@ func (h *Handler) HandleDirectstreamConvertSubs(c echo.Context) error {
 func (h *Handler) HandleDirectstreamGetStream() http.Handler {
 	streamHandler := h.App.DirectStreamManager.ServeEchoStream()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if security.IsStrict() && !isRequestFromTrustedLocal(r) {
-			http.Error(w, errStrictLocalOnlyDenied.Error(), http.StatusForbidden)
+		if h != nil && h.App != nil && h.App.Config != nil && !canConsumeMedia(r, h.App.Config.Server.Password, h.App.Config.Server.AccessAllowlist) {
+			http.Error(w, errPrivilegedExecutionDenied.Error(), http.StatusForbidden)
 			return
 		}
 
@@ -117,7 +117,7 @@ func (h *Handler) HandleDirectstreamGetStream() http.Handler {
 }
 
 func (h *Handler) HandleDirectstreamGetAttachments(c echo.Context) error {
-	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+	if err := h.guardMediaConsumption(c); err != nil {
 		return err
 	}
 
