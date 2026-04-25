@@ -26,6 +26,35 @@ type (
 	}
 )
 
+func mergeNormalizedTorrents(groups ...[]*NormalizedTorrent) []*NormalizedTorrent {
+	ret := make([]*NormalizedTorrent, 0)
+	seenHashes := make(map[string]struct{})
+
+	for _, group := range groups {
+		for _, torrent := range group {
+			if torrent == nil || torrent.AnimeTorrent == nil {
+				continue
+			}
+
+			if torrent.ParsedData == nil && torrent.Name != "" {
+				torrent.ParsedData = habari.Parse(torrent.Name)
+			}
+
+			normalizedHash := normalizeTorrentHash(torrent.InfoHash)
+			if normalizedHash != "" {
+				if _, found := seenHashes[normalizedHash]; found {
+					continue
+				}
+				seenHashes[normalizedHash] = struct{}{}
+			}
+
+			ret = append(ret, torrent)
+		}
+	}
+
+	return ret
+}
+
 func (ad *AutoDownloader) fetchTorrentsFromProviders(
 	ctx context.Context,
 	providers []extension.AnimeTorrentProviderExtension,
@@ -243,13 +272,9 @@ func (ad *AutoDownloader) fetchTorrentsFromProviders(
 	}
 	wg.Wait()
 
-	// Deduplicate
-	ret = lo.Filter(torrents, func(t *NormalizedTorrent, _ int) bool {
-		return t.InfoHash != ""
-	})
-	ret = lo.UniqBy(ret, func(t *NormalizedTorrent) string {
-		return t.InfoHash
-	})
+	ret = mergeNormalizedTorrents(lo.Filter(torrents, func(t *NormalizedTorrent, _ int) bool {
+		return t != nil && t.InfoHash != ""
+	}))
 
 	ad.logger.Debug().Int("torrents", len(ret)).Msg("autodownloader: Found torrents")
 

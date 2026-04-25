@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"seanime/internal/util"
-	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -25,6 +24,10 @@ func (h *Handler) HandleOpenInExplorer(c echo.Context) error {
 	p := new(body)
 	if err := c.Bind(p); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedLocalExecution(c); err != nil {
+		return err
 	}
 
 	stat, err := os.Stat(p.Path)
@@ -50,8 +53,8 @@ func OpenDirInExplorer(dir string) {
 
 	switch runtime.GOOS {
 	case "windows":
-		cmd = "explorer"
-		args = []string{strings.ReplaceAll(strings.ToLower(dir), "/", "\\")}
+		cmd = "cmd"
+		args = []string{"/c", "start", "", filepath.FromSlash(dir)}
 	case "darwin":
 		cmd = "open"
 		args = []string{dir}

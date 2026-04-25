@@ -37,6 +37,21 @@ func (m *MockWSEventManager) SendEventTo(clientId string, t string, payload inte
 	}
 }
 
+func (m *MockWSEventManager) GetClientIds() []string {
+	ids := make([]string, 0)
+	m.ClientEventSubscribers.Range(func(key string, subscriber *ClientEventSubscriber) bool {
+		if subscriber != nil {
+			ids = append(ids, key)
+		}
+		return true
+	})
+	return ids
+}
+
+func (m *MockWSEventManager) GetClientPlatform(clientId string) string {
+	return ""
+}
+
 func (m *MockWSEventManager) SubscribeToClientEvents(id string) *ClientEventSubscriber {
 	subscriber := &ClientEventSubscriber{
 		Channel: make(chan *WebsocketClientEvent),

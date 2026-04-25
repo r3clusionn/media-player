@@ -18,7 +18,7 @@ import (
 
 const scannerTestLibraryDir = "E:/Anime"
 
-type scannerTestHarness struct {
+type scannerTestWrapper struct {
 	Env                *testutil.TestEnv
 	Config             *testutil.Config
 	Logger             *zerolog.Logger
@@ -32,23 +32,23 @@ type scannerTestHarness struct {
 	LibraryDir         string
 }
 
-func newScannerFixtureHarness(t testing.TB) *scannerTestHarness {
+func newScannerFixtureWrapper(t testing.TB) *scannerTestWrapper {
 	t.Helper()
 
 	env := testutil.NewTestEnv(t)
-	return newScannerHarness(t, env, anilist.NewTestAnilistClient(), "")
+	return newScannerWrapper(t, env, anilist.NewTestAnilistClient(), "")
 }
 
-func newScannerLiveHarness(t testing.TB) *scannerTestHarness {
+func newScannerLiveWrapper(t testing.TB) *scannerTestWrapper {
 	t.Helper()
 
 	env := testutil.NewTestEnv(t, testutil.Anilist())
 	cfg := env.Config()
 
-	return newScannerHarness(t, env, anilist.NewAnilistClient(cfg.Provider.AnilistJwt, ""), cfg.Provider.AnilistUsername)
+	return newScannerWrapper(t, env, anilist.NewAnilistClient(cfg.Provider.AnilistJwt, ""), cfg.Provider.AnilistUsername)
 }
 
-func newScannerHarness(t testing.TB, env *testutil.TestEnv, client anilist.AnilistClient, username string) *scannerTestHarness {
+func newScannerWrapper(t testing.TB, env *testutil.TestEnv, client anilist.AnilistClient, username string) *scannerTestWrapper {
 	t.Helper()
 
 	logger := env.Logger()
@@ -60,7 +60,7 @@ func newScannerHarness(t testing.TB, env *testutil.TestEnv, client anilist.Anili
 		platform.SetUsername(username)
 	}
 
-	return &scannerTestHarness{
+	return &scannerTestWrapper{
 		Env:                env,
 		Config:             env.Config(),
 		Logger:             logger,
@@ -75,7 +75,7 @@ func newScannerHarness(t testing.TB, env *testutil.TestEnv, client anilist.Anili
 	}
 }
 
-func (h *scannerTestHarness) LocalFiles(paths ...string) []*anime.LocalFile {
+func (h *scannerTestWrapper) LocalFiles(paths ...string) []*anime.LocalFile {
 	localFiles := make([]*anime.LocalFile, 0, len(paths))
 	for _, path := range paths {
 		localFiles = append(localFiles, anime.NewLocalFile(path, h.LibraryDir))

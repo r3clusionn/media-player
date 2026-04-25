@@ -66,11 +66,19 @@ type Manager interface {
 
 	// Auto Downloader events
 	OnAutoDownloaderRunStarted() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderRunCompleted() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderMatchVerified() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBeforeFetchTorrents() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver]
+	OnAutoDownloaderBeforeQueueDelayedTorrent() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderBeforeDownloadTorrent() *Hook[hook_resolver.Resolver]
 	OnAutoDownloaderAfterDownloadTorrent() *Hook[hook_resolver.Resolver]
+
+	// Torrent search events
+	OnTorrentSearchRequested() *Hook[hook_resolver.Resolver]
+	OnTorrentSearch() *Hook[hook_resolver.Resolver]
 
 	// Scanner events
 	OnScanStarted() *Hook[hook_resolver.Resolver]
@@ -116,9 +124,13 @@ type Manager interface {
 	OnMediaPlayerStreamTrackingRequested() *Hook[hook_resolver.Resolver]
 
 	// Debrid events
+	OnDebridAddTorrentRequested() *Hook[hook_resolver.Resolver]
+	OnDebridAddTorrent() *Hook[hook_resolver.Resolver]
 	OnDebridAutoSelectTorrentsFetched() *Hook[hook_resolver.Resolver]
 	OnDebridSendStreamToMediaPlayer() *Hook[hook_resolver.Resolver]
 	OnDebridLocalDownloadRequested() *Hook[hook_resolver.Resolver]
+	OnDebridLocalDownloadStarted() *Hook[hook_resolver.Resolver]
+	OnDebridLocalDownloadCompleted() *Hook[hook_resolver.Resolver]
 	OnDebridSkipStreamCheck() *Hook[hook_resolver.Resolver]
 
 	// Torrent stream events
@@ -200,13 +212,19 @@ type ManagerImpl struct {
 	onAnimeLibraryStreamCollection          *Hook[hook_resolver.Resolver]
 	onAnimeScheduleItems                    *Hook[hook_resolver.Resolver]
 	// Auto Downloader events
-	onAutoDownloaderMatchVerified         *Hook[hook_resolver.Resolver]
-	onAutoDownloaderRunStarted            *Hook[hook_resolver.Resolver]
-	onAutoDownloaderRunCompleted          *Hook[hook_resolver.Resolver]
-	onAutoDownloaderSettingsUpdated       *Hook[hook_resolver.Resolver]
-	onAutoDownloaderTorrentsFetched       *Hook[hook_resolver.Resolver]
-	onAutoDownloaderBeforeDownloadTorrent *Hook[hook_resolver.Resolver]
-	onAutoDownloaderAfterDownloadTorrent  *Hook[hook_resolver.Resolver]
+	onAutoDownloaderMatchVerified             *Hook[hook_resolver.Resolver]
+	onAutoDownloaderRunStarted                *Hook[hook_resolver.Resolver]
+	onAutoDownloaderRunCompleted              *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBestCandidateSelected     *Hook[hook_resolver.Resolver]
+	onAutoDownloaderSettingsUpdated           *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeFetchTorrents       *Hook[hook_resolver.Resolver]
+	onAutoDownloaderTorrentsFetched           *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeQueueDelayedTorrent *Hook[hook_resolver.Resolver]
+	onAutoDownloaderBeforeDownloadTorrent     *Hook[hook_resolver.Resolver]
+	onAutoDownloaderAfterDownloadTorrent      *Hook[hook_resolver.Resolver]
+	// Torrent search events
+	onTorrentSearchRequested *Hook[hook_resolver.Resolver]
+	onTorrentSearch          *Hook[hook_resolver.Resolver]
 	// Scanner events
 	onScanStarted                   *Hook[hook_resolver.Resolver]
 	onScanFilePathsRetrieved        *Hook[hook_resolver.Resolver]
@@ -246,9 +264,13 @@ type ManagerImpl struct {
 	onMediaPlayerLocalFileTrackingRequested *Hook[hook_resolver.Resolver]
 	onMediaPlayerStreamTrackingRequested    *Hook[hook_resolver.Resolver]
 	// Debrid events
+	onDebridAddTorrentRequested       *Hook[hook_resolver.Resolver]
+	onDebridAddTorrent                *Hook[hook_resolver.Resolver]
 	onDebridAutoSelectTorrentsFetched *Hook[hook_resolver.Resolver]
 	onDebridSendStreamToMediaPlayer   *Hook[hook_resolver.Resolver]
 	onDebridLocalDownloadRequested    *Hook[hook_resolver.Resolver]
+	onDebridLocalDownloadStarted      *Hook[hook_resolver.Resolver]
+	onDebridLocalDownloadCompleted    *Hook[hook_resolver.Resolver]
 	onDebridSkipStreamCheck           *Hook[hook_resolver.Resolver]
 	// Torrent stream events
 	onTorrentStreamAutoSelectTorrentsFetched *Hook[hook_resolver.Resolver]
@@ -347,10 +369,16 @@ func (m *ManagerImpl) initHooks() {
 	m.onAutoDownloaderMatchVerified = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderRunStarted = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderRunCompleted = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBestCandidateSelected = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderSettingsUpdated = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBeforeFetchTorrents = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderTorrentsFetched = &Hook[hook_resolver.Resolver]{}
+	m.onAutoDownloaderBeforeQueueDelayedTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderBeforeDownloadTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onAutoDownloaderAfterDownloadTorrent = &Hook[hook_resolver.Resolver]{}
+	// Torrent search events
+	m.onTorrentSearchRequested = &Hook[hook_resolver.Resolver]{}
+	m.onTorrentSearch = &Hook[hook_resolver.Resolver]{}
 	// Scanner events
 	m.onScanStarted = &Hook[hook_resolver.Resolver]{}
 	m.onScanFilePathsRetrieved = &Hook[hook_resolver.Resolver]{}
@@ -390,9 +418,13 @@ func (m *ManagerImpl) initHooks() {
 	m.onMediaPlayerLocalFileTrackingRequested = &Hook[hook_resolver.Resolver]{}
 	m.onMediaPlayerStreamTrackingRequested = &Hook[hook_resolver.Resolver]{}
 	// Debrid events
+	m.onDebridAddTorrentRequested = &Hook[hook_resolver.Resolver]{}
+	m.onDebridAddTorrent = &Hook[hook_resolver.Resolver]{}
 	m.onDebridAutoSelectTorrentsFetched = &Hook[hook_resolver.Resolver]{}
 	m.onDebridSendStreamToMediaPlayer = &Hook[hook_resolver.Resolver]{}
 	m.onDebridLocalDownloadRequested = &Hook[hook_resolver.Resolver]{}
+	m.onDebridLocalDownloadStarted = &Hook[hook_resolver.Resolver]{}
+	m.onDebridLocalDownloadCompleted = &Hook[hook_resolver.Resolver]{}
 	m.onDebridSkipStreamCheck = &Hook[hook_resolver.Resolver]{}
 	// Torrent stream events
 	m.onTorrentStreamAutoSelectTorrentsFetched = &Hook[hook_resolver.Resolver]{}
@@ -721,6 +753,13 @@ func (m *ManagerImpl) OnAutoDownloaderRunStarted() *Hook[hook_resolver.Resolver]
 	return m.onAutoDownloaderRunStarted
 }
 
+func (m *ManagerImpl) OnAutoDownloaderRunCompleted() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderRunCompleted
+}
+
 func (m *ManagerImpl) OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Resolver] {
 	if m == nil {
 		return &Hook[hook_resolver.Resolver]{}
@@ -728,11 +767,32 @@ func (m *ManagerImpl) OnAutoDownloaderSettingsUpdated() *Hook[hook_resolver.Reso
 	return m.onAutoDownloaderSettingsUpdated
 }
 
+func (m *ManagerImpl) OnAutoDownloaderBestCandidateSelected() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBestCandidateSelected
+}
+
+func (m *ManagerImpl) OnAutoDownloaderBeforeFetchTorrents() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBeforeFetchTorrents
+}
+
 func (m *ManagerImpl) OnAutoDownloaderTorrentsFetched() *Hook[hook_resolver.Resolver] {
 	if m == nil {
 		return &Hook[hook_resolver.Resolver]{}
 	}
 	return m.onAutoDownloaderTorrentsFetched
+}
+
+func (m *ManagerImpl) OnAutoDownloaderBeforeQueueDelayedTorrent() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onAutoDownloaderBeforeQueueDelayedTorrent
 }
 
 func (m *ManagerImpl) OnAutoDownloaderBeforeDownloadTorrent() *Hook[hook_resolver.Resolver] {
@@ -747,6 +807,20 @@ func (m *ManagerImpl) OnAutoDownloaderAfterDownloadTorrent() *Hook[hook_resolver
 		return &Hook[hook_resolver.Resolver]{}
 	}
 	return m.onAutoDownloaderAfterDownloadTorrent
+}
+
+func (m *ManagerImpl) OnTorrentSearchRequested() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onTorrentSearchRequested
+}
+
+func (m *ManagerImpl) OnTorrentSearch() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onTorrentSearch
 }
 
 // Scanner events
@@ -991,6 +1065,20 @@ func (m *ManagerImpl) OnMediaPlayerStreamTrackingRequested() *Hook[hook_resolver
 
 // Debrid events
 
+func (m *ManagerImpl) OnDebridAddTorrentRequested() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onDebridAddTorrentRequested
+}
+
+func (m *ManagerImpl) OnDebridAddTorrent() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onDebridAddTorrent
+}
+
 func (m *ManagerImpl) OnDebridAutoSelectTorrentsFetched() *Hook[hook_resolver.Resolver] {
 	if m == nil {
 		return &Hook[hook_resolver.Resolver]{}
@@ -1010,6 +1098,20 @@ func (m *ManagerImpl) OnDebridLocalDownloadRequested() *Hook[hook_resolver.Resol
 		return &Hook[hook_resolver.Resolver]{}
 	}
 	return m.onDebridLocalDownloadRequested
+}
+
+func (m *ManagerImpl) OnDebridLocalDownloadStarted() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onDebridLocalDownloadStarted
+}
+
+func (m *ManagerImpl) OnDebridLocalDownloadCompleted() *Hook[hook_resolver.Resolver] {
+	if m == nil {
+		return &Hook[hook_resolver.Resolver]{}
+	}
+	return m.onDebridLocalDownloadCompleted
 }
 
 func (m *ManagerImpl) OnDebridSkipStreamCheck() *Hook[hook_resolver.Resolver] {

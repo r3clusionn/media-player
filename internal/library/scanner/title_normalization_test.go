@@ -51,6 +51,24 @@ func TestNormalizeTitle(t *testing.T) {
 			wantDenoised: "overlord",
 		},
 		{
+			// Roman numerals after part markers should stay as part info, not season info
+			input:        "Attack on Titan Part II",
+			want:         "attack on titan",
+			wantBase:     "attack on titan",
+			season:       -1,
+			part:         2,
+			wantDenoised: "attack titan",
+		},
+		{
+			// Sequel numerals should still work when a real part marker appears later
+			input:        "Mushoku Tensei II Part 2",
+			want:         "mushoku tensei ii",
+			wantBase:     "mushoku tensei",
+			season:       2,
+			part:         2,
+			wantDenoised: "mushoku tensei",
+		},
+		{
 			input:        "Steins;Gate",
 			want:         "steins gate",
 			wantBase:     "steins gate",

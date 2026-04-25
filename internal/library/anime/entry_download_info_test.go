@@ -11,7 +11,7 @@ import (
 func TestNewEntryDownloadInfoEpisodeZeroDiscrepancy(t *testing.T) {
 	// anilist counts episode 0 here, but the metadata maps it as S1.
 	// the expected list should still expose that extra slot as episode 0.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 	mediaID := 146065
 
 	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusReleasing)
@@ -57,7 +57,7 @@ func TestNewEntryDownloadInfoEpisodeZeroDiscrepancy(t *testing.T) {
 func TestNewEntryDownloadInfoSpecialsDiscrepancyAndBatchFlags(t *testing.T) {
 	// this covers the path where anilist's aired count includes specials.
 	// we expect the main episodes plus two remapped specials, and finished media should allow batch mode.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 	mediaID := 154587
 
 	patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 6)
@@ -77,7 +77,7 @@ func TestNewEntryDownloadInfoSpecialsDiscrepancyAndBatchFlags(t *testing.T) {
 func TestNewEntryDownloadInfoCompletedRewatchFiltersDownloadedEpisodes(t *testing.T) {
 	// completed entries reset progress back to 0 for download planning.
 	// the remaining list should just be "everything not already on disk" and mark this as a rewatch.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 	mediaID := 154587
 
 	patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 5)
@@ -108,7 +108,7 @@ func TestNewEntryDownloadInfoScheduleFlags(t *testing.T) {
 	t.Run("releasing without next airing is inaccurate", func(t *testing.T) {
 		// releasing shows without next airing data keep the full aired list,
 		// but they should be marked as having an inaccurate schedule.
-		h := newAnimeTestHarness(t)
+		h := newAnimeTestWrapper(t)
 		mediaID := 154587
 
 		patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 5)
@@ -124,7 +124,7 @@ func TestNewEntryDownloadInfoScheduleFlags(t *testing.T) {
 
 	t.Run("next airing trims future episodes", func(t *testing.T) {
 		// once next airing is known, anything at or after that future episode should be filtered out.
-		h := newAnimeTestHarness(t)
+		h := newAnimeTestWrapper(t)
 		mediaID := 154587
 
 		patchCollectionEntryEpisodeCount(t, h.animeCollection, mediaID, 12)
@@ -144,7 +144,7 @@ func TestNewEntryDownloadInfoScheduleFlags(t *testing.T) {
 func TestNewEntryDownloadInfoFallsBackToMetadataCurrentEpisodeCount(t *testing.T) {
 	// if media.Episodes is missing, the code falls back to aired episode dates in metadata.
 	// only past-dated episodes should survive that fallback count.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 	mediaID := 154587
 
 	patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
@@ -164,7 +164,7 @@ func TestNewEntryDownloadInfoFallsBackToMetadataCurrentEpisodeCount(t *testing.T
 func TestNewEntryDownloadInfoEarlyReturnsAndErrors(t *testing.T) {
 	t.Run("not yet released returns empty result", func(t *testing.T) {
 		// unreleased media short-circuits before any download planning starts.
-		h := newAnimeTestHarness(t)
+		h := newAnimeTestWrapper(t)
 		mediaID := 154587
 
 		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusNotYetReleased)
@@ -179,7 +179,7 @@ func TestNewEntryDownloadInfoEarlyReturnsAndErrors(t *testing.T) {
 
 	t.Run("missing metadata returns an error", func(t *testing.T) {
 		// metadata is required for the planner, so nil should fail fast.
-		h := newAnimeTestHarness(t)
+		h := newAnimeTestWrapper(t)
 		mediaID := 154587
 		entry := h.findEntry(t, mediaID)
 
@@ -198,7 +198,7 @@ func TestNewEntryDownloadInfoEarlyReturnsAndErrors(t *testing.T) {
 	t.Run("missing current episode count returns empty result", func(t *testing.T) {
 		// when both media and metadata resolve to zero aired episodes, we just get an empty plan.
 		mediaID := 154587
-		h := newAnimeTestHarness(t)
+		h := newAnimeTestWrapper(t)
 
 		patchEntryMediaStatus(t, h.animeCollection, mediaID, anilist.MediaStatusFinished)
 		h.clearEpisodeCount(t, mediaID)

@@ -1,8 +1,13 @@
-type AniSkipEntryLike = {
+export type AniSkipEntryLike = {
     interval: {
         startTime: number
         endTime: number
     }
+}
+
+export type NormalizedSkipData<T extends AniSkipEntryLike = AniSkipEntryLike> = {
+    op: T | null
+    ed: T | null
 }
 
 const isValidAniSkipTime = (value: number) => Number.isFinite(value) && value >= 0
@@ -18,13 +23,7 @@ export function normalizeAniSkipEntry<T extends AniSkipEntryLike>(entry: T | nul
     return entry
 }
 
-export function normalizeAniSkipData<T extends AniSkipEntryLike>(skipData: {
-    op: T | null;
-    ed: T | null
-} | undefined): {
-    op: T | null;
-    ed: T | null
-} {
+export function normalizeAniSkipData<T extends AniSkipEntryLike>(skipData: NormalizedSkipData<T> | undefined): NormalizedSkipData<T> {
     const op = normalizeAniSkipEntry(skipData?.op)
     let ed = normalizeAniSkipEntry(skipData?.ed)
 

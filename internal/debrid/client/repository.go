@@ -14,6 +14,7 @@ import (
 	"seanime/internal/debrid/torbox"
 	"seanime/internal/directstream"
 	"seanime/internal/events"
+	"seanime/internal/hook"
 	"seanime/internal/library/playbackmanager"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/torrents/autoselect"
@@ -172,7 +173,7 @@ func (r *Repository) GetProvider() (debrid.Provider, error) {
 
 // AddAndQueueTorrent adds a torrent to the debrid service and queues it for automatic download
 func (r *Repository) AddAndQueueTorrent(opts debrid.AddTorrentOptions, destination string, mId int) (string, error) {
-	provider, err := r.GetProvider()
+	hTorrentItemId, err := triggerOnAddTorrentRequestedHook(&opts, &destination, &mId)
 	if err != nil {
 		return "", err
 	}
@@ -181,10 +182,18 @@ func (r *Repository) AddAndQueueTorrent(opts debrid.AddTorrentOptions, destinati
 		return "", fmt.Errorf("debrid: Failed to add torrent, destination must be an absolute path")
 	}
 
-	// Add the torrent to the debrid service
-	torrentItemId, err := provider.AddTorrent(opts)
+	provider, err := r.GetProvider()
 	if err != nil {
 		return "", err
+	}
+
+	torrentItemId := hTorrentItemId
+	if torrentItemId == "" {
+		// Add the torrent to the debrid service
+		torrentItemId, err = provider.AddTorrent(opts)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Add the torrent item to the database (so it can be downloaded automatically once it's ready)
@@ -196,7 +205,41 @@ func (r *Repository) AddAndQueueTorrent(opts debrid.AddTorrentOptions, destinati
 		MediaId:       mId,
 	})
 
+	event := &DebridAddTorrentEvent{
+		Options:       opts,
+		Destination:   destination,
+		MediaID:       mId,
+		TorrentItemID: torrentItemId,
+	}
+
+	_ = hook.GlobalHookManager.OnDebridAddTorrent().Trigger(event)
+
 	return torrentItemId, nil
+}
+
+func triggerOnAddTorrentRequestedHook(opts *debrid.AddTorrentOptions, destination *string, mediaID *int) (string, error) {
+	requestedEvent := &DebridAddTorrentRequestedEvent{
+		Options:     *opts,
+		Destination: *destination,
+		MediaID:     *mediaID,
+	}
+
+	if err := hook.GlobalHookManager.OnDebridAddTorrentRequested().Trigger(requestedEvent); err != nil {
+		return "", err
+	}
+
+	*opts = requestedEvent.Options
+	*destination = requestedEvent.Destination
+	*mediaID = requestedEvent.MediaID
+
+	if requestedEvent.DefaultPrevented {
+		if requestedEvent.TorrentItemID == "" {
+			return "", fmt.Errorf("debrid: add torrent prevented by hook without torrent item id")
+		}
+		return requestedEvent.TorrentItemID, nil
+	}
+
+	return "", nil
 }
 
 // GetTorrentInfo retrieves information about a torrent.

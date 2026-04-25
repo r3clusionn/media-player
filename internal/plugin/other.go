@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	"context"
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/goja/goja_bindings"
@@ -14,9 +15,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// BindTorrentstreamToContextObj binds 'torrentstream' to the UI context object
-func (a *AppContextImpl) BindTorrentstreamToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) {
-
+type autoDownloaderRunCheckOptions struct {
+	IsSimulation bool   `json:"isSimulation"`
+	RuleIDs      []uint `json:"ruleIds"`
 }
 
 // BindOnlinestreamToContextObj binds 'onlinestream' to the UI context object
@@ -289,7 +290,73 @@ func (a *AppContextImpl) BindFillerManagerToContextObj(vm *goja.Runtime, obj *go
 func (a *AppContextImpl) BindAutoDownloaderToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) {
 
 	autoDownloaderObj := vm.NewObject()
-	_ = autoDownloaderObj.Set("run", func() goja.Value {
+	_ = autoDownloaderObj.Set("run", func(call goja.FunctionCall) goja.Value {
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+		isSimulation := false
+		if len(call.Arguments) > 0 && !goja.IsUndefined(call.Argument(0)) {
+			isSimulation = call.Argument(0).ToBoolean()
+		}
+		autoDownloader.Run(isSimulation)
+		return goja.Undefined()
+	})
+	_ = autoDownloaderObj.Set("runCheck", func(opts autoDownloaderRunCheckOptions) goja.Value {
+		promise, resolve, _ := vm.NewPromise()
+
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+
+		go func() {
+			autoDownloader.ClearSimulationResults()
+			autoDownloader.RunCheck(context.Background(), opts.IsSimulation, opts.RuleIDs...)
+			results := autoDownloader.GetSimulationResults()
+
+			scheduler.ScheduleAsync(func() error {
+				resolve(vm.ToValue(results))
+				return nil
+			})
+		}()
+
+		return vm.ToValue(promise)
+	})
+	_ = autoDownloaderObj.Set("getSimulationResults", func() goja.Value {
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+		return vm.ToValue(autoDownloader.GetSimulationResults())
+	})
+	_ = autoDownloaderObj.Set("clearSimulationResults", func() goja.Value {
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+		autoDownloader.ClearSimulationResults()
+		return goja.Undefined()
+	})
+	_ = autoDownloaderObj.Set("getSettings", func() goja.Value {
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+		settings := autoDownloader.GetSettings()
+		if settings == nil {
+			return goja.Undefined()
+		}
+		return vm.ToValue(settings)
+	})
+	_ = autoDownloaderObj.Set("isEnabled", func() goja.Value {
+		autoDownloader, ok := a.autoDownloader.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
+		}
+		return vm.ToValue(autoDownloader.IsEnabled())
+	})
+	_ = autoDownloaderObj.Set("runNow", func() goja.Value {
 		autoDownloader, ok := a.autoDownloader.Get()
 		if !ok {
 			goja_bindings.PanicThrowErrorString(vm, "autoDownloader not set")
@@ -311,6 +378,42 @@ func (a *AppContextImpl) BindAutoScannerToContextObj(vm *goja.Runtime, obj *goja
 		}
 		autoScanner.Notify()
 		return goja.Undefined()
+	})
+	_ = autoScannerObj.Set("runNow", func() goja.Value {
+		autoScanner, ok := a.autoScanner.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoScanner not set")
+		}
+		autoScanner.RunNow()
+		return goja.Undefined()
+	})
+	_ = autoScannerObj.Set("isEnabled", func() goja.Value {
+		autoScanner, ok := a.autoScanner.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoScanner not set")
+		}
+		return vm.ToValue(autoScanner.IsEnabled())
+	})
+	_ = autoScannerObj.Set("isWaiting", func() goja.Value {
+		autoScanner, ok := a.autoScanner.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoScanner not set")
+		}
+		return vm.ToValue(autoScanner.IsWaiting())
+	})
+	_ = autoScannerObj.Set("isScanning", func() goja.Value {
+		autoScanner, ok := a.autoScanner.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoScanner not set")
+		}
+		return vm.ToValue(autoScanner.IsScanning())
+	})
+	_ = autoScannerObj.Set("getWaitTimeMs", func() goja.Value {
+		autoScanner, ok := a.autoScanner.Get()
+		if !ok {
+			goja_bindings.PanicThrowErrorString(vm, "autoScanner not set")
+		}
+		return vm.ToValue(autoScanner.GetWaitTime().Milliseconds())
 	})
 	_ = obj.Set("autoScanner", autoScannerObj)
 

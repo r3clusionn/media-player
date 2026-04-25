@@ -35,6 +35,7 @@ type HttpReadSeeker struct {
 	url         string         // The URL of the resource
 	client      *http.Client   // HTTP client to use for requests
 	resp        *http.Response // Current response
+	headers     http.Header    // Headers to apply to follow-up requests
 	offset      int64          // Current offset in the resource
 	size        int64          // Size of the resource, -1 if unknown
 	readBuf     []byte         // Buffer for reading
@@ -46,8 +47,10 @@ type HttpReadSeeker struct {
 // NewHttpReadSeeker creates a new HttpReadSeeker from an http.Response
 func NewHttpReadSeeker(resp *http.Response) *HttpReadSeeker {
 	url := ""
+	headers := http.Header{}
 	if resp.Request != nil {
 		url = resp.Request.URL.String()
+		headers = resp.Request.Header.Clone()
 	}
 
 	size := int64(-1)
@@ -59,6 +62,7 @@ func NewHttpReadSeeker(resp *http.Response) *HttpReadSeeker {
 		url:        url,
 		client:     http.DefaultClient,
 		resp:       resp,
+		headers:    headers,
 		offset:     0,
 		size:       size,
 		readBuf:    nil,
@@ -67,7 +71,30 @@ func NewHttpReadSeeker(resp *http.Response) *HttpReadSeeker {
 }
 
 func NewHttpReadSeekerFromURL(url string) (*HttpReadSeeker, error) {
-	resp, err := http.Get(url)
+	return NewHttpReadSeekerFromURLWithHeaders(url, nil)
+}
+
+func overrideHeaders(dst http.Header, src http.Header) {
+	if len(src) == 0 {
+		return
+	}
+
+	for key, values := range src {
+		dst.Del(key)
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
+func NewHttpReadSeekerFromURLWithHeaders(url string, headers http.Header) (*HttpReadSeeker, error) {
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("httprs: failed to create request for URL %s: %w", url, err)
+	}
+	overrideHeaders(req.Header, headers)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("httprs: failed to get URL %s: %w", url, err)
 	}
@@ -172,6 +199,7 @@ func (hrs *HttpReadSeeker) makeRangeRequest() error {
 		return err
 	}
 
+	overrideHeaders(req.Header, hrs.headers)
 	// Set Range header from current offset
 	req.Header.Set("Range", fmt.Sprintf("bytes=%d-", hrs.offset))
 
@@ -217,6 +245,7 @@ func (hrs *HttpReadSeeker) determineSize() error {
 	if err != nil {
 		return err
 	}
+	overrideHeaders(req.Header, hrs.headers)
 
 	resp, err := hrs.client.Do(req)
 	if err != nil {

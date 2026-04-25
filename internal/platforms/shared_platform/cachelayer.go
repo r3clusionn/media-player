@@ -108,8 +108,10 @@ type (
 
 const (
 	AnimeCollectionBucket          = "anime-collection"
+	AnimeCollectionTagsBucket      = "anime-collection-tags"
 	AnimeCollectionRelationsBucket = "anime-collection-relations"
 	MangaCollectionBucket          = "manga-collection"
+	MangaCollectionTagsBucket      = "manga-collection-tags"
 	BaseAnimeBucket                = "base-anime"
 	BaseAnimeMalBucket             = "base-anime-mal"
 	CompleteAnimeBucket            = "complete-anime"
@@ -204,8 +206,10 @@ func NewCacheLayer(anilistClientRef *util.Ref[anilist.AnilistClient], logoutFunc
 
 	buckets := make(map[string]filecache.PermanentBucket)
 	buckets[AnimeCollectionBucket] = filecache.NewPermanentBucket(AnimeCollectionBucket)
+	buckets[AnimeCollectionTagsBucket] = filecache.NewPermanentBucket(AnimeCollectionTagsBucket)
 	buckets[AnimeCollectionRelationsBucket] = filecache.NewPermanentBucket(AnimeCollectionRelationsBucket)
 	buckets[MangaCollectionBucket] = filecache.NewPermanentBucket(MangaCollectionBucket)
+	buckets[MangaCollectionTagsBucket] = filecache.NewPermanentBucket(MangaCollectionTagsBucket)
 	buckets[BaseAnimeBucket] = filecache.NewPermanentBucket(BaseAnimeBucket)
 	buckets[BaseAnimeMalBucket] = filecache.NewPermanentBucket(BaseAnimeMalBucket)
 	buckets[CompleteAnimeBucket] = filecache.NewPermanentBucket(CompleteAnimeBucket)
@@ -651,8 +655,10 @@ func (c *CacheLayer) invalidateCollectionCaches() {
 
 	collectionBuckets := []string{
 		AnimeCollectionBucket,
+		AnimeCollectionTagsBucket,
 		AnimeCollectionRelationsBucket,
 		MangaCollectionBucket,
+		MangaCollectionTagsBucket,
 		CustomQueryBucket,
 	}
 
@@ -808,6 +814,13 @@ func (c *CacheLayer) AnimeCollection(ctx context.Context, userName *string, inte
 	return res, err
 }
 
+func (c *CacheLayer) AnimeCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.AnimeCollectionTags, error) {
+	cacheKey := c.generateCacheKey("collection-tags", userName)
+	return networkFirstGet(c, AnimeCollectionTagsBucket, cacheKey, func() (*anilist.AnimeCollectionTags, error) {
+		return c.anilistClientRef.Get().AnimeCollectionTags(ctx, userName, interceptors...)
+	})
+}
+
 func (c *CacheLayer) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.AnimeCollectionWithRelations, error) {
 	cacheKey := c.generateCacheKey("collection-relations", nil)
 	res, err := networkFirstGet(c, AnimeCollectionRelationsBucket, cacheKey, func() (*anilist.AnimeCollectionWithRelations, error) {
@@ -914,10 +927,10 @@ func (c *CacheLayer) AnimeDetailsByID(ctx context.Context, id *int, interceptors
 	return res, err
 }
 
-func (c *CacheLayer) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*anilist.MediaSort, status []*anilist.MediaStatus, genres []*string, averageScoreGreater *int, season *anilist.MediaSeason, seasonYear *int, format *anilist.MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*anilist.ListAnime, error) {
+func (c *CacheLayer) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*anilist.MediaSort, status []*anilist.MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, season *anilist.MediaSeason, seasonYear *int, format *anilist.MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*anilist.ListAnime, error) {
 	cacheKey := c.generateCacheKey(page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, isAdult)
 	return networkFirstGetWithBoundedCache(c, ListAnimeBucket, cacheKey, func() (*anilist.ListAnime, error) {
-		return c.anilistClientRef.Get().ListAnime(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
+		return c.anilistClientRef.Get().ListAnime(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
 	})
 }
 
@@ -1013,6 +1026,13 @@ func (c *CacheLayer) MangaCollection(ctx context.Context, userName *string, inte
 	return res, err
 }
 
+func (c *CacheLayer) MangaCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.MangaCollectionTags, error) {
+	cacheKey := c.generateCacheKey("collection-tags", userName)
+	return networkFirstGet(c, MangaCollectionTagsBucket, cacheKey, func() (*anilist.MangaCollectionTags, error) {
+		return c.anilistClientRef.Get().MangaCollectionTags(ctx, userName, interceptors...)
+	})
+}
+
 func (c *CacheLayer) SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*anilist.MediaSort, search *string, status []*anilist.MediaStatus, interceptors ...clientv2.RequestInterceptor) (*anilist.SearchBaseManga, error) {
 	cacheKey := c.generateCacheKey(page, perPage, sort, search, status)
 	return networkFirstGetWithBoundedCache(c, SearchBaseMangaBucket, cacheKey, func() (*anilist.SearchBaseManga, error) {
@@ -1072,10 +1092,10 @@ func (c *CacheLayer) MangaDetailsByID(ctx context.Context, id *int, interceptors
 	return res, err
 }
 
-func (c *CacheLayer) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*anilist.MediaSort, status []*anilist.MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *anilist.MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*anilist.ListManga, error) {
-	cacheKey := c.generateCacheKey(page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult)
+func (c *CacheLayer) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*anilist.MediaSort, status []*anilist.MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *anilist.MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*anilist.ListManga, error) {
+	cacheKey := c.generateCacheKey(page, search, perPage, sort, status, genres, tags, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult)
 	return networkFirstGetWithBoundedCache(c, ListMangaBucket, cacheKey, func() (*anilist.ListManga, error) {
-		return c.anilistClientRef.Get().ListManga(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
+		return c.anilistClientRef.Get().ListManga(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
 	})
 }
 

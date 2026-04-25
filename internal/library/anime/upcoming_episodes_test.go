@@ -10,7 +10,7 @@ import (
 func TestNewUpcomingEpisodesSortsAndHydratesMetadata(t *testing.T) {
 	// upcoming episodes should be ordered by time until airing,
 	// and each item should carry metadata for the exact next episode when we have it.
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 	h.clearAllNextAiringEpisodes()
 
 	patchAnimeCollectionEntry(t, h.animeCollection, 154587, anilist.AnimeCollectionEntryPatch{

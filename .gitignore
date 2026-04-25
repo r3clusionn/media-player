@@ -85,6 +85,7 @@ internal/extension_repo/goja_plugin_test
 
 seanime-web-tr/
 codegen/nonext/
+docs/support-skills
 
 local_testing
 dist-server

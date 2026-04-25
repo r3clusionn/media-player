@@ -2,6 +2,7 @@ package debrid_client
 
 import (
 	"seanime/internal/api/anilist"
+	"seanime/internal/debrid/debrid"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	"seanime/internal/hook_resolver"
 )
@@ -34,6 +35,25 @@ type DebridSendStreamToMediaPlayerEvent struct {
 	PlaybackType string             `json:"playbackType"`
 }
 
+// DebridAddTorrentRequestedEvent is triggered when Seanime is about to add a torrent to the debrid provider.
+// Prevent default to bypass the native add call and provide TorrentItemID yourself.
+type DebridAddTorrentRequestedEvent struct {
+	hook_resolver.Event
+	Options       debrid.AddTorrentOptions `json:"options"`
+	Destination   string                   `json:"destination"`
+	MediaID       int                      `json:"mediaId"`
+	TorrentItemID string                   `json:"torrentItemId"`
+}
+
+// DebridAddTorrentEvent is triggered after Seanime adds a torrent to the debrid provider and queues it locally.
+type DebridAddTorrentEvent struct {
+	hook_resolver.Event
+	Options       debrid.AddTorrentOptions `json:"options"`
+	Destination   string                   `json:"destination"`
+	MediaID       int                      `json:"mediaId"`
+	TorrentItemID string                   `json:"torrentItemId"`
+}
+
 // DebridLocalDownloadRequestedEvent is triggered when Seanime is about to download a debrid torrent locally.
 // Prevent default to skip the default download and override the download.
 type DebridLocalDownloadRequestedEvent struct {
@@ -41,4 +61,21 @@ type DebridLocalDownloadRequestedEvent struct {
 	TorrentName string `json:"torrentName"`
 	Destination string `json:"destination"`
 	DownloadUrl string `json:"downloadUrl"`
+}
+
+// DebridLocalDownloadStartedEvent is triggered right after Seanime accepts a local debrid download.
+type DebridLocalDownloadStartedEvent struct {
+	hook_resolver.Event
+	TorrentItemID string `json:"torrentItemId"`
+	TorrentName   string `json:"torrentName"`
+	Destination   string `json:"destination"`
+	DownloadUrl   string `json:"downloadUrl"`
+}
+
+// DebridLocalDownloadCompletedEvent is triggered when Seanime finishes a local debrid download.
+type DebridLocalDownloadCompletedEvent struct {
+	hook_resolver.Event
+	TorrentItemID string `json:"torrentItemId"`
+	TorrentName   string `json:"torrentName"`
+	Destination   string `json:"destination"`
 }

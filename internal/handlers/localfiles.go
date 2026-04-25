@@ -23,6 +23,9 @@ import (
 //	@route /api/v1/library/local-files [GET]
 //	@returns []anime.LocalFile
 func (h *Handler) HandleGetLocalFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	lfs, _, err := db_bridge.GetLocalFiles(h.App.Database)
 	if err != nil {
@@ -33,6 +36,9 @@ func (h *Handler) HandleGetLocalFiles(c echo.Context) error {
 }
 
 func (h *Handler) HandleDumpLocalFilesToFile(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	lfs, _, err := db_bridge.GetLocalFiles(h.App.Database)
 	if err != nil {
@@ -68,6 +74,14 @@ func (h *Handler) HandleImportLocalFiles(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.DataFilePath); err != nil {
+		return err
+	}
+
 	contentB, err := os.ReadFile(b.DataFilePath)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -100,6 +114,9 @@ func (h *Handler) HandleImportLocalFiles(c echo.Context) error {
 //	@route /api/v1/library/local-files [POST]
 //	@returns []anime.LocalFile
 func (h *Handler) HandleLocalFileBulkAction(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Action string `json:"action"`
@@ -148,6 +165,9 @@ func (h *Handler) HandleLocalFileBulkAction(c echo.Context) error {
 //	@route /api/v1/library/local-file [PATCH]
 //	@returns []anime.LocalFile
 func (h *Handler) HandleUpdateLocalFileData(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Path     string                   `json:"path"`
@@ -195,6 +215,9 @@ func (h *Handler) HandleUpdateLocalFileData(c echo.Context) error {
 //	@route /api/v1/library/local-files/super-update [PATCH]
 //	@returns bool
 func (h *Handler) HandleSuperUpdateLocalFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Files []*library_explorer.SuperUpdateFileOptions `json:"files"`
@@ -220,6 +243,9 @@ func (h *Handler) HandleSuperUpdateLocalFiles(c echo.Context) error {
 //	@route /api/v1/library/local-files [PATCH]
 //	@returns bool
 func (h *Handler) HandleUpdateLocalFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Paths   []string `json:"paths"`
@@ -286,6 +312,9 @@ func (h *Handler) HandleUpdateLocalFiles(c echo.Context) error {
 //	@route /api/v1/library/local-files [DELETE]
 //	@returns bool
 func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Paths []string `json:"paths"`
@@ -301,11 +330,15 @@ func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+	selectedFiles, err := localFilesForPaths(lfs, b.Paths)
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
 
 	// Delete the files
 	p := pool.New().WithErrors()
-	for _, path := range b.Paths {
-		path := path
+	for _, lf := range selectedFiles {
+		path := lf.Path
 		p.Go(func() error {
 			err := os.Remove(path)
 			if err != nil {
@@ -320,7 +353,9 @@ func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
 
 	// Remove the files from the list
 	lfs = lo.Filter(lfs, func(i *anime.LocalFile, _ int) bool {
-		return !lo.Contains(b.Paths, i.Path)
+		return !lo.ContainsBy(selectedFiles, func(lf *anime.LocalFile) bool {
+			return lf.HasSamePath(i.Path)
+		})
 	})
 
 	// Save the local files
@@ -332,6 +367,23 @@ func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
 	return h.RespondWithData(c, true)
 }
 
+func localFilesForPaths(lfs []*anime.LocalFile, paths []string) ([]*anime.LocalFile, error) {
+	ret := make([]*anime.LocalFile, 0, len(paths))
+	for _, path := range paths {
+		lf, found := lo.Find(lfs, func(i *anime.LocalFile) bool {
+			return i.HasSamePath(path)
+		})
+		if !found {
+			return nil, fmt.Errorf("local file not found: %s", path)
+		}
+		ret = append(ret, lf)
+	}
+
+	return lo.UniqBy(ret, func(lf *anime.LocalFile) string {
+		return lf.Path
+	}), nil
+}
+
 // HandleRemoveEmptyDirectories
 //
 //	@summary removes empty directories.
@@ -339,6 +391,9 @@ func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
 //	@route /api/v1/library/empty-directories [DELETE]
 //	@returns bool
 func (h *Handler) HandleRemoveEmptyDirectories(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	libraryPaths, err := h.App.Database.GetAllLibraryPathsFromSettings()
 	if err != nil {

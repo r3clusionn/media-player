@@ -1159,6 +1159,13 @@ export type AL_MediaSort = "ID" |
 export type AL_MediaStatus = "FINISHED" | "RELEASING" | "NOT_YET_RELEASED" | "CANCELLED" | "HIATUS"
 
 /**
+ * - Filepath: internal/api/anilist/tags.go
+ * - Filename: tags.go
+ * - Package: anilist
+ */
+export type AL_MediaTagMap = Record<number, Array<string>>
+
+/**
  * - Filepath: internal/api/anilist/models_gen.go
  * - Filename: models_gen.go
  * - Package: anilist
@@ -4376,7 +4383,7 @@ export type NativePlayer_ServerEvent = "open-and-await" |
  * - Filename: nativeplayer.go
  * - Package: nativeplayer
  */
-export type NativePlayer_StreamType = "torrent" | "localfile" | "debrid" | "nakama"
+export type NativePlayer_StreamType = "torrent" | "localfile" | "debrid" | "url" | "nakama"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Onlinestream
@@ -4856,31 +4863,31 @@ export type Torrentstream_PlaybackType = "default" | "externalPlayerLink" | "nat
  * - Package: torrentstream
  */
 export type Torrentstream_StartStreamOptions = {
-    MediaId: number
+    mediaId: number
     /**
      * RELATIVE Episode number to identify the file
      */
-    EpisodeNumber: number
+    episodeNumber: number
     /**
      * Animap episode
      */
-    AniDBEpisode: string
+    aniDbEpisode: string
     /**
      * Automatically select the best file to stream
      */
-    AutoSelect: boolean
+    autoSelect: boolean
     /**
      * Selected torrent (Manual selection)
      */
-    Torrent?: HibikeTorrent_AnimeTorrent
+    torrent?: HibikeTorrent_AnimeTorrent
     /**
      * Index of the file to stream (Manual selection)
      */
-    FileIndex?: number
-    UserAgent: string
-    ClientId: string
-    PlaybackType: Torrentstream_PlaybackType
-    BatchEpisodeFiles?: HibikeTorrent_BatchEpisodeFiles
+    fileIndex?: number
+    userAgent: string
+    clientId: string
+    playbackType: Torrentstream_PlaybackType
+    batchEpisodeFiles?: HibikeTorrent_BatchEpisodeFiles
 }
 
 /**
@@ -5127,6 +5134,7 @@ export type VideoCore_ClientEventType = "video-loaded" |
     "subtitle-file-uploaded" |
     "video-playlist" |
     "video-text-tracks" |
+    "video-skip-data" |
     "translate-text" |
     "translate-subtitle-file-track"
 
@@ -5233,7 +5241,12 @@ export type VideoCore_PlaybackState = {
  * @description
  *  PlaybackType is the playback method.
  */
-export type VideoCore_PlaybackType = "localfile" | "torrent" | "debrid" | "nakama" | "onlinestream"
+export type VideoCore_PlaybackType = "localfile" |
+    "torrent" |
+    "debrid" |
+    "nakama" |
+    "onlinestream" |
+    "url"
 
 /**
  * - Filepath: internal/videocore/types.go
@@ -5268,6 +5281,8 @@ export type VideoCore_ServerEvent = "pause" |
     "request-play-episode" |
     "translated-text" |
     "in-sight-data" |
+    "set-skip-data" |
+    "get-skip-data" |
     "get-fullscreen" |
     "get-pip" |
     "get-anime-4k" |

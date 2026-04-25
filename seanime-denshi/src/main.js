@@ -57,9 +57,6 @@ const _isRsbuildFrontend = true
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function setupChromiumFlags() {
-    // Bypass CSP and security
-    app.commandLine.appendSwitch("bypasscsp-schemes")
-    app.commandLine.appendSwitch("no-sandbox")
     app.commandLine.appendSwitch("no-zygote")
 
     app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required")
@@ -124,6 +121,74 @@ console.error = log.error
 
 
 const _development = process.env.NODE_ENV === "development"
+const LOCAL_EMBED_HOST = "127.0.0.1"
+const DESKTOP_SERVER_HOST = "127.0.0.1"
+const DESKTOP_SERVER_DEFAULT_PORT = 43211
+const DESKTOP_SERVER_DEV_PORT = 43000
+const DEFAULT_UPDATE_FEED_URL = "https://github.com/5rahim/seanime/releases/latest/download"
+
+function isAllowedLocalEmbedURL(rawURL) {
+    if (!localServerPort) {
+        return false
+    }
+
+    try {
+        const parsed = new URL(rawURL)
+        return parsed.protocol === "http:"
+            && parsed.hostname === LOCAL_EMBED_HOST
+            && parsed.port === String(localServerPort)
+            && parsed.pathname.startsWith("/player/")
+    } catch {
+        return false
+    }
+}
+
+function normalizeUpdateFeedURL(candidate, fallbackURL) {
+    try {
+        const parsed = new URL(candidate)
+        if (parsed.protocol !== "https:" || !parsed.host) {
+            throw new Error("update feeds must use https")
+        }
+
+        return parsed.toString()
+    } catch (error) {
+        log.warn(`[Denshi] Ignoring update feed URL ${candidate}: ${error.message}`)
+        return fallbackURL
+    }
+}
+
+function getDesktopServerPort() {
+    if (_development) {
+        return DESKTOP_SERVER_DEV_PORT
+    }
+
+    const envPort = Number.parseInt(process.env.SEANIME_SERVER_PORT || "", 10)
+    if (Number.isInteger(envPort) && envPort > 0) {
+        return envPort
+    }
+
+    return DESKTOP_SERVER_DEFAULT_PORT
+}
+
+function getDesktopServerBaseUrl() {
+    return `http://${DESKTOP_SERVER_HOST}:${getDesktopServerPort()}`
+}
+
+async function isDesktopServerReachable() {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 1000)
+
+    try {
+        const response = await net.fetch(`${getDesktopServerBaseUrl()}/api/v1/status`, {
+            signal: controller.signal,
+        })
+        return response.ok
+    } catch {
+        return false
+    } finally {
+        clearTimeout(timeoutId)
+    }
+}
 
 // const _development = false;
 
@@ -189,7 +254,7 @@ function startLocalServer() {
 
     server.listen(0) // random free port
     const port = server.address().port
-    console.log(`Local server running at http://localhost:${port}`)
+    console.log(`Local server running at http://127.0.0.1:${port}`)
     localServerPort = port
     return port
 }
@@ -385,7 +450,9 @@ let tray = null
 let serverProcess = null
 let isShutdown = false
 let serverStarted = false
+let mainWindowStartupReady = false
 let updateDownloaded = false
+let serverRestartPromise = null
 
 // Setup autoUpdater events with improved error handling
 autoUpdater.on("checking-for-update", () => {
@@ -544,6 +611,75 @@ function createTray() {
 
 async function launchSeanimeServer(isRestart) {
     return new Promise((resolve, reject) => {
+        let startupResolved = false
+        let startupPollInterval = null
+        let waitingForRenderer = false
+
+        function clearStartupProbe() {
+            if (startupPollInterval) {
+                clearInterval(startupPollInterval)
+                startupPollInterval = null
+            }
+        }
+
+        function checkFinalizeStartup(source) {
+            if (startupResolved) {
+                return
+            }
+
+            if (!mainWindowStartupReady) {
+                if (!waitingForRenderer) {
+                    waitingForRenderer = true
+                    logStartupEvent("WAITING FOR RENDERER", source)
+                }
+                return
+            }
+
+            finalizeStartup(source)
+        }
+
+        function finalizeStartup(source) {
+            if (startupResolved) {
+                return
+            }
+
+            startupResolved = true
+            clearStartupProbe()
+
+            console.log(`[Main] Server started via ${source}`)
+            serverStarted = true
+            setTimeout(() => {
+                console.log("[Main] Server started timeout")
+                if (splashScreen && !splashScreen.isDestroyed()) {
+                    splashScreen.close()
+                    splashScreen = null
+                }
+                console.log("[Main] Server started close splash screen")
+                setTimeout(() => {
+                    if (mainWindow && !mainWindow.isDestroyed()) {
+                        if (denshiSettings.openInBackground) {
+                            // Don't maximize or show
+                            log.info("[Denshi] Opened in background")
+                        } else {
+                            mainWindow.maximize()
+                            mainWindow.show()
+                        }
+                    }
+                }, 1000)
+                resolve()
+            }, 2000)
+        }
+
+        async function probeServerStartup() {
+            if (startupResolved || !serverProcess || serverProcess.killed) {
+                return
+            }
+
+            if (await isDesktopServerReachable()) {
+                checkFinalizeStartup("HTTP status probe")
+            }
+        }
+
         // TEST ONLY: Check for -no-binary flag
         if (process.argv.includes("-no-binary")) {
             logStartupEvent("SKIPPING SERVER LAUNCH", "Detected -no-binary flag")
@@ -629,6 +765,11 @@ async function launchSeanimeServer(isRestart) {
             return reject(spawnError)
         }
 
+        startupPollInterval = setInterval(() => {
+            void probeServerStartup()
+        }, 500)
+        void probeServerStartup()
+
         serverProcess.stdout.on("data", (data) => {
             const dataStr = data.toString()
             const lineStr = stripAnsi ? stripAnsi(dataStr) : dataStr
@@ -640,28 +781,7 @@ async function launchSeanimeServer(isRestart) {
 
             // Check if the frontend is connected
             if (!serverStarted && lineStr.includes("Client connected")) {
-                console.log("[Main] Server started")
-                serverStarted = true
-                setTimeout(() => {
-                    console.log("[Main] Server started timeout")
-                    if (splashScreen && !splashScreen.isDestroyed()) {
-                        splashScreen.close()
-                        splashScreen = null
-                    }
-                    console.log("[Main] Server started close splash screen")
-                    setTimeout(() => {
-                        if (mainWindow && !mainWindow.isDestroyed()) {
-                            if (denshiSettings.openInBackground) {
-                                // Don't maximize or show
-                                log.info("[Denshi] Opened in background")
-                            } else {
-                                mainWindow.maximize()
-                                mainWindow.show()
-                            }
-                        }
-                    }, 1000)
-                    resolve()
-                }, 2000)
+                checkFinalizeStartup("websocket client connection")
             }
         })
 
@@ -670,10 +790,11 @@ async function launchSeanimeServer(isRestart) {
         })
 
         serverProcess.on("close", (code) => {
+            clearStartupProbe()
             console.log(`[Main] Server process exited with code ${code}`)
 
             // If the server didn't start properly and we're not in the process of shutting down
-            if (!serverStarted && !isShutdown) {
+            if (!startupResolved && !isShutdown) {
                 console.log("[Main] Server process exited before starting")
                 reject(new Error(`Server process exited prematurely with code ${code} before starting.`))
 
@@ -703,18 +824,102 @@ async function launchSeanimeServer(isRestart) {
 
         // Handle spawn errors
         serverProcess.on("error", (err) => {
+            clearStartupProbe()
             console.error("[Main] Server process spawn error event:", err)
             reject(err)
         })
     })
 }
 
+async function restartSeanimeServer() {
+    if (serverRestartPromise) {
+        console.log("[Main] Restart already in progress, skipping duplicate request")
+        return serverRestartPromise
+    }
+
+    serverRestartPromise = (async () => {
+        if (await isDesktopServerReachable()) {
+            console.log("[Main] Restart skipped because the desktop server is already reachable")
+            return
+        }
+
+        const currentServerProcess = serverProcess
+
+        if (currentServerProcess && !currentServerProcess.killed) {
+            console.log("[Main] Waiting for existing server process to exit before relaunching")
+
+            await new Promise((resolve) => {
+                let settled = false
+
+                function finish() {
+                    if (settled) {
+                        return
+                    }
+
+                    settled = true
+                    currentServerProcess.removeListener("close", finish)
+                    currentServerProcess.removeListener("error", finish)
+
+                    if (serverProcess === currentServerProcess) {
+                        serverProcess = null
+                    }
+
+                    resolve()
+                }
+
+                currentServerProcess.once("close", finish)
+                currentServerProcess.once("error", finish)
+
+                try {
+                    currentServerProcess.kill()
+                } catch (error) {
+                    console.error("[Main] Failed to kill server during restart:", error)
+                    finish()
+                    return
+                }
+
+                setTimeout(() => {
+                    console.warn("[Main] Timed out waiting for server process to exit during restart")
+                    finish()
+                }, 3000)
+            })
+        } else {
+            serverProcess = null
+        }
+
+        await launchSeanimeServer(true)
+    })().finally(() => {
+        serverRestartPromise = null
+    })
+
+    return serverRestartPromise
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Main window
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+function showEditableContextMenu(webContents, params) {
+    if (!params.isEditable) return
+
+    const template = [
+        { role: "undo", enabled: params.editFlags.canUndo },
+        { role: "redo", enabled: params.editFlags.canRedo },
+        { type: "separator" },
+        { role: "cut", enabled: params.editFlags.canCut },
+        { role: "copy", enabled: params.editFlags.canCopy },
+        { role: "paste", enabled: params.editFlags.canPaste },
+        { role: "selectAll", enabled: params.editFlags.canSelectAll },
+    ]
+
+    Menu.buildFromTemplate(template).popup({
+        window: BrowserWindow.fromWebContents(webContents) ?? undefined,
+    })
+}
+
 function createMainWindow() {
     logStartupEvent("Creating main window")
+    mainWindowStartupReady = false
 
     const windowOptions = {
         width: 800, height: 600, show: false,
@@ -723,8 +928,9 @@ function createMainWindow() {
         webPreferences: {
             nodeIntegration: false,
             contextIsolation: true,
+            sandbox: true,
             preload: path.join(__dirname, "preload.js"),
-            webSecurity: false,
+            webSecurity: true,
             allowRunningInsecureContent: true,
             enableBlinkFeatures: "FontAccess, AudioVideoTracks",
             backgroundThrottling: true,
@@ -747,6 +953,13 @@ function createMainWindow() {
 
     mainWindow = new BrowserWindow(windowOptions)
 
+    mainWindow.webContents.on("context-menu", (event, params) => {
+        if (!params.isEditable) return
+
+        event.preventDefault()
+        showEditableContextMenu(mainWindow.webContents, params)
+    })
+
     // Hide the title bar on Windows
     if (process.platform === "win32" || process.platform === "linux") {
         mainWindow.setMenuBarVisibility(false)
@@ -757,6 +970,26 @@ function createMainWindow() {
         if (crashScreen && !crashScreen.isDestroyed()) {
             crashScreen.show()
         }
+    })
+
+    mainWindow.webContents.on("will-attach-webview", (event, webPreferences, params) => {
+        if (!isAllowedLocalEmbedURL(params.src)) {
+            log.warn(`[Denshi] Blocked unexpected webview src ${params.src}`)
+            event.preventDefault()
+            return
+        }
+
+        delete webPreferences.preload
+        delete webPreferences.preloadURL
+        delete params.preload
+
+        webPreferences.nodeIntegration = false
+        webPreferences.contextIsolation = true
+        webPreferences.sandbox = true
+        webPreferences.webSecurity = true
+        webPreferences.allowRunningInsecureContent = true
+
+        params.allowpopups = false
     })
 
 
@@ -824,7 +1057,7 @@ function createSplashScreen() {
     logStartupEvent("Creating splash screen")
     splashScreen = new BrowserWindow({
         width: 800, height: 600, frame: false, resizable: false, show: !denshiSettings.openInBackground, backgroundColor: "#0c0c0c", webPreferences: {
-            nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, "preload.js")
+            nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, "preload.js")
         }
     })
 
@@ -846,7 +1079,7 @@ function createSplashScreen() {
 function createCrashScreen() {
     crashScreen = new BrowserWindow({
         width: 800, height: 600, frame: false, resizable: false, show: false, webPreferences: {
-            nodeIntegration: false, contextIsolation: true, preload: path.join(__dirname, "preload.js")
+            nodeIntegration: false, contextIsolation: true, sandbox: true, preload: path.join(__dirname, "preload.js")
         }
     })
 
@@ -948,7 +1181,7 @@ app.whenReady().then(async () => {
 
     const updateConfig = {
         provider: "generic",
-        url: "https://github.com/5rahim/seanime/releases/latest/download",
+        url: DEFAULT_UPDATE_FEED_URL,
         channel: "latest",
         allowPrerelease: false,
         verifyUpdateCodeSignature: false,
@@ -962,8 +1195,10 @@ app.whenReady().then(async () => {
         updateConfig.allowPrerelease = false
     }
 
+    updateConfig.url = normalizeUpdateFeedURL(updateConfig.url, DEFAULT_UPDATE_FEED_URL)
+
     if (process.env.UPDATES_URL) {
-        updateConfig.url = process.env.UPDATES_URL
+        updateConfig.url = normalizeUpdateFeedURL(process.env.UPDATES_URL, updateConfig.url)
     }
 
     autoUpdater.setFeedURL(updateConfig)
@@ -981,6 +1216,15 @@ app.whenReady().then(async () => {
 
     // Log environment information
     logEnvironmentInfo()
+
+    ipcMain.on("startup:renderer-ready", (event) => {
+        if (!mainWindow || event.sender !== mainWindow.webContents || mainWindowStartupReady) {
+            return
+        }
+
+        mainWindowStartupReady = true
+        logStartupEvent("RENDERER READY", "main window committed first frame")
+    })
 
     // Setup IPC handlers for update functions
     ipcMain.handle("check-for-updates", async () => {
@@ -1154,13 +1398,7 @@ app.whenReady().then(async () => {
     // Register server IPC handlers
     ipcMain.on("restart-server", () => {
         console.log("EVENT restart-server")
-        if (serverProcess) {
-            console.log("Killing existing server process")
-            serverProcess.kill()
-        }
-        // devnote: don't set this to false or it will trigger the crashscreen
-        // serverStarted = false;
-        launchSeanimeServer(true).catch(console.error)
+        restartSeanimeServer().catch(console.error)
     })
 
     ipcMain.on("kill-server", () => {

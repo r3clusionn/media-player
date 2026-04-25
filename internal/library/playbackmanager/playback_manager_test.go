@@ -6,6 +6,7 @@ import (
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/continuity"
 	"seanime/internal/database/db"
+	"seanime/internal/database/db_bridge"
 	"seanime/internal/database/models"
 	"seanime/internal/events"
 	"seanime/internal/library/anime"
@@ -24,7 +25,7 @@ import (
 
 func TestPlaybackManagerUnitNewDefaultsAndSetters(t *testing.T) {
 	// keep the constructor honest so the rest of the tests can rely on the default state.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 
 	require.NotNil(t, h.playbackManager.settings)
 	require.NotNil(t, h.playbackManager.historyMap)
@@ -49,7 +50,7 @@ func TestPlaybackManagerUnitNewDefaultsAndSetters(t *testing.T) {
 
 func TestPlaybackManagerUnitCheckOrLoadAnimeCollectionCachesResult(t *testing.T) {
 	// the first call should hit the platform, and later calls should reuse the cached collection.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	expectedCollection := &anilist.AnimeCollection{}
 	h.platform = testmocks.NewFakePlatformBuilder().WithAnimeCollection(expectedCollection).Build()
 	h.playbackManager.platformRef = util.NewRef[platform.Platform](h.platform)
@@ -71,7 +72,7 @@ func TestPlaybackManagerUnitCheckOrLoadAnimeCollectionCachesResult(t *testing.T)
 
 func TestPlaybackManagerUnitGetNextEpisodeAndCurrentMediaID(t *testing.T) {
 	// these are tiny state readers, so keep them focused on the state machine rules.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	localFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
 		LibraryPath:      "/Anime",
 		FilePathTemplate: "/Anime/Frieren/%ep.mkv",
@@ -100,7 +101,7 @@ func TestPlaybackManagerUnitGetNextEpisodeAndCurrentMediaID(t *testing.T) {
 
 func TestPlaybackManagerUnitPlaybackStatusSubscriptionLifecycle(t *testing.T) {
 	// subscription cleanup matters because the manager broadcasts on these channels from goroutines.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	subscriber := h.playbackManager.SubscribeToPlaybackStatus("unit")
 
 	storedSubscriber, ok := h.playbackManager.playbackStatusSubscribers.Get("unit")
@@ -122,7 +123,7 @@ func TestPlaybackManagerUnitPlaybackStatusSubscriptionLifecycle(t *testing.T) {
 
 func TestPlaybackManagerUnitRegisterMediaPlayerCallbackStopsAfterFalse(t *testing.T) {
 	// callbacks are just another subscriber under the hood, so we can drive one directly.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	received := make(chan PlaybackEvent, 1)
 
 	h.playbackManager.RegisterMediaPlayerCallback(func(event PlaybackEvent) bool {
@@ -167,7 +168,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("disabled autoplay is a no-op", func(t *testing.T) {
 		// if the setting is off, the queue should stay untouched.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 		h.playbackManager.nextEpisodeLocalFile = mo.Some(localFiles[1])
 
@@ -177,7 +178,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("missing next episode stays quiet", func(t *testing.T) {
 		// multiple clients can race this request, so no-next should just return nil.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.settings.AutoPlayNextEpisode = true
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 
@@ -187,7 +188,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 
 	t.Run("play errors get wrapped", func(t *testing.T) {
 		// once autoplay is enabled and a next file exists, play-next failures should bubble up with context.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.settings.AutoPlayNextEpisode = true
 		h.playbackManager.currentPlaybackType = LocalFilePlayback
 		h.playbackManager.nextEpisodeLocalFile = mo.Some(localFiles[1])
@@ -201,7 +202,7 @@ func TestPlaybackManagerUnitAutoPlayNextEpisodeBranches(t *testing.T) {
 func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 	t.Run("local playback fails if collection refresh fails", func(t *testing.T) {
 		// this should stop before touching the media player when collection loading fails.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.platform = testmocks.NewFakePlatformBuilder().WithAnimeCollectionError(errors.New("collection failed")).Build()
 		h.playbackManager.platformRef = util.NewRef[platform.Platform](h.platform)
 
@@ -211,7 +212,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 
 	t.Run("stream playback blocks offline mode", func(t *testing.T) {
 		// offline mode is a hard stop even when the caller passed a media and episode.
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 		h.playbackManager.isOfflineRef.Set(true)
 
 		err := h.playbackManager.StartStreamingUsingMediaPlayer("stream", &StartPlayingOptions{Payload: "https://example.com"}, testmocks.NewBaseAnime(154587, "Frieren"), "1")
@@ -222,7 +223,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 	t.Run("stream playback rejects missing data", func(t *testing.T) {
 		// callers need to provide both the media and the anidb episode before we can track a stream.
 		media := testmocks.NewBaseAnime(154587, "Frieren")
-		h := newPlaybackManagerTestHarness(t)
+		h := newPlaybackManagerTestWrapper(t)
 
 		err := h.playbackManager.StartStreamingUsingMediaPlayer("stream", &StartPlayingOptions{Payload: "https://example.com"}, nil, "1")
 		require.EqualError(t, err, "cannot start streaming, not enough data provided")
@@ -234,7 +235,7 @@ func TestPlaybackManagerUnitStartPlayingAndStreamingValidation(t *testing.T) {
 
 func TestPlaybackManagerUnitLocalPlaybackStatusAndProgressTracking(t *testing.T) {
 	// this drives the local-file tracking handlers directly so state changes and progress syncing stay covered.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 
 	media := testmocks.NewBaseAnimeBuilder(154587, "Frieren").
@@ -316,9 +317,101 @@ func TestPlaybackManagerUnitLocalPlaybackStatusAndProgressTracking(t *testing.T)
 	require.Equal(t, events.PlaybackManagerProgressTrackingStopped, h.wsEventManager.lastType())
 }
 
+func TestPlaybackManagerTrackingStartedUsesNewLocalFileState(t *testing.T) {
+	// the first status event for a new file should use the new file's metadata, not whatever was playing before.
+	h := newPlaybackManagerTestWrapper(t)
+
+	oldMedia := testmocks.NewBaseAnimeBuilder(130003, "Bocchi the Rock!").
+		WithUserPreferredTitle("Bocchi the Rock!").
+		WithEpisodes(12).
+		Build()
+	newMedia := testmocks.NewBaseAnimeBuilder(166617, "Fate/strange Fake").
+		WithUserPreferredTitle("Fate/strange Fake").
+		WithEpisodes(13).
+		Build()
+
+	oldFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
+		LibraryPath:      "/Anime",
+		FilePathTemplate: "/Anime/Bocchi/%ep.mkv",
+		MediaID:          oldMedia.ID,
+		Episodes: []anime.TestLocalFileEpisode{
+			{Episode: 10, AniDBEpisode: "10", Type: anime.LocalFileTypeMain},
+		},
+	})
+	newFiles := anime.NewTestLocalFiles(anime.TestLocalFileGroup{
+		LibraryPath:      "/Anime",
+		FilePathTemplate: "/Anime/Fate/%ep.mkv",
+		MediaID:          newMedia.ID,
+		Episodes: []anime.TestLocalFileEpisode{
+			{Episode: 1, AniDBEpisode: "1", Type: anime.LocalFileTypeMain},
+			{Episode: 2, AniDBEpisode: "2", Type: anime.LocalFileTypeMain},
+		},
+	})
+	allFiles := append(append([]*anime.LocalFile{}, oldFiles...), newFiles...)
+
+	prevLocalFiles := db_bridge.CurrLocalFiles
+	prevLocalFilesDbID := db_bridge.CurrLocalFilesDbId
+	_, err := db_bridge.InsertLocalFiles(h.database, allFiles)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		db_bridge.CurrLocalFiles = prevLocalFiles
+		db_bridge.CurrLocalFilesDbId = prevLocalFilesDbID
+	})
+
+	wrapper := anime.NewLocalFileWrapper(allFiles)
+	oldWrapperEntry, ok := wrapper.GetLocalEntryById(oldMedia.ID)
+	require.True(t, ok)
+
+	statusCurrent := anilist.MediaListStatusCurrent
+	oldEntry := &anilist.AnimeListEntry{Media: oldMedia, Progress: new(9)}
+	newEntry := &anilist.AnimeListEntry{Media: newMedia, Progress: new(0)}
+	h.playbackManager.SetAnimeCollection(&anilist.AnimeCollection{
+		MediaListCollection: &anilist.AnimeCollection_MediaListCollection{
+			Lists: []*anilist.AnimeCollection_MediaListCollection_Lists{{
+				Status: new(statusCurrent),
+				Entries: []*anilist.AnimeCollection_MediaListCollection_Lists_Entries{
+					oldEntry,
+					newEntry,
+				},
+			}},
+		},
+	})
+
+	h.playbackManager.currentMediaListEntry = mo.Some(oldEntry)
+	h.playbackManager.currentLocalFile = mo.Some(oldFiles[0])
+	h.playbackManager.currentLocalFileWrapperEntry = mo.Some(oldWrapperEntry)
+
+	subscriber := h.playbackManager.SubscribeToPlaybackStatus("unit-local-start")
+	status := &mediaplayer.PlaybackStatus{
+		Filename:             newFiles[0].Name,
+		Filepath:             newFiles[0].Path,
+		CompletionPercentage: 0.001,
+		CurrentTimeInSeconds: 1,
+		DurationInSeconds:    1200,
+		PlaybackType:         mediaplayer.PlaybackTypeFile,
+	}
+
+	h.playbackManager.handleTrackingStarted(status)
+
+	changedEvent := expectPlaybackEvent[PlaybackStatusChangedEvent](t, subscriber.EventCh)
+	require.Equal(t, 1, changedEvent.State.EpisodeNumber)
+	require.Equal(t, "1", changedEvent.State.AniDbEpisode)
+	require.Equal(t, newMedia.ID, changedEvent.State.MediaId)
+	require.Equal(t, newMedia.GetPreferredTitle(), changedEvent.State.MediaTitle)
+	require.Equal(t, newFiles[0].Name, changedEvent.State.Filename)
+	require.True(t, changedEvent.State.CanPlayNext)
+
+	startedEvent := expectPlaybackEvent[VideoStartedEvent](t, subscriber.EventCh)
+	require.Equal(t, newFiles[0].Name, startedEvent.Filename)
+	require.Equal(t, newFiles[0].Path, startedEvent.Filepath)
+	require.Same(t, newEntry, h.playbackManager.currentMediaListEntry.MustGet())
+	require.Same(t, newFiles[0], h.playbackManager.currentLocalFile.MustGet())
+	require.Equal(t, events.PlaybackManagerProgressTrackingStarted, h.wsEventManager.lastType())
+}
+
 func TestPlaybackManagerUnitStreamPlaybackStatusAndProgressTracking(t *testing.T) {
 	// this covers the stream tracking handlers, including progress sync when a streamed episode completes.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 
 	media := testmocks.NewBaseAnimeBuilder(201, "Dungeon Meshi").
@@ -399,7 +492,7 @@ func TestPlaybackManagerUnitStreamPlaybackStatusAndProgressTracking(t *testing.T
 
 func TestPlaybackManagerUnitManualProgressTrackingSyncsProgress(t *testing.T) {
 	// manual tracking should hold the current episode in memory and sync it when the user asks for it.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 
 	media := testmocks.NewBaseAnimeBuilder(909, "Orb").
 		WithUserPreferredTitle("Orb").
@@ -443,7 +536,7 @@ func TestPlaybackManagerUnitManualProgressTrackingSyncsProgress(t *testing.T) {
 
 func TestPlaybackManagerLiveRepositoryEventsReachCallbacks(t *testing.T) {
 	// this uses the real repository subscription wiring, but it stays in-memory and never launches a player.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	repo := mediaplayer.NewRepository(&mediaplayer.NewRepositoryOptions{
 		Logger:         util.NewLogger(),
 		Default:        "",
@@ -482,7 +575,7 @@ func TestPlaybackManagerLiveRepositoryEventsReachCallbacks(t *testing.T) {
 
 func TestPlaybackManagerLiveRepositoryStreamCompletionSyncsProgress(t *testing.T) {
 	// this exercises the real repository subscription loop and proves stream completion can drive a progress sync.
-	h := newPlaybackManagerTestHarness(t)
+	h := newPlaybackManagerTestWrapper(t)
 	h.seedAutoUpdateProgress(t, true)
 	media := testmocks.NewBaseAnimeBuilder(700, "Lazarus").
 		WithUserPreferredTitle("Lazarus").
@@ -537,7 +630,7 @@ func TestPlaybackManagerLiveRepositoryStreamCompletionSyncsProgress(t *testing.T
 	require.True(t, h.playbackManager.historyMap["Stream"].ProgressUpdated)
 }
 
-type playbackManagerTestHarness struct {
+type playbackManagerTestWrapper struct {
 	database        *db.Database
 	wsEventManager  *recordingWSEventManager
 	refreshCalls    int
@@ -545,7 +638,7 @@ type playbackManagerTestHarness struct {
 	playbackManager *PlaybackManager
 }
 
-func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
+func newPlaybackManagerTestWrapper(t *testing.T) *playbackManagerTestWrapper {
 	t.Helper()
 
 	env := testutil.NewTestEnv(t)
@@ -562,7 +655,7 @@ func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
 	platformInterface := platform.Platform(platformImpl)
 	var provider metadata_provider.Provider
 
-	h := &playbackManagerTestHarness{
+	h := &playbackManagerTestWrapper{
 		database:       database,
 		wsEventManager: wsEventManager,
 		platform:       platformImpl,
@@ -584,7 +677,7 @@ func newPlaybackManagerTestHarness(t *testing.T) *playbackManagerTestHarness {
 	return h
 }
 
-func (h *playbackManagerTestHarness) seedAutoUpdateProgress(t *testing.T, enabled bool) {
+func (h *playbackManagerTestWrapper) seedAutoUpdateProgress(t *testing.T, enabled bool) {
 	t.Helper()
 
 	_, err := h.database.UpsertSettings(&models.Settings{

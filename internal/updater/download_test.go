@@ -1,7 +1,12 @@
 package updater
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"os"
+	"path/filepath"
 	"seanime/internal/util"
 	"strings"
 	"testing"
@@ -11,9 +16,9 @@ import (
 )
 
 func TestUpdater_DownloadLatestRelease(t *testing.T) {
-	newUpdaterTestFixture(t)
+	fixture := newUpdaterTestFixture(t)
 
-	updater := New("0.2.0", util.NewLogger(), nil)
+	updater := fixture.newUpdater("0.2.0", nil)
 
 	tempDir := t.TempDir()
 
@@ -81,4 +86,57 @@ func TestUpdater_DownloadLatestRelease(t *testing.T) {
 	for _, entry := range entries2 {
 		t.Log(entry.Name())
 	}
+}
+
+func TestUpdater_DownloadAssetRejectsInsecureURL(t *testing.T) {
+	updater := New("0.2.0", util.NewLogger(), nil)
+	updater.LatestRelease = &Release{Version: "3.5.2"}
+
+	_, err := updater.downloadAsset("http://example.com/seanime.zip", t.TempDir())
+	require.ErrorIs(t, err, ErrInsecureUpdateURL)
+}
+
+func TestUpdater_DecompressZipRejectsArchiveTraversal(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	writer, err := zw.Create("../escape.txt")
+	require.NoError(t, err)
+	_, err = writer.Write([]byte("pwned"))
+	require.NoError(t, err)
+	require.NoError(t, zw.Close())
+
+	root := t.TempDir()
+	archivePath := filepath.Join(root, "seanime.zip")
+	require.NoError(t, os.WriteFile(archivePath, buf.Bytes(), 0o644))
+
+	updater := New("0.2.0", util.NewLogger(), nil)
+	updater.LatestRelease = &Release{Version: "3.5.2"}
+	_, err = updater.decompressZip(archivePath, "")
+	require.ErrorIs(t, err, util.ErrArchivePathTraversal)
+	_, statErr := os.Stat(filepath.Join(root, "escape.txt"))
+	require.Error(t, statErr)
+	require.True(t, os.IsNotExist(statErr))
+}
+
+func TestUpdater_DecompressTarGzRejectsArchiveTraversal(t *testing.T) {
+	var buf bytes.Buffer
+	gzw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gzw)
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "../escape.txt", Mode: 0o644, Size: int64(len("pwned"))}))
+	_, err := tw.Write([]byte("pwned"))
+	require.NoError(t, err)
+	require.NoError(t, tw.Close())
+	require.NoError(t, gzw.Close())
+
+	root := t.TempDir()
+	archivePath := filepath.Join(root, "seanime.tar.gz")
+	require.NoError(t, os.WriteFile(archivePath, buf.Bytes(), 0o644))
+
+	updater := New("0.2.0", util.NewLogger(), nil)
+	updater.LatestRelease = &Release{Version: "3.5.2"}
+	_, err = updater.decompressTarGz(archivePath, "")
+	require.ErrorIs(t, err, util.ErrArchivePathTraversal)
+	_, statErr := os.Stat(filepath.Join(root, "escape.txt"))
+	require.Error(t, statErr)
+	require.True(t, os.IsNotExist(statErr))
 }

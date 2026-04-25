@@ -32,6 +32,9 @@ func (h *Handler) HandleGetFileCacheTotalSize(c echo.Context) error {
 //	@route /api/v1/filecache/bucket [DELETE]
 //	@returns bool
 func (h *Handler) HandleRemoveFileCacheBucket(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Bucket string `json:"bucket"` // e.g. "onlinestream_"
@@ -80,6 +83,9 @@ func (h *Handler) HandleGetFileCacheMediastreamVideoFilesTotalSize(c echo.Contex
 //	@route /api/v1/filecache/mediastream/videofiles [DELETE]
 //	@returns bool
 func (h *Handler) HandleClearFileCacheMediastreamVideoFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	// Clear the attachments
 	err := h.App.FileCacher.ClearMediastreamVideoFiles()

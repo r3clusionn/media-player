@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"seanime/internal/events"
+	"seanime/internal/security"
 
 	"github.com/goccy/go-json"
 	"github.com/gorilla/websocket"
@@ -11,37 +12,65 @@ import (
 
 var (
 	upgrader = websocket.Upgrader{
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
+		CheckOrigin: func(*http.Request) bool { return false },
 	}
 )
 
 // webSocketEventHandler creates a new websocket handler for real-time event communication
 func (h *Handler) webSocketEventHandler(c echo.Context) error {
+	req := c.Request()
+	if !websocketUpgradeRateLimits.allow(websocketUpgradeRateLimitKey(req), maxWebsocketAttemptsPerWindow, websocketUpgradeWindow) {
+		return c.JSON(http.StatusTooManyRequests, NewErrorResponse(errTooManyRequests))
+	}
+
 	// When a server password is set, require auth via query param
 	if h.App.Config.Server.Password != "" {
 		token := c.QueryParam("token")
 		if token != h.App.ServerPasswordHash {
+			authKey := authFailureRateLimitKey(req)
+			if !authFailureRateLimits.allow(authKey, maxAuthFailuresPerWindow, authFailureWindow) {
+				return c.JSON(http.StatusTooManyRequests, NewErrorResponse(errTooManyAuthenticationAttempts))
+			}
 			return c.JSON(http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+		}
+
+		authFailureRateLimits.reset(authFailureRateLimitKey(req))
+	}
+
+	contextClientId := getContextClientId(c)
+
+	if h.App.Config.Server.Password == "" {
+		if !security.IsLax() && reqHasOriginMetadata(req) && !isRequestFromTrustedOrigin(req) && !isRequestFromAllowlistedOrigin(req, h.App.Config.Server.AccessAllowlist) {
+			return c.JSON(http.StatusForbidden, NewErrorResponse(errPrivilegedExecutionDenied))
 		}
 	}
 
-	ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+	requestUpgrader := upgrader
+	requestUpgrader.CheckOrigin = func(r *http.Request) bool {
+		return isRequestPermitted(r, h.App.Config.Server.Password, h.App.Config.Server.AccessAllowlist)
+	}
+
+	ws, err := requestUpgrader.Upgrade(c.Response(), c.Request(), nil)
 	if err != nil {
 		return err
 	}
 	defer ws.Close()
 
 	// Get connection ID from query parameter
-	id := c.QueryParam("id")
+	id := contextClientId
 	if id == "" {
 		id = "0"
 	}
+	platform := getClientPlatformFromContext(c)
 
 	// Add connection to manager
-	h.App.WSEventManager.AddConn(id, ws)
-	h.App.Logger.Debug().Str("id", id).Msg("ws: Client connected")
+	h.App.WSEventManager.AddConn(id, ws, platform)
+	h.App.Logger.Debug().Str("id", id).Str("platform", platform).Msg("ws: Client connected")
+	h.App.WSEventManager.SendEventTo(id, events.ClientIdentity, map[string]string{
+		"clientId": id,
+		"proof":    generateClientIdentityProof(h.App, id),
+		"platform": platform,
+	}, true)
 
 	for {
 		_, msg, err := ws.ReadMessage()
@@ -61,6 +90,9 @@ func (h *Handler) webSocketEventHandler(c echo.Context) error {
 			continue
 		}
 
+		event.ClientID = id
+		event.Payload = addClientIdToPayload(event.Payload, id)
+
 		// Handle ping messages
 		if event.Type == "ping" {
 			timestamp := int64(0)
@@ -75,7 +107,7 @@ func (h *Handler) webSocketEventHandler(c echo.Context) error {
 			}
 
 			// Send pong response back to the same client
-			h.App.WSEventManager.SendEventTo(event.ClientID, "pong", map[string]int64{"timestamp": timestamp})
+			h.App.WSEventManager.SendEventTo(id, "pong", map[string]int64{"timestamp": timestamp})
 			continue // Skip further processing for ping messages
 		}
 
@@ -105,4 +137,25 @@ func UnmarshalWebsocketClientEvent(msg []byte) (*events.WebsocketClientEvent, er
 		return nil, err
 	}
 	return &event, nil
+}
+
+func addClientIdToPayload(value interface{}, clientID string) interface{} {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		for key, nested := range typed {
+			if key == "clientId" {
+				typed[key] = clientID
+				continue
+			}
+			typed[key] = addClientIdToPayload(nested, clientID)
+		}
+		return typed
+	case []interface{}:
+		for index, nested := range typed {
+			typed[index] = addClientIdToPayload(nested, clientID)
+		}
+		return typed
+	default:
+		return value
+	}
 }

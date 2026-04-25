@@ -33,6 +33,7 @@ export const StaticTabsAnatomy = defineStyleAnatomy({
 export type StaticTabsItem = {
     name: string,
     href?: string | null | undefined,
+    icon?: React.ReactNode,
     iconType?: React.ElementType,
     onClick?: () => void,
     isCurrent: boolean
@@ -73,14 +74,14 @@ export const StaticTabs = React.forwardRef<HTMLElement, StaticTabsProps>((props,
                     aria-current={tab.isCurrent ? "page" : undefined}
                     data-current={tab.isCurrent}
                 >
-                    {tab.iconType && <tab.iconType
+                    {tab.icon ?? (tab.iconType && <tab.iconType
                         className={cn(
                             StaticTabsAnatomy.icon(),
                             iconClass,
                         )}
                         aria-hidden="true"
                         data-current={tab.isCurrent}
-                    />}
+                    />)}
                     <span>{tab.name}</span>
                     {tab.addon}
                 </SeaLink>
@@ -96,14 +97,14 @@ export const StaticTabs = React.forwardRef<HTMLElement, StaticTabsProps>((props,
                     data-current={tab.isCurrent}
                     onClick={tab.onClick}
                 >
-                    {tab.iconType && <tab.iconType
+                    {tab.icon ?? (tab.iconType && <tab.iconType
                         className={cn(
                             StaticTabsAnatomy.icon(),
                             iconClass,
                         )}
                         aria-hidden="true"
                         data-current={tab.isCurrent}
-                    />}
+                    />)}
                     <span>{tab.name}</span>
                     {tab.addon}
                 </div>

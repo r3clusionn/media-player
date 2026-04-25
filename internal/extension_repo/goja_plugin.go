@@ -11,6 +11,7 @@ import (
 	"seanime/internal/hook"
 	"seanime/internal/plugin"
 	plugin_ui "seanime/internal/plugin/ui"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	gojautil "seanime/internal/util/goja"
 	"slices"
@@ -263,7 +264,9 @@ func (p *GojaPlugin) BindPluginAPIs(vm *goja.Runtime, logger *zerolog.Logger) {
 				plugin.GlobalAppContext.BindDatabase(vm, logger, p.ext)
 
 			case extension.PluginPermissionSystem: // System
-				plugin.GlobalAppContext.BindSystem(vm, logger, p.ext, p.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindSystem(vm, logger, p.ext, p.scheduler)
+				}
 			}
 		}
 	}
@@ -424,26 +427,11 @@ func normalizeException(err error) error {
 
 // handlePromiseResult waits for a promise to resolve and returns the appropriate error
 func (p *GojaPlugin) handlePromiseResult(promise *goja.Promise) error {
-	doneCh := make(chan struct{})
-
-	// Wait for the promise to resolve with a timeout
-	go func() {
-		for promise.State() == goja.PromiseStatePending {
-			time.Sleep(10 * time.Millisecond)
-		}
-		close(doneCh)
-	}()
-
 	// force stop after 30 seconds
-	timeout := time.NewTimer(30 * time.Second)
-	defer timeout.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
-	select {
-	case <-doneCh:
-		break
-	case <-timeout.C:
-		break
-	}
+	_ = gojautil.WaitForPromise(ctx, promise)
 
 	return nil
 }

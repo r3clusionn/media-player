@@ -283,6 +283,8 @@ func (h *Handler) HandleNakamaPlayVideo(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	b.ClientId = getRequestClientId(c, b.ClientId)
+
 	if !h.App.NakamaManager.IsConnectedToHost() {
 		return h.RespondWithError(c, errors.New("not connected to host"))
 	}
@@ -807,6 +809,8 @@ func (h *Handler) HandleNakamaJoinWatchParty(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	b.ClientId = getRequestClientId(c, b.ClientId)
 
 	if h.App.Settings.GetNakama().IsHost {
 		return h.RespondWithError(c, errors.New("hosts cannot join watch parties"))

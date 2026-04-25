@@ -81,13 +81,6 @@ export function ServerDataWrapper(props: ServerDataWrapperProps) {
         }
     }, [resolvedServerStatus?.serverReady, refetch])
 
-    logger("SERVER").info("logging server status, ", resolvedServerStatus)
-    logger("SERVER").info("logging server status vars", isLoading || !resolvedServerStatus || !authenticated, {
-        isLoading,
-        serverStatus: resolvedServerStatus,
-        authenticated,
-    })
-
     /**
      * If the server status is loading or doesn't exist, show the loading overlay
      */

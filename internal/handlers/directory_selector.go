@@ -40,6 +40,10 @@ func (h *Handler) HandleDirectorySelector(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
 	input := filepath.ToSlash(filepath.Clean(request.Input))
 	directoryExists, err := checkDirectoryExists(input)
 	if err != nil {

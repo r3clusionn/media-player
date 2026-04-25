@@ -6,8 +6,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"path/filepath"
-	"seanime/internal/constants"
 	"strings"
 	"time"
 
@@ -34,65 +32,52 @@ func NewEchoApp(app *App, webFS *embed.FS) *echo.Echo {
 		e.Use(middleware.Secure())
 	}
 
-	if !constants.IsRspackFrontend {
-		e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Filesystem: http.FS(distFS),
-			Browse:     true,
-			HTML5:      true,
-			Skipper: func(c echo.Context) bool {
-				cUrl := c.Request().URL
-				if strings.HasPrefix(cUrl.RequestURI(), "/api") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/events") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/assets") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/manga-downloads") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/offline-assets") {
-					return true // Continue to the next handler
-				}
-				if !strings.HasSuffix(cUrl.Path, ".html") && filepath.Ext(cUrl.Path) == "" {
-					cUrl.Path = cUrl.Path + ".html"
-				}
-				if cUrl.Path == "/.html" {
-					cUrl.Path = "/index.html"
-				}
-				return false // Continue to the filesystem handler
-			},
-		}))
-	} else {
-		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				cUrl := c.Request().URL.RequestURI()
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if strings.HasPrefix(c.Request().URL.Path, "/manga-downloads/") {
+				headers := c.Response().Header()
+				headers.Set("Access-Control-Allow-Origin", "*")
+				headers.Set("Cross-Origin-Resource-Policy", "cross-origin")
+			}
 
-				if strings.HasPrefix(cUrl, "/api") ||
-					strings.HasPrefix(cUrl, "/events") ||
-					strings.HasPrefix(cUrl, "/assets") ||
-					strings.HasPrefix(cUrl, "/manga-downloads") ||
-					strings.HasPrefix(cUrl, "/offline-assets") {
-					return next(c)
-				}
+			return next(c)
+		}
+	})
 
-				c.Response().Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-				c.Response().Header().Set("Cross-Origin-Embedder-Policy", "credentialless")
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			cUrl := c.Request().URL.RequestURI()
 
+			if strings.HasPrefix(cUrl, "/api") ||
+				strings.HasPrefix(cUrl, "/events") ||
+				strings.HasPrefix(cUrl, "/assets") ||
+				strings.HasPrefix(cUrl, "/manga-downloads") ||
+				strings.HasPrefix(cUrl, "/offline-assets") {
 				return next(c)
 			}
-		})
 
-		e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
-			Filesystem: http.FS(distFS),
-			HTML5:      true,
-			Skipper: func(c echo.Context) bool {
-				cUrl := c.Request().URL
-				if strings.HasPrefix(cUrl.RequestURI(), "/api") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/events") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/assets") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/manga-downloads") ||
-					strings.HasPrefix(cUrl.RequestURI(), "/offline-assets") {
-					return true
-				}
-				return false
-			},
-		}))
-	}
+			c.Response().Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+			c.Response().Header().Set("Cross-Origin-Embedder-Policy", "credentialless")
+
+			return next(c)
+		}
+	})
+
+	e.Use(middleware.StaticWithConfig(middleware.StaticConfig{
+		Filesystem: http.FS(distFS),
+		HTML5:      true,
+		Skipper: func(c echo.Context) bool {
+			cUrl := c.Request().URL
+			if strings.HasPrefix(cUrl.RequestURI(), "/api") ||
+				strings.HasPrefix(cUrl.RequestURI(), "/events") ||
+				strings.HasPrefix(cUrl.RequestURI(), "/assets") ||
+				strings.HasPrefix(cUrl.RequestURI(), "/manga-downloads") ||
+				strings.HasPrefix(cUrl.RequestURI(), "/offline-assets") {
+				return true
+			}
+			return false
+		},
+	}))
 
 	app.Logger.Info().Msgf("app: Serving embedded web interface")
 

@@ -316,7 +316,7 @@ func newCustomSourceTestManager(t *testing.T, exts ...customSourceTestExtension)
 
 	env := testutil.NewTestEnv(t)
 	bank := extension.NewUnifiedBank()
-	// The real manager listens to the unified extension bank, so the test harness builds the same wiring with a temp DB.
+	// The real manager listens to the unified extension bank, so the test wrapper builds the same wiring with a temp DB.
 	for _, spec := range exts {
 		ext := extension.NewCustomSourceExtension(&extension.Extension{
 			ID:          spec.id,

@@ -13,7 +13,7 @@ import (
 func TestGetScheduleItemsFormatsDeduplicates(t *testing.T) {
 	// schedule items are merged from all schedule buckets,
 	// deduped by media/episode/time
-	h := newAnimeTestHarness(t)
+	h := newAnimeTestWrapper(t)
 
 	patchAnimeCollectionEntry(t, h.animeCollection, 154587, anilist.AnimeCollectionEntryPatch{
 		Status:        new(anilist.MediaListStatusCurrent),

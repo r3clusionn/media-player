@@ -116,6 +116,7 @@ func (a *AnimePageButton) CreateObject(actionManager *ActionManager) *goja.Objec
 
 type EpisodeCardContextMenuItem struct {
 	BaseAction
+	Type string `json:"type,omitempty"` // library, torrentstream, debridstream, etc.
 }
 
 func (a *EpisodeCardContextMenuItem) CreateObject(actionManager *ActionManager) *goja.Object {

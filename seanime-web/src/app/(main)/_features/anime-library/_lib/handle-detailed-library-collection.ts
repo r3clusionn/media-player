@@ -1,4 +1,5 @@
 import { Anime_LibraryCollectionEntry, Anime_LibraryCollectionList } from "@/api/generated/types"
+import { useGetRawAnimeCollectionTags } from "@/api/hooks/anilist.hooks"
 import { useGetLibraryCollection } from "@/api/hooks/anime_collection.hooks"
 import { useGetContinuityWatchHistory } from "@/api/hooks/continuity.hooks"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
@@ -28,6 +29,7 @@ export function useHandleDetailedLibraryCollection({ enabled = true }: { enabled
     const { animeLibraryCollectionDefaultSorting } = useThemeSettings()
 
     const { data: watchHistory } = useGetContinuityWatchHistory()
+    const { data: animeTagMap } = useGetRawAnimeCollectionTags()
 
     /**
      * Fetch the library collection data
@@ -58,7 +60,8 @@ export function useHandleDetailedLibraryCollection({ enabled = true }: { enabled
                 paramsToDebounce,
                 serverStatus?.settings?.anilist?.enableAdultContent,
                 data.continueWatchingList,
-                watchHistory)
+                watchHistory,
+                animeTagMap)
             return {
                 type: obj.type,
                 status: obj.status,
@@ -72,7 +75,7 @@ export function useHandleDetailedLibraryCollection({ enabled = true }: { enabled
             _lists.find(n => n.type === "COMPLETED"),
             _lists.find(n => n.type === "DROPPED"),
         ].filter(Boolean)
-    }, [data, debouncedParams, serverStatus?.settings?.anilist?.enableAdultContent, watchHistory])
+    }, [animeTagMap, data, debouncedParams, serverStatus?.settings?.anilist?.enableAdultContent, watchHistory])
 
     const filteredCollection: Anime_LibraryCollectionList[] = React.useMemo(() => {
         return _filteredCollection.map(obj => {
@@ -95,8 +98,9 @@ export function useHandleDetailedLibraryCollection({ enabled = true }: { enabled
             paramsToDebounce,
             serverStatus?.settings?.anilist?.enableAdultContent,
             data.continueWatchingList,
-            watchHistory)
-    }, [data, debouncedParams, serverStatus?.settings?.anilist?.enableAdultContent, watchHistory])
+            watchHistory,
+            animeTagMap)
+    }, [animeTagMap, data, debouncedParams, serverStatus?.settings?.anilist?.enableAdultContent, watchHistory])
 
     const filteredEntries: Anime_LibraryCollectionEntry[] = React.useMemo(() => {
         return filterEntriesByTitle(_filteredEntries, debouncedSearchInput)

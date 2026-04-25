@@ -10,7 +10,6 @@ import (
 	"seanime/internal/library/anime"
 	"seanime/internal/mkvparser"
 	"seanime/internal/nativeplayer"
-	"seanime/internal/util"
 	"seanime/internal/util/result"
 	"seanime/internal/videocore"
 	"strconv"
@@ -177,11 +176,11 @@ func (m *Manager) GetCurrentPlaybackIdentity() (playbackID string, clientID stri
 	m.playbackMu.Lock()
 	defer m.playbackMu.Unlock()
 
-	if m.currentPlaybackID == "" || m.currentPlaybackClient == "" {
+	if m.currentPlaybackId == "" || m.currentPlaybackClient == "" {
 		return "", "", false
 	}
 
-	return m.currentPlaybackID, m.currentPlaybackClient, true
+	return m.currentPlaybackId, m.currentPlaybackClient, true
 }
 
 func (m *Manager) PrepareNewStream(clientId string, step string) {
@@ -232,7 +231,7 @@ func (m *Manager) clearPreparationLocked() {
 }
 
 func (m *Manager) clearCurrentPlaybackIdentityLocked() {
-	m.currentPlaybackID = ""
+	m.currentPlaybackId = ""
 	m.currentPlaybackClient = ""
 }
 
@@ -291,7 +290,7 @@ func (m *Manager) shouldHandleTerminatedEventLocked(event *videocore.VideoTermin
 		return false
 	}
 
-	if m.currentPlaybackID == "" {
+	if m.currentPlaybackId == "" {
 		return true
 	}
 
@@ -299,7 +298,7 @@ func (m *Manager) shouldHandleTerminatedEventLocked(event *videocore.VideoTermin
 		return false
 	}
 
-	return event.GetPlaybackId() == m.currentPlaybackID
+	return event.GetPlaybackId() == m.currentPlaybackId
 }
 
 func (m *Manager) cancelPreparationLocked(clientId string, clearCancelFunc bool) (func(), bool) {
@@ -393,7 +392,7 @@ func (m *Manager) loadStream(stream Stream) {
 		m.clearStreamLoadingState(stream)
 		return
 	}
-	m.currentPlaybackID = playbackInfo.ID
+	m.currentPlaybackId = playbackInfo.ID
 	m.currentPlaybackClient = stream.ClientId()
 	m.clearPreparationLocked()
 	m.playbackMu.Unlock()
@@ -482,6 +481,9 @@ func (m *Manager) listenToPlayerEvents() {
 						subReader.SetResponsive()
 						ts.StartSubtitleStream(ts, m.playbackCtx, subReader, 0)
 					}
+				case *videocore.VideoSeekedEvent:
+					m.Logger.Trace().Float64("currentTime", event.CurrentTime).Msg("directstream: Video seeked, refreshing subtitle stream")
+					go m.startSubtitleStreamForTime(cs, playbackInfo, event.CurrentTime, event.Duration)
 				case *videocore.VideoErrorEvent:
 					m.Logger.Debug().Msgf("directstream: Video error, Error: %s", event.Error)
 					cs.StreamError(fmt.Errorf("%s", event.Error))
@@ -682,7 +684,24 @@ func (m *Manager) preStreamError(stream Stream, err error) {
 	m.unloadStream(stream)
 }
 
+func overrideHeaders(dst http.Header, src http.Header) {
+	if len(src) == 0 {
+		return
+	}
+
+	for key, values := range src {
+		dst.Del(key)
+		for _, value := range values {
+			dst.Add(key, value)
+		}
+	}
+}
+
 func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
+	return m.getContentTypeAndLengthWithHeaders(url, nil)
+}
+
+func (m *Manager) getContentTypeAndLengthWithHeaders(url string, headers http.Header) (string, int64, error) {
 	m.Logger.Trace().Msg("directstream(debrid): Fetching content type and length using HEAD request")
 
 	// Create client with timeout for HEAD request (faster timeout since it's just headers)
@@ -691,7 +710,13 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 	}
 
 	// Try HEAD request first
-	resp, err := headClient.Head(url)
+	headReq, err := http.NewRequest(http.MethodHead, url, nil)
+	if err != nil {
+		return "", 0, fmt.Errorf("failed to create HEAD request: %w", err)
+	}
+	overrideHeaders(headReq.Header, headers)
+
+	resp, err := headClient.Do(headReq)
 	if err == nil {
 		defer resp.Body.Close()
 
@@ -709,12 +734,12 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 			}
 		}
 
-		// If we have content type, return early
-		if contentType != "" {
+		// If we have content type from a successful response, return early
+		if contentType != "" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			return contentType, length, nil
 		}
 
-		m.Logger.Trace().Msg("directstream(debrid): Content type not found in HEAD response headers")
+		m.Logger.Trace().Int("status", resp.StatusCode).Msg("directstream(debrid): HEAD response not usable, falling back to GET")
 	} else {
 		m.Logger.Trace().Err(err).Msg("directstream(debrid): HEAD request failed")
 	}
@@ -732,6 +757,7 @@ func (m *Manager) getContentTypeAndLength(url string) (string, int64, error) {
 		return "", 0, fmt.Errorf("failed to create GET request: %w", err)
 	}
 
+	overrideHeaders(req.Header, headers)
 	req.Header.Set("Range", "bytes=0-511")
 
 	resp, err = getClient.Do(req)
@@ -788,7 +814,11 @@ type StreamInfo struct {
 }
 
 func (m *Manager) FetchStreamInfo(streamUrl string) (info *StreamInfo, canStream bool) {
-	hasExtension, isArchive := IsArchive(streamUrl)
+	return m.FetchStreamInfoWithHeaders(streamUrl, nil)
+}
+
+func (m *Manager) FetchStreamInfoWithHeaders(streamUrl string, headers http.Header) (info *StreamInfo, canStream bool) {
+	_, isArchive := IsArchive(streamUrl)
 
 	m.Logger.Debug().Str("url", streamUrl).Msg("directstream(http): Fetching stream info")
 
@@ -799,24 +829,24 @@ func (m *Manager) FetchStreamInfo(streamUrl string) (info *StreamInfo, canStream
 	}
 
 	// If the stream URL has an extension, we can stream it
-	if hasExtension {
-		// Strip query params before checking extension
-		cleanUrl := streamUrl
-		if idx := strings.IndexByte(cleanUrl, '?'); idx != -1 {
-			cleanUrl = cleanUrl[:idx]
-		}
-		ext := filepath.Ext(cleanUrl)
-		// If not a valid video extension, we can't stream it
-		if !util.IsValidVideoExtension(ext) {
-			m.Logger.Warn().Str("url", streamUrl).Str("ext", ext).Msg("directstream(http): Stream URL has an invalid video extension, cannot stream")
-			return nil, false
-		}
-	}
+	// if hasExtension {
+	// 	// Strip query params before checking extension
+	// 	cleanUrl := streamUrl
+	// 	if idx := strings.IndexByte(cleanUrl, '?'); idx != -1 {
+	// 		cleanUrl = cleanUrl[:idx]
+	// 	}
+	// 	ext := filepath.Ext(cleanUrl)
+	// 	// If not a valid video extension, we can't stream it
+	// 	if !util.IsValidVideoExtension(ext) {
+	// 		m.Logger.Warn().Str("url", streamUrl).Str("ext", ext).Msg("directstream(http): Stream URL has an invalid video extension, cannot stream")
+	// 		return nil, false
+	// 	}
+	// }
 
 	// We'll fetch headers to get the info
 	// If the headers are not available, we can't stream it
 
-	contentType, contentLength, err := m.getContentTypeAndLength(streamUrl)
+	contentType, contentLength, err := m.getContentTypeAndLengthWithHeaders(streamUrl, headers)
 	if err != nil {
 		m.Logger.Error().Err(err).Str("url", streamUrl).Msg("directstream(http): Failed to fetch content type and length")
 		return nil, false

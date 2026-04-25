@@ -76,6 +76,14 @@ func (h *Handler) HandleDebridAddTorrents(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
 	if !h.App.DebridClientRepository.HasProvider() {
 		return h.RespondWithError(c, errors.New("debrid provider not set"))
 	}
@@ -134,8 +142,20 @@ func (h *Handler) HandleDebridDownloadTorrent(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
 	if !filepath.IsAbs(b.Destination) {
 		return h.RespondWithError(c, errors.New("destination must be an absolute path"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
 	}
 
 	// Remove the torrent from the database
@@ -332,6 +352,8 @@ func (h *Handler) HandleDebridStartStream(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	b.ClientId = getRequestClientId(c, b.ClientId)
 
 	userAgent := c.Request().Header.Get("User-Agent")
 

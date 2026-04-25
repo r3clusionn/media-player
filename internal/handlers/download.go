@@ -1,17 +1,21 @@
 package handlers
 
 import (
+	"archive/zip"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"seanime/internal/api/anilist"
 	"seanime/internal/updater"
 	"seanime/internal/util"
+	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -19,6 +23,7 @@ import (
 
 type downloadGrantChallenge struct {
 	code      string
+	clientId  string
 	createdAt time.Time
 }
 
@@ -47,8 +52,25 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	if b.ClientId == "" {
-		return h.RespondWithError(c, fmt.Errorf("clientId is required"))
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if b.Destination == "" {
+		return h.RespondWithError(c, errors.New("destination not found"))
+	}
+
+	if !filepath.IsAbs(b.Destination) {
+		return h.RespondWithError(c, errors.New("destination path must be absolute"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
+	contextClientId := getContextClientId(c)
+	if contextClientId == "" {
+		return h.RespondWithError(c, fmt.Errorf("client session not found"))
 	}
 
 	if !strings.HasPrefix(b.ClientId, "CODE:") {
@@ -63,11 +85,12 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		}
 		downloadGrantChallenges[challengeID] = &downloadGrantChallenge{
 			code:      randomCode,
+			clientId:  contextClientId,
 			createdAt: time.Now(),
 		}
 		downloadGrantChallengesMu.Unlock()
 
-		h.App.WSEventManager.SendEventTo(b.ClientId, "download-torrent-file-permission-check", challengeID+":"+randomCode)
+		h.App.WSEventManager.SendEventTo(contextClientId, "download-torrent-file-permission-check", challengeID+":"+randomCode)
 		return h.RespondWithData(c, false)
 	}
 
@@ -96,6 +119,10 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 
 	if challenge.code != submittedCode {
 		return h.RespondWithError(c, fmt.Errorf("invalid verification code"))
+	}
+
+	if challenge.clientId != contextClientId {
+		return h.RespondWithError(c, fmt.Errorf("verification code does not belong to this client session"))
 	}
 
 	errs := make([]error, 0)
@@ -183,8 +210,28 @@ func (h *Handler) HandleDownloadRelease(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
 	if err := util.ValidateReleaseUrl(b.DownloadUrl); err != nil {
 		return h.RespondWithError(c, fmt.Errorf("invalid download URL: %w", err))
+	}
+
+	if b.Destination == "" {
+		return h.RespondWithError(c, errors.New("destination not found"))
+	}
+
+	if !filepath.IsAbs(b.Destination) {
+		return h.RespondWithError(c, errors.New("destination path must be absolute"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
 	}
 
 	path, err := h.App.Updater.DownloadLatestRelease(b.DownloadUrl, b.Destination)
@@ -206,6 +253,9 @@ func (h *Handler) HandleDownloadRelease(c echo.Context) error {
 //	@route /api/v1/download-mac-denshi-update [POST]
 //	@returns handlers.DownloadReleaseResponse
 func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
+	if err := h.guardPrivilegedLocalExecution(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		DownloadUrl string `json:"download_url"`
@@ -225,15 +275,14 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("invalid version string"))
 	}
 
-	// Get downloads directory
-	homeDir, err := os.UserHomeDir()
+	stageDir, err := os.MkdirTemp("", "seanime-denshi-update-")
 	if err != nil {
-		return h.RespondWithError(c, fmt.Errorf("failed to get home directory: %w", err))
+		return h.RespondWithError(c, fmt.Errorf("failed to create update staging directory: %w", err))
 	}
-	downloadsDir := filepath.Join(homeDir, "Downloads")
+	defer os.RemoveAll(stageDir)
 
 	// Download the file
-	h.App.Logger.Info().Str("url", b.DownloadUrl).Msg("Downloading macOS update")
+	h.App.Logger.Info().Str("url", b.DownloadUrl).Msg("app: Downloading macOS update")
 	resp, err := http.Get(b.DownloadUrl)
 	if err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to download update: %w", err))
@@ -245,70 +294,350 @@ func (h *Handler) HandleDownloadMacDenshiUpdate(c echo.Context) error {
 	}
 
 	// Create temp file for download
-	zipPath := filepath.Join(downloadsDir, fmt.Sprintf("seanime-denshi-%s_MacOS_arm64.zip", b.Version))
-	zipFile, err := os.Create(zipPath)
+	zipPath := filepath.Join(stageDir, fmt.Sprintf("seanime-denshi-%s_MacOS_arm64.zip", b.Version))
+	zipFile, err := os.OpenFile(zipPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
 	if err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to create zip file: %w", err))
 	}
-	defer zipFile.Close()
 
 	// Copy download to file
 	_, err = io.Copy(zipFile, resp.Body)
 	if err != nil {
+		_ = zipFile.Close()
 		return h.RespondWithError(c, fmt.Errorf("failed to write zip file: %w", err))
 	}
-	zipFile.Close()
+	if err := zipFile.Close(); err != nil {
+		return h.RespondWithError(c, fmt.Errorf("failed to finalize zip file: %w", err))
+	}
 
-	h.App.Logger.Info().Str("path", zipPath).Msg("Downloaded update")
+	h.App.Logger.Info().Str("path", zipPath).Msg("app: Downloaded update")
+	if err := validateMacAppArchive(zipPath, "Seanime Denshi.app"); err != nil {
+		return h.RespondWithError(c, fmt.Errorf("failed to validate update archive: %w", err))
+	}
 
 	// Extract the zip file
-	extractDir := filepath.Join(downloadsDir, fmt.Sprintf("seanime-denshi-%s", b.Version))
+	extractDir := filepath.Join(stageDir, "extracted")
 	err = os.MkdirAll(extractDir, 0755)
 	if err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to create extract directory: %w", err))
 	}
 
-	h.App.Logger.Info().Str("path", extractDir).Msg("Extracting update")
-	cmd := util.NewCmd("unzip", "-o", zipPath, "-d", extractDir)
-	if err := cmd.Run(); err != nil {
+	h.App.Logger.Info().Str("path", extractDir).Msg("app: Extracting update")
+	if err := extractMacAppArchive(zipPath, extractDir, "Seanime Denshi.app"); err != nil {
 		return h.RespondWithError(c, fmt.Errorf("failed to extract zip: %w", err))
 	}
 
 	// Find the .app bundle
 	appPath := filepath.Join(extractDir, "Seanime Denshi.app")
-	if _, err := os.Stat(appPath); os.IsNotExist(err) {
+	appInfo, err := os.Stat(appPath)
+	if os.IsNotExist(err) {
 		return h.RespondWithError(c, fmt.Errorf("app: Seanime Denshi.app not found in extracted files"))
+	} else if err != nil {
+		return h.RespondWithError(c, fmt.Errorf("failed to inspect extracted app: %w", err))
+	}
+	if !appInfo.IsDir() {
+		return h.RespondWithError(c, fmt.Errorf("app: Seanime Denshi.app is not a directory"))
 	}
 
 	// Run xattr -c to remove quarantine attributes
-	h.App.Logger.Info().Str("path", appPath).Msg("Removing quarantine attributes")
-	xattrCmd := util.NewCmd("xattr", "-cr", appPath)
-	if err := xattrCmd.Run(); err != nil {
-		h.App.Logger.Warn().Err(err).Msg("Failed to remove quarantine attributes, continuing anyway")
+	h.App.Logger.Info().Str("path", appPath).Msg("app: Removing quarantine attributes")
+	if err := util.ClearMacAppQuarantine(appPath); err != nil {
+		h.App.Logger.Warn().Err(err).Msg("app: Failed to remove quarantine attributes natively, falling back to xattr")
+		xattrCmd := util.NewCmd("xattr", "-cr", appPath)
+		if err := xattrCmd.Run(); err != nil {
+			h.App.Logger.Warn().Err(err).Msg("app: Failed to remove quarantine attributes, continuing anyway")
+		}
 	}
 
 	// Move to Applications folder
 	applicationsPath := "/Applications/Seanime Denshi.app"
-	h.App.Logger.Info().Str("destination", applicationsPath).Msg("Moving to Applications")
-
-	// Remove existing app if it exists
-	if _, err := os.Stat(applicationsPath); err == nil {
-		if err := os.RemoveAll(applicationsPath); err != nil {
-			return h.RespondWithError(c, fmt.Errorf("failed to remove existing app: %w", err))
-		}
+	h.App.Logger.Info().Str("destination", applicationsPath).Msg("app: Installing update into Applications")
+	if err := installMacAppBundle(appPath, applicationsPath, nil); err != nil {
+		return h.RespondWithError(c, err)
 	}
-
-	// Move new app to Applications
-	moveCmd := util.NewCmd("mv", appPath, applicationsPath)
-	if err := moveCmd.Run(); err != nil {
-		return h.RespondWithError(c, fmt.Errorf("failed to move app to Applications: %w", err))
-	}
-
-	// Clean up downloaded files
-	os.Remove(zipPath)
-	os.RemoveAll(extractDir)
 
 	h.App.Logger.Info().Msg("app: macOS update installed successfully")
 
 	return h.RespondWithData(c, DownloadReleaseResponse{Destination: applicationsPath})
+}
+
+func validateMacAppArchive(archivePath string, bundleName string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer r.Close()
+
+	validationRoot := filepath.Join(os.TempDir(), "seanime-denshi-update-archive-validation")
+	bundleRoot := path.Clean("/" + bundleName)
+	foundBundle := false
+
+	for _, file := range r.File {
+		normalizedEntry, err := normalizeArchiveEntryPath(file.Name)
+		if err != nil {
+			return err
+		}
+
+		mode := file.Mode()
+		if _, err := util.ResolveArchiveEntryPath(validationRoot, file.Name); err != nil {
+			return fmt.Errorf("failed to resolve archive path: %w", err)
+		}
+
+		switch {
+		case mode&os.ModeSymlink != 0:
+			if err := validateMacAppArchiveSymlink(file, normalizedEntry, bundleRoot); err != nil {
+				return err
+			}
+		case mode.IsRegular() || file.FileInfo().IsDir():
+		default:
+			return fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, file.Name)
+		}
+
+		if normalizedEntry == bundleRoot || strings.HasPrefix(normalizedEntry, bundleRoot+"/") {
+			foundBundle = true
+		}
+	}
+
+	if !foundBundle {
+		return fmt.Errorf("app: %s not found in archive", bundleName)
+	}
+
+	return nil
+}
+
+func normalizeArchiveEntryPath(entryName string) (string, error) {
+	normalizedEntry := path.Clean("/" + strings.ReplaceAll(entryName, `\\`, "/"))
+	if normalizedEntry == "/" {
+		return "", fmt.Errorf("invalid archive entry path: %q", entryName)
+	}
+
+	return normalizedEntry, nil
+}
+
+func validateMacAppArchiveSymlink(file *zip.File, entryPath string, bundleRoot string) error {
+	targetPath, err := readZipSymlinkTarget(file)
+	if err != nil {
+		return err
+	}
+	if targetPath == "" || path.IsAbs(targetPath) {
+		return fmt.Errorf("%w: %s", util.ErrArchivePathTraversal, file.Name)
+	}
+
+	resolvedTarget := path.Clean(path.Join(path.Dir(entryPath), targetPath))
+	if resolvedTarget != bundleRoot && !strings.HasPrefix(resolvedTarget, bundleRoot+"/") {
+		return fmt.Errorf("%w: %s", util.ErrArchivePathTraversal, file.Name)
+	}
+
+	return nil
+}
+
+func readZipSymlinkTarget(file *zip.File) (string, error) {
+	if file.UncompressedSize64 == 0 || file.UncompressedSize64 > 4096 {
+		return "", fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, file.Name)
+	}
+
+	rc, err := file.Open()
+	if err != nil {
+		return "", fmt.Errorf("failed to open symlink entry %s: %w", file.Name, err)
+	}
+	defer rc.Close()
+
+	targetBytes, err := io.ReadAll(rc)
+	if err != nil {
+		return "", fmt.Errorf("failed to read symlink target %s: %w", file.Name, err)
+	}
+
+	return strings.ReplaceAll(string(targetBytes), `\\`, "/"), nil
+}
+
+func extractMacAppArchive(archivePath string, dest string, bundleName string) error {
+	r, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return fmt.Errorf("failed to open zip file: %w", err)
+	}
+	defer r.Close()
+
+	bundleRoot := path.Clean("/" + bundleName)
+
+	for _, file := range r.File {
+		entryPath, err := normalizeArchiveEntryPath(file.Name)
+		if err != nil {
+			return err
+		}
+
+		outputPath, err := util.ResolveArchiveEntryPath(dest, file.Name)
+		if err != nil {
+			return fmt.Errorf("failed to resolve archive path: %w", err)
+		}
+
+		mode := file.Mode()
+		switch {
+		case mode&os.ModeSymlink != 0:
+			if err := validateMacAppArchiveSymlink(file, entryPath, bundleRoot); err != nil {
+				return err
+			}
+
+			targetPath, err := readZipSymlinkTarget(file)
+			if err != nil {
+				return err
+			}
+
+			if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+				return err
+			}
+			if err := os.Symlink(targetPath, outputPath); err != nil {
+				return fmt.Errorf("failed to create symlink %s: %w", file.Name, err)
+			}
+		case file.FileInfo().IsDir():
+			perm := mode.Perm()
+			if perm == 0 {
+				perm = 0755
+			}
+			if err := os.MkdirAll(outputPath, perm); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", file.Name, err)
+			}
+		case mode.IsRegular():
+			if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", file.Name, err)
+			}
+
+			rc, err := file.Open()
+			if err != nil {
+				return fmt.Errorf("failed to open archive entry %s: %w", file.Name, err)
+			}
+
+			outFile, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+			if err != nil {
+				_ = rc.Close()
+				return fmt.Errorf("failed to create extracted file %s: %w", file.Name, err)
+			}
+
+			_, copyErr := io.Copy(outFile, rc)
+			closeErr := outFile.Close()
+			_ = rc.Close()
+			if copyErr != nil {
+				return fmt.Errorf("failed to extract file %s: %w", file.Name, copyErr)
+			}
+			if closeErr != nil {
+				return fmt.Errorf("failed to finalize extracted file %s: %w", file.Name, closeErr)
+			}
+		default:
+			return fmt.Errorf("%w: %s", util.ErrUnsupportedArchiveEntry, file.Name)
+		}
+	}
+
+	return nil
+}
+
+type movePathFunc func(src string, dst string) error
+
+func movePathWithCopyFallback(src string, dst string) error {
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	} else if !errors.Is(err, syscall.EXDEV) {
+		return err
+	}
+
+	if err := copyPathRecursive(src, dst); err != nil {
+		return err
+	}
+
+	return os.RemoveAll(src)
+}
+
+func copyPathRecursive(src string, dst string) error {
+	info, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+
+	if info.Mode()&os.ModeSymlink != 0 {
+		if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+			return err
+		}
+
+		target, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+
+		return os.Symlink(target, dst)
+	}
+
+	if info.IsDir() {
+		if err := os.MkdirAll(dst, info.Mode().Perm()); err != nil {
+			return err
+		}
+
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return err
+		}
+
+		for _, entry := range entries {
+			if err := copyPathRecursive(filepath.Join(src, entry.Name()), filepath.Join(dst, entry.Name())); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	return copyRegularFile(src, dst, info.Mode())
+}
+
+func copyRegularFile(src string, dst string, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return err
+	}
+
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode.Perm())
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	if _, err := io.Copy(out, in); err != nil {
+		return err
+	}
+
+	return os.Chmod(dst, mode.Perm())
+}
+
+func installMacAppBundle(appPath string, applicationsPath string, movePath movePathFunc) error {
+	if movePath == nil {
+		movePath = movePathWithCopyFallback
+	}
+
+	backupPath := ""
+	if _, err := os.Stat(applicationsPath); err == nil {
+		backupPath = applicationsPath + ".backup-" + strconv.FormatInt(time.Now().UnixNano(), 10)
+		if err := movePath(applicationsPath, backupPath); err != nil {
+			return fmt.Errorf("failed to stage existing app: %w", err)
+		}
+	} else if !os.IsNotExist(err) {
+		return fmt.Errorf("failed to inspect existing app: %w", err)
+	}
+
+	if err := movePath(appPath, applicationsPath); err != nil {
+		if backupPath != "" {
+			if restoreErr := movePath(backupPath, applicationsPath); restoreErr != nil {
+				return fmt.Errorf("failed to move app to Applications: %w; additionally failed to restore previous app: %v", err, restoreErr)
+			}
+		}
+
+		return fmt.Errorf("failed to move app to Applications: %w", err)
+	}
+
+	if backupPath != "" {
+		_ = os.RemoveAll(backupPath)
+	}
+
+	return nil
 }

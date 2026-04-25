@@ -47,6 +47,9 @@ declare global {
             localServer: {
                 getPort: () => Promise<number>;
             },
+            startup: {
+                ready: () => void;
+            },
             media?: {
                 setMetadata: (metadata: any) => Promise<boolean>
                 clearSession: () => Promise<boolean>

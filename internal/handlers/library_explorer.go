@@ -12,6 +12,9 @@ import (
 //	@route /api/v1/library/explorer/file-tree [GET]
 //	@returns library_explorer.FileTreeJSON
 func (h *Handler) HandleGetLibraryExplorerFileTree(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	if h.App.LibraryExplorer == nil {
 		return h.RespondWithError(c, echo.NewHTTPError(500, "Library explorer is not initialized"))
@@ -43,6 +46,9 @@ func (h *Handler) HandleGetLibraryExplorerFileTree(c echo.Context) error {
 //	@route /api/v1/library/explorer/file-tree/refresh [POST]
 //	@returns bool
 func (h *Handler) HandleRefreshLibraryExplorerFileTree(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	if h.App.LibraryExplorer == nil {
 		return h.RespondWithError(c, echo.NewHTTPError(500, "Library explorer is not initialized"))
@@ -74,6 +80,9 @@ func (h *Handler) HandleRefreshLibraryExplorerFileTree(c echo.Context) error {
 //	@route /api/v1/library/explorer/directory-children [POST]
 //	@returns bool
 func (h *Handler) HandleLoadLibraryExplorerDirectoryChildren(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		DirectoryPath string `json:"directoryPath"`

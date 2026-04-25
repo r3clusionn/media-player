@@ -1,10 +1,32 @@
 package util
 
 import (
+	"archive/zip"
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func writeZipArchive(t testing.TB, entries map[string]string) string {
+	t.Helper()
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	for name, body := range entries {
+		writer, err := zw.Create(name)
+		require.NoError(t, err)
+		_, err = writer.Write([]byte(body))
+		require.NoError(t, err)
+	}
+	require.NoError(t, zw.Close())
+
+	archivePath := filepath.Join(t.TempDir(), "archive.zip")
+	require.NoError(t, os.WriteFile(archivePath, buf.Bytes(), 0o644))
+	return archivePath
+}
 
 func TestValidVideoExtension(t *testing.T) {
 	tests := []struct {
@@ -88,4 +110,36 @@ func TestSameDir(t *testing.T) {
 			require.Equal(t, test.expected, result)
 		})
 	}
+}
+
+func TestResolveArchiveEntryPath(t *testing.T) {
+	t.Run("allows nested paths inside destination", func(t *testing.T) {
+		resolved, err := ResolveArchiveEntryPath("/tmp/extracted", "folder/file.txt")
+		require.NoError(t, err)
+		require.Equal(t, filepath.Join("/tmp/extracted", "folder", "file.txt"), resolved)
+	})
+
+	t.Run("rejects parent traversal", func(t *testing.T) {
+		_, err := ResolveArchiveEntryPath("/tmp/extracted", "../escape.txt")
+		require.ErrorIs(t, err, ErrArchivePathTraversal)
+	})
+
+	t.Run("rejects windows style traversal", func(t *testing.T) {
+		_, err := ResolveArchiveEntryPath("/tmp/extracted", `..\\escape.txt`)
+		require.ErrorIs(t, err, ErrArchivePathTraversal)
+	})
+}
+
+func TestUnzipFileRejectsArchiveTraversal(t *testing.T) {
+	archivePath := writeZipArchive(t, map[string]string{
+		"../escape.txt": "pwned",
+	})
+
+	root := t.TempDir()
+	dest := filepath.Join(root, "dest")
+	err := UnzipFile(archivePath, dest)
+	require.ErrorIs(t, err, ErrArchivePathTraversal)
+	_, statErr := os.Stat(filepath.Join(root, "escape.txt"))
+	require.Error(t, statErr)
+	require.True(t, os.IsNotExist(statErr))
 }

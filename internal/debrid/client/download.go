@@ -132,6 +132,11 @@ func (r *Repository) downloadTorrentItem(tId string, torrentName string, destina
 
 	ctx, cancel := context.WithCancel(context.Background())
 	r.ctxMap.Set(tId, cancel)
+	if err := r.sendDownloadStartedEvent(tId, torrentName, destination, downloadUrl); err != nil {
+		cancel()
+		r.ctxMap.Delete(tId)
+		return err
+	}
 
 	go func(ctx context.Context) {
 		defer func() {
@@ -157,18 +162,9 @@ func (r *Repository) downloadTorrentItem(tId string, torrentName string, destina
 		}
 		wg.Wait()
 
-		r.sendDownloadCompletedEvent(tId)
+		r.sendDownloadCompletedEvent(tId, torrentName, destination)
 		notifier.GlobalNotifier.Notify(notifier.Debrid, fmt.Sprintf("Downloaded %q", torrentName))
 	}(ctx)
-
-	// Send a starting event
-	r.wsEventManager.SendEvent(events.DebridDownloadProgress, map[string]interface{}{
-		"status":     "downloading",
-		"itemID":     tId,
-		"totalBytes": "0 B",
-		"totalSize":  "-",
-		"speed":      "",
-	})
 
 	return nil
 }
@@ -426,11 +422,43 @@ func (r *Repository) sendDownloadCancelledEvent(tId string, url string, download
 	}
 }
 
-func (r *Repository) sendDownloadCompletedEvent(tId string) {
+func (r *Repository) sendDownloadStartedEvent(tId string, torrentName string, destination string, downloadURL string) error {
+	event := &DebridLocalDownloadStartedEvent{
+		TorrentItemID: tId,
+		TorrentName:   torrentName,
+		Destination:   destination,
+		DownloadUrl:   downloadURL,
+	}
+
+	if err := hook.GlobalHookManager.OnDebridLocalDownloadStarted().Trigger(event); err != nil {
+		return err
+	}
+
+	r.wsEventManager.SendEvent(events.DebridDownloadProgress, map[string]interface{}{
+		"status":     "downloading",
+		"itemID":     tId,
+		"totalBytes": "0 B",
+		"totalSize":  "-",
+		"speed":      "",
+	})
+
+	return nil
+}
+
+func (r *Repository) sendDownloadCompletedEvent(tId string, torrentName string, destination string) {
 	r.wsEventManager.SendEvent(events.DebridDownloadProgress, map[string]interface{}{
 		"status": "completed",
 		"itemID": tId,
 	})
+
+	event := &DebridLocalDownloadCompletedEvent{
+		TorrentItemID: tId,
+		TorrentName:   torrentName,
+		Destination:   destination,
+	}
+	if err := hook.GlobalHookManager.OnDebridLocalDownloadCompleted().Trigger(event); err != nil {
+		r.logger.Err(err).Str("torrentItemId", tId).Msg("debrid: Failed to trigger local download completed hook")
+	}
 }
 
 func getFilenameFromHeaders(url string) (string, error) {

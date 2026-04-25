@@ -29,23 +29,25 @@ var (
 type AnilistClient interface {
 	IsAuthenticated() bool
 	AnimeCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollection, error)
+	AnimeCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionTags, error)
 	AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error)
 	BaseAnimeByMalID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByMalID, error)
 	BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error)
 	SearchBaseAnimeByIds(ctx context.Context, ids []*int, page *int, perPage *int, status []*MediaStatus, inCollection *bool, sort []*MediaSort, season *MediaSeason, year *int, genre *string, format *MediaFormat, interceptors ...clientv2.RequestInterceptor) (*SearchBaseAnimeByIds, error)
 	CompleteAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*CompleteAnimeByID, error)
 	AnimeDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*AnimeDetailsByID, error)
-	ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error)
+	ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error)
 	ListRecentAnime(ctx context.Context, page *int, perPage *int, airingAtGreater *int, airingAtLesser *int, notYetAired *bool, interceptors ...clientv2.RequestInterceptor) (*ListRecentAnime, error)
 	UpdateMediaListEntry(ctx context.Context, mediaID *int, status *MediaListStatus, scoreRaw *int, progress *int, startedAt *FuzzyDateInput, completedAt *FuzzyDateInput, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntry, error)
 	UpdateMediaListEntryProgress(ctx context.Context, mediaID *int, progress *int, status *MediaListStatus, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryProgress, error)
 	UpdateMediaListEntryRepeat(ctx context.Context, mediaID *int, repeat *int, interceptors ...clientv2.RequestInterceptor) (*UpdateMediaListEntryRepeat, error)
 	DeleteEntry(ctx context.Context, mediaListEntryID *int, interceptors ...clientv2.RequestInterceptor) (*DeleteEntry, error)
 	MangaCollection(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollection, error)
+	MangaCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollectionTags, error)
 	SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*MediaSort, search *string, status []*MediaStatus, interceptors ...clientv2.RequestInterceptor) (*SearchBaseManga, error)
 	BaseMangaByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseMangaByID, error)
 	MangaDetailsByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*MangaDetailsByID, error)
-	ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error)
+	ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error)
 	ViewerStats(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*ViewerStats, error)
 	StudioDetails(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*StudioDetails, error)
 	GetViewer(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*GetViewer, error)
@@ -153,6 +155,14 @@ func (ac *AnilistClientImpl) AnimeCollection(ctx context.Context, userName *stri
 	return ac.Client.AnimeCollection(ctx, userName, interceptors...)
 }
 
+func (ac *AnilistClientImpl) AnimeCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionTags, error) {
+	if !ac.IsAuthenticated() {
+		return nil, ErrNotAuthenticated
+	}
+	ac.logger.Debug().Msg("anilist: Fetching anime collection tags")
+	return ac.Client.AnimeCollectionTags(ctx, userName, interceptors...)
+}
+
 func (ac *AnilistClientImpl) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*AnimeCollectionWithRelations, error) {
 	if !ac.IsAuthenticated() {
 		return nil, ErrNotAuthenticated
@@ -177,6 +187,14 @@ func (ac *AnilistClientImpl) MangaCollection(ctx context.Context, userName *stri
 	return ac.Client.MangaCollection(ctx, userName, interceptors...)
 }
 
+func (ac *AnilistClientImpl) MangaCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*MangaCollectionTags, error) {
+	if !ac.IsAuthenticated() {
+		return nil, ErrNotAuthenticated
+	}
+	ac.logger.Debug().Msg("anilist: Fetching manga collection tags")
+	return ac.Client.MangaCollectionTags(ctx, userName, interceptors...)
+}
+
 func (ac *AnilistClientImpl) ViewerStats(ctx context.Context, interceptors ...clientv2.RequestInterceptor) (*ViewerStats, error) {
 	if !ac.IsAuthenticated() {
 		return nil, ErrNotAuthenticated
@@ -194,7 +212,13 @@ func (ac *AnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, inte
 }
 
 func (ac *AnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error) {
-	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching anime")
+	if id == nil {
+		return nil, errors.New("id cannot be nil")
+	}
+	// stupid hack to reduce log spam when anilist is down
+	if *id != 1 {
+		ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching anime")
+	}
 	return ac.Client.BaseAnimeByID(ctx, id, interceptors...)
 }
 
@@ -208,9 +232,16 @@ func (ac *AnilistClientImpl) CompleteAnimeByID(ctx context.Context, id *int, int
 	return ac.Client.CompleteAnimeByID(ctx, id, interceptors...)
 }
 
-func (ac *AnilistClientImpl) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
+func (ac *AnilistClientImpl) ListAnime(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, season *MediaSeason, seasonYear *int, format *MediaFormat, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListAnime, error) {
 	ac.logger.Debug().Msg("anilist: Fetching media list")
-	return ac.Client.ListAnime(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
+	if isAdult == nil {
+		ret, err := ac.Client.ListAnimeAll(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, season, seasonYear, format, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		return FromListAnimeAll(ret), nil
+	}
+	return ac.Client.ListAnime(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, season, seasonYear, format, isAdult, interceptors...)
 }
 
 func (ac *AnilistClientImpl) ListRecentAnime(ctx context.Context, page *int, perPage *int, airingAtGreater *int, airingAtLesser *int, notYetAired *bool, interceptors ...clientv2.RequestInterceptor) (*ListRecentAnime, error) {
@@ -233,9 +264,16 @@ func (ac *AnilistClientImpl) MangaDetailsByID(ctx context.Context, id *int, inte
 	return ac.Client.MangaDetailsByID(ctx, id, interceptors...)
 }
 
-func (ac *AnilistClientImpl) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
+func (ac *AnilistClientImpl) ListManga(ctx context.Context, page *int, search *string, perPage *int, sort []*MediaSort, status []*MediaStatus, genres []*string, tags []*string, averageScoreGreater *int, startDateGreater *string, startDateLesser *string, format *MediaFormat, countryOfOrigin *string, isAdult *bool, interceptors ...clientv2.RequestInterceptor) (*ListManga, error) {
 	ac.logger.Debug().Msg("anilist: Fetching manga list")
-	return ac.Client.ListManga(ctx, page, search, perPage, sort, status, genres, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
+	if isAdult == nil {
+		ret, err := ac.Client.ListMangaAll(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, interceptors...)
+		if err != nil {
+			return nil, err
+		}
+		return FromListMangaAll(ret), nil
+	}
+	return ac.Client.ListManga(ctx, page, search, perPage, sort, status, genres, tags, averageScoreGreater, startDateGreater, startDateLesser, format, countryOfOrigin, isAdult, interceptors...)
 }
 
 func (ac *AnilistClientImpl) StudioDetails(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*StudioDetails, error) {
@@ -495,7 +533,7 @@ func (ac *AnilistClientImpl) customDoFunc(ctx context.Context, req *http.Request
 		timeSince := time.Since(reqTime)
 		formattedDur := timeSince.Truncate(time.Millisecond).String()
 		if err != nil {
-			ac.logger.Error().Str("duration", formattedDur).Str("rlr", rlRemainingStr).Err(err).Msg("anilist: Failed Request")
+			ac.logger.Error().Str("duration", formattedDur).Str("rlr", rlRemainingStr).Err(err).Str("document", gqlInfo.Request.OperationName).Msg("anilist: Failed Request")
 		} else {
 			if timeSince > 900*time.Millisecond {
 				ac.logger.Warn().Str("rtt", formattedDur).Str("rlr", rlRemainingStr).Msg("anilist: Successful Request (slow)")

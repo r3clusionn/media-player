@@ -66,6 +66,36 @@
     }
   },
   {
+    "name": "HandleGetRawAnimeCollectionTags",
+    "trimmedName": "GetRawAnimeCollectionTags",
+    "comments": [
+      "HandleGetRawAnimeCollectionTags",
+      "",
+      "\t@summary returns the AniList tags for the user's raw anime collection.",
+      "\t@desc This runs a dedicated AniList tags query used by the lists page filters.",
+      "\t@returns anilist.MediaTagMap",
+      "\t@route /api/v1/anilist/collection/raw/tags [GET]",
+      ""
+    ],
+    "filepath": "internal/handlers/anilist.go",
+    "filename": "anilist.go",
+    "api": {
+      "summary": "returns the AniList tags for the user's raw anime collection.",
+      "descriptions": [
+        "This runs a dedicated AniList tags query used by the lists page filters."
+      ],
+      "endpoint": "/api/v1/anilist/collection/raw/tags",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "anilist.MediaTagMap",
+      "returnGoType": "anilist.MediaTagMap",
+      "returnTypescriptType": "AL_MediaTagMap"
+    }
+  },
+  {
     "name": "HandleEditAnilistListEntry",
     "trimmedName": "EditAnilistListEntry",
     "comments": [
@@ -375,6 +405,15 @@
         {
           "name": "Genres",
           "jsonName": "genres",
+          "goType": "[]string",
+          "usedStructType": "",
+          "typescriptType": "Array\u003cstring\u003e",
+          "required": false,
+          "descriptions": []
+        },
+        {
+          "name": "Tags",
+          "jsonName": "tags",
           "goType": "[]string",
           "usedStructType": "",
           "typescriptType": "Array\u003cstring\u003e",
@@ -4881,6 +4920,405 @@
     }
   },
   {
+    "name": "isTrustedRequestHost",
+    "trimmedName": "isTrustedRequestHost",
+    "comments": [
+      "isTrustedRequestHost checks if the request originates from a trusted host such as localhost, a loopback, or private network address.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "isRequestPermitted",
+    "trimmedName": "isRequestPermitted",
+    "comments": [
+      "isRequestPermitted determines if an HTTP request is permitted based on server password, access allowlist, and request origin metadata.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "isTrustedCORSOrigin",
+    "trimmedName": "isTrustedCORSOrigin",
+    "comments": [
+      "isTrustedCORSOrigin determines if the provided CORS origin is trusted based on server security settings and allowlist rules.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "isTrustedRequest",
+    "trimmedName": "isTrustedRequest",
+    "comments": [
+      "isTrustedRequest determines whether the request is from a trusted source based on server password, security mode, or request origin.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedSettingsMutation",
+    "trimmedName": "guardPrivilegedSettingsMutation",
+    "comments": [
+      "guardPrivilegedSettingsMutation checks and denies unauthorized privileged settings modifications, returning an error if access is forbidden.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedExtensionManagement",
+    "trimmedName": "guardPrivilegedExtensionManagement",
+    "comments": [
+      "guardPrivilegedExtensionManagement checks if a request meets the criteria for privileged extension management access.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedMediastreamSettingsMutation",
+    "trimmedName": "guardPrivilegedMediastreamSettingsMutation",
+    "comments": [
+      "guardPrivilegedMediastreamSettingsMutation ensures that mutations to privileged mediastream settings are only allowed by trusted or authorized sources.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "canMutatePrivilegedSettings",
+    "trimmedName": "canMutatePrivilegedSettings",
+    "comments": [
+      "canMutatePrivilegedSettings determines if privileged settings modifications can proceed based on request origin, server password, and settings changes.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "canMutatePrivilegedMediastreamSettings",
+    "trimmedName": "canMutatePrivilegedMediastreamSettings",
+    "comments": [
+      "canMutatePrivilegedMediastreamSettings determines if privileged mediastream settings can be modified based on request trust and setting changes.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "canUsePrivilegedExtensionManagement",
+    "trimmedName": "canUsePrivilegedExtensionManagement",
+    "comments": [
+      "canUsePrivilegedExtensionManagement determines if the request can access privileged extension management based on security mode, origin, and server password.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedMediaPlayer",
+    "trimmedName": "guardPrivilegedMediaPlayer",
+    "comments": [
+      "guardPrivilegedMediaPlayer restricts access to privileged media player actions based on security settings and request origin validation.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedTorrentClient",
+    "trimmedName": "guardPrivilegedTorrentClient",
+    "comments": [
+      "guardPrivilegedTorrentClient ensures that only trusted or authorized requests can execute privileged torrent client actions.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedMediastream",
+    "trimmedName": "guardPrivilegedMediastream",
+    "comments": [
+      "guardPrivilegedMediastream ensures that privileged mediastream actions are restricted to trusted requests or server password authorization.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardPrivilegedLocalExecution",
+    "trimmedName": "guardPrivilegedLocalExecution",
+    "comments": [
+      "guardPrivilegedLocalExecution enforces security checks for privileged actions, ensuring the request originates from a trusted or authorized source.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "getContextClientId",
+    "trimmedName": "getContextClientId",
+    "comments": [
+      "getContextClientId retrieves the client ID from the echo.Context by checking a header or a cookie, returning an empty string if not found.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "getRequestClientId",
+    "trimmedName": "getRequestClientId",
+    "comments": [
+      "getRequestClientId retrieves the client ID from the context or falls back to the claimed value after trimming whitespace.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "isSameContextClientId",
+    "trimmedName": "isSameContextClientId",
+    "comments": [
+      "isSameContextClientId checks if the claimed client ID matches the context's client ID after trimming spaces and ensuring both are non-empty.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "privilegedMediastreamSettingsChanged",
+    "trimmedName": "privilegedMediastreamSettingsChanged",
+    "comments": [
+      "privilegedMediastreamSettingsChanged checks if privileged mediastream settings differ between the previous and the next configuration.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "hasCustomExecutablePath",
+    "trimmedName": "hasCustomExecutablePath",
+    "comments": [
+      "hasCustomExecutablePath checks if the given path differs from the provided default executable paths. Returns true if a custom path is detected, false otherwise.",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "HandleGetLocalFiles",
     "trimmedName": "GetLocalFiles",
     "comments": [
@@ -5447,6 +5885,36 @@
     }
   },
   {
+    "name": "HandleGetRawAnilistMangaCollectionTags",
+    "trimmedName": "GetRawAnilistMangaCollectionTags",
+    "comments": [
+      "HandleGetRawAnilistMangaCollectionTags",
+      "",
+      "\t@summary returns the AniList tags for the user's raw manga collection.",
+      "\t@desc This runs a dedicated AniList tags query used by the lists page filters.",
+      "\t@route /api/v1/manga/anilist/collection/raw/tags [GET]",
+      "\t@returns anilist.MediaTagMap",
+      ""
+    ],
+    "filepath": "internal/handlers/manga.go",
+    "filename": "manga.go",
+    "api": {
+      "summary": "returns the AniList tags for the user's raw manga collection.",
+      "descriptions": [
+        "This runs a dedicated AniList tags query used by the lists page filters."
+      ],
+      "endpoint": "/api/v1/manga/anilist/collection/raw/tags",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "anilist.MediaTagMap",
+      "returnGoType": "anilist.MediaTagMap",
+      "returnTypescriptType": "AL_MediaTagMap"
+    }
+  },
+  {
     "name": "HandleGetMangaCollection",
     "trimmedName": "GetMangaCollection",
     "comments": [
@@ -5904,6 +6372,15 @@
         {
           "name": "Genres",
           "jsonName": "genres",
+          "goType": "[]string",
+          "usedStructType": "",
+          "typescriptType": "Array\u003cstring\u003e",
+          "required": false,
+          "descriptions": []
+        },
+        {
+          "name": "Tags",
+          "jsonName": "tags",
           "goType": "[]string",
           "usedStructType": "",
           "typescriptType": "Array\u003cstring\u003e",
@@ -9225,6 +9702,27 @@
     }
   },
   {
+    "name": "createRequestBoundaryView",
+    "trimmedName": "createRequestBoundaryView",
+    "comments": [
+      "createRequestBoundaryView processes an HTTP request and returns a structure describing the request's host, IP, scheme, and related attributes.",
+      ""
+    ],
+    "filepath": "internal/handlers/request_boundary.go",
+    "filename": "request_boundary.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "HandleScanLocalFiles",
     "trimmedName": "ScanLocalFiles",
     "comments": [
@@ -10135,6 +10633,48 @@
       "returns": "nil",
       "returnGoType": "nil",
       "returnTypescriptType": "null"
+    }
+  },
+  {
+    "name": "guardStrictLocalOnlyAction",
+    "trimmedName": "guardStrictLocalOnlyAction",
+    "comments": [
+      "guardStrictLocalOnlyAction ensures an action is restricted to trusted local requests when in strict security mode, returning an error if denied.",
+      ""
+    ],
+    "filepath": "internal/handlers/strict_security.go",
+    "filename": "strict_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
+    "name": "guardStrictFilesystemPath",
+    "trimmedName": "guardStrictFilesystemPath",
+    "comments": [
+      "guardStrictFilesystemPath validates if a filesystem path is allowed under strict security mode based on origin and root constraints.",
+      ""
+    ],
+    "filepath": "internal/handlers/strict_security.go",
+    "filename": "strict_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
     }
   },
   {

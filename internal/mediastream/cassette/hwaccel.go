@@ -249,6 +249,16 @@ func BuildVideoFilter(hw *HwAccelProfile, video *videofile.Video, width, height 
 		noScale = true
 	}
 
+	lower := strings.ToLower(video.PixFmt)
+	is10Bit := strings.Contains(lower, "10le") || strings.Contains(lower, "12le") || strings.Contains(lower, "p010")
+
+	// use the scale filter to convert pixel formats if video is 10bit
+	// even if we are not resizing the video
+	// h264 encoders (nvenc, qsv, vaapi) typically only accept 8-bit formats (like nv12)
+	if is10Bit && hw.Name != "custom" && hw.Name != "disabled" && hw.Name != "videotoolbox" {
+		noScale = false
+	}
+
 	if hw.Name == "custom" {
 		if noScale && hw.NoScaleFilter != "" {
 			return hw.NoScaleFilter
@@ -264,7 +274,6 @@ func BuildVideoFilter(hw *HwAccelProfile, video *videofile.Video, width, height 
 	}
 
 	// Enable p010 hwupload if the source is 10-bit or 12-bit
-	is10Bit := strings.Contains(strings.ToLower(video.PixFmt), "10le") || strings.Contains(strings.ToLower(video.PixFmt), "12le") || strings.Contains(strings.ToLower(video.PixFmt), "p010")
 	if is10Bit && strings.HasPrefix(filter, "format=nv12|") {
 		filter = strings.Replace(filter, "format=nv12|", "format=p010|", 1)
 	}

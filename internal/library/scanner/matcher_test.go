@@ -18,7 +18,6 @@ func TestMatcher1(t *testing.T) {
 	if err != nil {
 		t.Fatal(err.Error())
 	}
-	allMedia := animeCollection.GetAllAnime()
 
 	dir := "E:/Anime"
 
@@ -26,6 +25,7 @@ func TestMatcher1(t *testing.T) {
 		name            string
 		paths           []string
 		expectedMediaId int
+		otherMediaIds   []int
 	}{
 		{
 			// These local files are from "86 - Eighty Six Part 2" but should be matched with "86 - Eighty Six Part 1"
@@ -39,6 +39,14 @@ func TestMatcher1(t *testing.T) {
 			},
 			expectedMediaId: 116589, // 86 - Eighty Six Part 1
 		},
+		{
+			name: "Diamond no Ace act II second season",
+			paths: []string{
+				"E:/Anime/Diamond no Ace/[SomeSubs] Diamond no Ace - Act II Second Season - 03 [1080p].mkv",
+			},
+			expectedMediaId: 177634,
+			otherMediaIds:   []int{105749},
+		},
 	}
 
 	for _, tt := range tests {
@@ -49,6 +57,13 @@ func TestMatcher1(t *testing.T) {
 			if err != nil {
 				t.Fatal("expected result, got error:", err.Error())
 			}
+
+			currentStatus := anilist.MediaListStatusCurrent
+			anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, tt.expectedMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
+			for _, otherMediaId := range tt.otherMediaIds {
+				anilist.EnsureAnimeCollectionWithRelationsEntry(animeCollection, otherMediaId, anilist.AnimeCollectionEntryPatch{Status: &currentStatus}, anilistClient)
+			}
+			allMedia := animeCollection.GetAllAnime()
 
 			// +---------------------+
 			// |   Local Files       |
@@ -97,10 +112,45 @@ func TestMatcher1(t *testing.T) {
 
 }
 
+func TestSeasonSignalsIgnoreQualifiedRomanNumerals(t *testing.T) {
+	file := anime.NewLocalFile(
+		"E:/Anime/Diamond no Ace/[SomeSubs] Diamond no Ace - Act II Second Season - 03 [1080p].mkv",
+		scannerTestLibraryDir,
+	)
+
+	if got := getFileSeason(file); got != 2 {
+		t.Fatalf("expected file season 2, got %d", got)
+	}
+
+	actTitle := "Diamond no Ace act II"
+	secondSeasonTitle := "Diamond no Ace act II Second Season"
+
+	actOnly := NormalizeTitle(actTitle)
+	actOnly.IsMain = true
+
+	secondSeason := NormalizeTitle(secondSeasonTitle)
+	secondSeason.IsMain = true
+
+	actMedia := &anime.NormalizedMedia{
+		Title: &anime.NormalizedMediaTitle{Romaji: &actTitle},
+	}
+	secondSeasonMedia := &anime.NormalizedMedia{
+		Title: &anime.NormalizedMediaTitle{Romaji: &secondSeasonTitle},
+	}
+
+	if season, _, _ := getMediaSeason(actMedia, []*NormalizedTitle{actOnly}); season != -1 {
+		t.Fatalf("expected act-qualified title to have no season, got %d", season)
+	}
+
+	if season, explicit, _ := getMediaSeason(secondSeasonMedia, []*NormalizedTitle{secondSeason}); season != 2 || !explicit {
+		t.Fatalf("expected second-season title to keep season 2, got season=%d explicit=%v", season, explicit)
+	}
+}
+
 func TestMatcher2(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -108,7 +158,7 @@ func TestMatcher2(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -213,9 +263,9 @@ func TestMatcher2(t *testing.T) {
 }
 
 func TestMatcher3(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -223,7 +273,7 @@ func TestMatcher3(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name            string
@@ -900,27 +950,27 @@ func TestMatcherWithOfflineDB(t *testing.T) {
 		t.Skip("Skipping integration test")
 	}
 
-	harness := newScannerFixtureHarness(t)
-	logger := harness.Logger
+	wrapper := newScannerFixtureWrapper(t)
+	logger := wrapper.Logger
 
 	scanLogger, err := NewConsoleScanLogger()
 	if err != nil {
 		t.Fatal("expected result, got error:", err.Error())
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	t.Log("Initializing MediaFetcher with anime-offline-database...")
 
 	mf, err := NewMediaFetcher(t.Context(), &MediaFetcherOptions{
 		Enhanced:                   true,
 		EnhanceWithOfflineDatabase: true, // Use offline database
-		PlatformRef:                util.NewRef[platform.Platform](harness.Platform),
+		PlatformRef:                util.NewRef[platform.Platform](wrapper.Platform),
 		LocalFiles:                 []*anime.LocalFile{}, // Empty, we don't need local files for fetching
-		CompleteAnimeCache:         harness.CompleteAnimeCache,
-		MetadataProviderRef:        util.NewRef(harness.MetadataProvider),
+		CompleteAnimeCache:         wrapper.CompleteAnimeCache,
+		MetadataProviderRef:        util.NewRef(wrapper.MetadataProvider),
 		Logger:                     logger,
-		AnilistRateLimiter:         harness.AnilistRateLimiter,
+		AnilistRateLimiter:         wrapper.AnilistRateLimiter,
 		ScanLogger:                 scanLogger,
 		DisableAnimeCollection:     true, // Only use offline database
 	})
@@ -1333,9 +1383,9 @@ func TestGetFileFormatType(t *testing.T) {
 }
 
 func TestMatcher_applyMatchingRule(t *testing.T) {
-	harness := newScannerLiveHarness(t)
-	anilistClient := harness.AnilistClient
-	animeCollection, err := harness.Platform.GetAnimeCollectionWithRelations(t.Context())
+	wrapper := newScannerLiveWrapper(t)
+	anilistClient := wrapper.AnilistClient
+	animeCollection, err := wrapper.Platform.GetAnimeCollectionWithRelations(t.Context())
 	if err != nil {
 		t.Fatal(err.Error())
 	}
@@ -1343,7 +1393,7 @@ func TestMatcher_applyMatchingRule(t *testing.T) {
 		t.Fatal("expected anime collection, got nil")
 	}
 
-	dir := harness.LibraryDir
+	dir := wrapper.LibraryDir
 
 	tests := []struct {
 		name             string

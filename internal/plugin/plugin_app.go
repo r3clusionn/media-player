@@ -22,5 +22,23 @@ func (a *AppContextImpl) BindApp(vm *goja.Runtime, logger *zerolog.Logger, ext *
 		wsEventManager.SendEvent(events.InvalidateQueries, keys)
 	})
 
+	appObj.Set("getClientIds", func() []string {
+		wsEventManager, ok := a.wsEventManager.Get()
+		if !ok {
+			return nil
+		}
+
+		return wsEventManager.GetClientIds()
+	})
+
+	appObj.Set("getClientPlatform", func(clientId string) string {
+		wsEventManager, ok := a.wsEventManager.Get()
+		if !ok {
+			return ""
+		}
+
+		return wsEventManager.GetClientPlatform(clientId)
+	})
+
 	_ = vm.Set("$app", appObj)
 }

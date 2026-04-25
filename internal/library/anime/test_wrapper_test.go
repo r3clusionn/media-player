@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type animeTestHarness struct {
+type animeTestWrapper struct {
 	animeCollection     *anilist.AnimeCollection
 	metadataProvider    *animeTestMetadataProvider
 	platformRef         *util.Ref[platform.Platform]
@@ -29,7 +29,7 @@ type animeTestMetadataProvider struct {
 	overrides map[int]*metadata.AnimeMetadata
 }
 
-func newAnimeTestHarness(t *testing.T) *animeTestHarness {
+func newAnimeTestWrapper(t *testing.T) *animeTestWrapper {
 	t.Helper()
 
 	// keep the real fixture stack, but make metadata overrides cheap and explicit per test.
@@ -48,7 +48,7 @@ func newAnimeTestHarness(t *testing.T) *animeTestHarness {
 	metadataProviderInterface := metadata_provider.Provider(metadataProvider)
 	platformInterface := platform.Platform(anilistPlatform)
 
-	return &animeTestHarness{
+	return &animeTestWrapper{
 		animeCollection:     animeCollection,
 		metadataProvider:    metadataProvider,
 		platformRef:         util.NewRef(platformInterface),
@@ -63,12 +63,12 @@ func (p *animeTestMetadataProvider) GetAnimeMetadata(platform metadata.Platform,
 	return p.Provider.GetAnimeMetadata(platform, mediaID)
 }
 
-func (h *animeTestHarness) findEntry(t *testing.T, mediaID int) *anilist.AnimeListEntry {
+func (h *animeTestWrapper) findEntry(t *testing.T, mediaID int) *anilist.AnimeListEntry {
 	t.Helper()
 	return findCollectionEntryByMediaID(t, h.animeCollection, mediaID)
 }
 
-func (h *animeTestHarness) setEpisodeMetadata(t *testing.T, mediaID int, mainEpisodes []int, specials map[string]int) *metadata.AnimeMetadata {
+func (h *animeTestWrapper) setEpisodeMetadata(t *testing.T, mediaID int, mainEpisodes []int, specials map[string]int) *metadata.AnimeMetadata {
 	t.Helper()
 
 	// most anime tests only need stable episode numbering, not a full metadata payload.
@@ -89,11 +89,11 @@ func (h *animeTestHarness) setEpisodeMetadata(t *testing.T, mediaID int, mainEpi
 	return animeMetadata
 }
 
-func (h *animeTestHarness) setCustomMetadata(mediaID int, animeMetadata *metadata.AnimeMetadata) {
+func (h *animeTestWrapper) setCustomMetadata(mediaID int, animeMetadata *metadata.AnimeMetadata) {
 	h.metadataProvider.overrides[mediaID] = animeMetadata
 }
 
-func (h *animeTestHarness) clearMetadataAirDates(mediaID int) {
+func (h *animeTestWrapper) clearMetadataAirDates(mediaID int) {
 	if animeMetadata, ok := h.metadataProvider.overrides[mediaID]; ok {
 		for _, episode := range animeMetadata.Episodes {
 			episode.AirDate = ""
@@ -101,7 +101,7 @@ func (h *animeTestHarness) clearMetadataAirDates(mediaID int) {
 	}
 }
 
-func (h *animeTestHarness) newMetadataWithAirDates(t *testing.T, mediaID int, airDates map[int]string) *metadata.AnimeMetadata {
+func (h *animeTestWrapper) newMetadataWithAirDates(t *testing.T, mediaID int, airDates map[int]string) *metadata.AnimeMetadata {
 	t.Helper()
 
 	// this is just for the fallback path where current episode count is inferred from aired dates.
@@ -119,12 +119,12 @@ func (h *animeTestHarness) newMetadataWithAirDates(t *testing.T, mediaID int, ai
 	return animeMetadata
 }
 
-func (h *animeTestHarness) clearNextAiringEpisode(t *testing.T, mediaID int) {
+func (h *animeTestWrapper) clearNextAiringEpisode(t *testing.T, mediaID int) {
 	t.Helper()
 	h.findEntry(t, mediaID).Media.NextAiringEpisode = nil
 }
 
-func (h *animeTestHarness) clearAllNextAiringEpisodes() {
+func (h *animeTestWrapper) clearAllNextAiringEpisodes() {
 	for _, list := range h.animeCollection.GetMediaListCollection().GetLists() {
 		for _, entry := range list.GetEntries() {
 			entry.Media.NextAiringEpisode = nil
@@ -132,12 +132,12 @@ func (h *animeTestHarness) clearAllNextAiringEpisodes() {
 	}
 }
 
-func (h *animeTestHarness) clearEpisodeCount(t *testing.T, mediaID int) {
+func (h *animeTestWrapper) clearEpisodeCount(t *testing.T, mediaID int) {
 	t.Helper()
 	h.findEntry(t, mediaID).Media.Episodes = nil
 }
 
-func (h *animeTestHarness) newLibraryCollection(t *testing.T, localFiles []*anime.LocalFile) *anime.LibraryCollection {
+func (h *animeTestWrapper) newLibraryCollection(t *testing.T, localFiles []*anime.LocalFile) *anime.LibraryCollection {
 	t.Helper()
 
 	libraryCollection, err := anime.NewLibraryCollection(t.Context(), &anime.NewLibraryCollectionOptions{
@@ -150,7 +150,7 @@ func (h *animeTestHarness) newLibraryCollection(t *testing.T, localFiles []*anim
 	return libraryCollection
 }
 
-func (h *animeTestHarness) newEntryDownloadInfo(t *testing.T, mediaID int, localFiles []*anime.LocalFile, progress int, status anilist.MediaListStatus) *anime.EntryDownloadInfo {
+func (h *animeTestWrapper) newEntryDownloadInfo(t *testing.T, mediaID int, localFiles []*anime.LocalFile, progress int, status anilist.MediaListStatus) *anime.EntryDownloadInfo {
 	t.Helper()
 
 	animeMetadata, err := h.metadataProvider.GetAnimeMetadata(metadata.AnilistPlatform, mediaID)
@@ -169,7 +169,7 @@ func (h *animeTestHarness) newEntryDownloadInfo(t *testing.T, mediaID int, local
 	return info
 }
 
-func (h *animeTestHarness) newMissingEpisodes(t *testing.T, localFiles []*anime.LocalFile, silencedMediaIDs []int) *anime.MissingEpisodes {
+func (h *animeTestWrapper) newMissingEpisodes(t *testing.T, localFiles []*anime.LocalFile, silencedMediaIDs []int) *anime.MissingEpisodes {
 	t.Helper()
 
 	missingEpisodes := anime.NewMissingEpisodes(&anime.NewMissingEpisodesOptions{
@@ -183,7 +183,7 @@ func (h *animeTestHarness) newMissingEpisodes(t *testing.T, localFiles []*anime.
 	return missingEpisodes
 }
 
-func (h *animeTestHarness) newUpcomingEpisodes(t *testing.T) *anime.UpcomingEpisodes {
+func (h *animeTestWrapper) newUpcomingEpisodes(t *testing.T) *anime.UpcomingEpisodes {
 	t.Helper()
 
 	upcomingEpisodes := anime.NewUpcomingEpisodes(&anime.NewUpcomingEpisodesOptions{

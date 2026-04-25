@@ -66,6 +66,26 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 	return h.RespondWithData(c, mangaCollection)
 }
 
+// HandleGetRawAnilistMangaCollectionTags
+//
+//	@summary returns the AniList tags for the user's raw manga collection.
+//	@desc This runs a dedicated AniList tags query used by the lists page filters.
+//	@route /api/v1/manga/anilist/collection/raw/tags [GET]
+//	@returns anilist.MediaTagMap
+func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
+	userName := h.App.GetUsername()
+	if userName == "" {
+		return h.RespondWithData(c, anilist.MediaTagMap{})
+	}
+
+	ret, err := h.App.AnilistClientRef.Get().MangaCollectionTags(c.Request().Context(), &userName)
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, anilist.MediaTagMapFromMangaCollectionTags(ret))
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // HandleGetMangaCollection
@@ -351,6 +371,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		Sort                []*anilist.MediaSort   `json:"sort,omitempty"`
 		Status              []*anilist.MediaStatus `json:"status,omitempty"`
 		Genres              []*string              `json:"genres,omitempty"`
+		Tags                []*string              `json:"tags,omitempty"`
 		AverageScoreGreater *int                   `json:"averageScore_greater,omitempty"`
 		Year                *int                   `json:"year,omitempty"`
 		CountryOfOrigin     *string                `json:"countryOfOrigin,omitempty"`
@@ -368,9 +389,9 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		*p.PerPage = 20
 	}
 
-	isAdult := false
+	var isAdult *bool = nil
 	if p.IsAdult != nil {
-		isAdult = *p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent
+		isAdult = new(*p.IsAdult && h.App.Settings.GetAnilist().EnableAdultContent)
 	}
 
 	cacheKey := anilist.ListMangaCacheKey(
@@ -380,12 +401,13 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		nil,
 		p.Year,
 		p.Format,
 		p.CountryOfOrigin,
-		&isAdult,
+		isAdult,
 	)
 
 	cached, ok := anilistListMangaCache.Get(cacheKey)
@@ -401,11 +423,12 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 		p.Sort,
 		p.Status,
 		p.Genres,
+		p.Tags,
 		p.AverageScoreGreater,
 		p.Year,
 		p.Format,
 		p.CountryOfOrigin,
-		&isAdult,
+		isAdult,
 		h.App.Logger,
 		h.App.GetUserAnilistToken(),
 	)
@@ -570,6 +593,9 @@ func (h *Handler) HandleRemoveMangaMapping(c echo.Context) error {
 //	@route /api/v1/manga/local-page/{path} [GET]
 //	@returns manga.PageContainer
 func (h *Handler) HandleGetLocalMangaPage(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	path := c.Param("path")
 	path, err := url.PathUnescape(path)
@@ -593,6 +619,10 @@ func (h *Handler) HandleGetLocalMangaPage(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	headers := c.Response().Header()
+	headers.Set("Access-Control-Allow-Origin", "*")
+	headers.Set("Cross-Origin-Resource-Policy", "cross-origin")
 
 	return c.Stream(http.StatusOK, "image/jpeg", reader)
 }

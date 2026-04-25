@@ -14,6 +14,7 @@ import {
     MediaPageHeaderEntryDetails,
 } from "@/app/(main)/_features/media/_components/media-page-header-components"
 import { MediaSyncTrackButton } from "@/app/(main)/_features/media/_containers/media-sync-track-button"
+import { usePluginAnimeEntryEpisodeTabsListener } from "@/app/(main)/_features/plugin/plugin-entry-episode-tabs.tsx"
 import { PluginWebviewSlot } from "@/app/(main)/_features/plugin/webview/plugin-webviews"
 import { useHasDebridService, useHasTorrentProvider, useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { NextAiringEpisode } from "@/app/(main)/entry/_components/next-airing-episode"
@@ -61,10 +62,13 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
 
     const { hasTorrentProvider } = useHasTorrentProvider()
     const { hasDebridService } = useHasDebridService()
-    const { currentView, setView, isLibraryView, isTorrentStreamingView, isDebridStreamingView, isOnlineStreamingView } = useAnimeEntryPageView()
+    const { currentView, setView, isLibraryView } = useAnimeEntryPageView()
 
-    const listData = entry.listData
-    const type = "anime"
+    const pluginEpisodeTabs = usePluginAnimeEntryEpisodeTabsListener({
+        mediaId: Number(entry.mediaId),
+        currentView,
+        setView,
+    })
 
     return (
         <MediaPageHeader
@@ -208,7 +212,7 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
 
                 </div>
 
-                <EntrySectionTabs entry={entry} />
+                <EntrySectionTabs entry={entry} pluginTabs={pluginEpisodeTabs.tabs} />
 
                 <NextAiringEpisode media={entry.media} />
 

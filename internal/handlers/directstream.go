@@ -6,6 +6,7 @@ import (
 	"seanime/internal/database/db_bridge"
 	"seanime/internal/directstream"
 	"seanime/internal/mkvparser"
+	"seanime/internal/security"
 
 	"github.com/labstack/echo/v4"
 )
@@ -17,6 +18,10 @@ import (
 //	@returns mediastream.MediaContainer
 //	@route /api/v1/directstream/play/localfile [POST]
 func (h *Handler) HandleDirectstreamPlayLocalFile(c echo.Context) error {
+	if err := h.guardMediaConsumption(c); err != nil {
+		return err
+	}
+
 	type body struct {
 		Path     string `json:"path"`     // The path of the file.
 		ClientId string `json:"clientId"` // The session id
@@ -25,6 +30,11 @@ func (h *Handler) HandleDirectstreamPlayLocalFile(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	b.ClientId = getRequestClientId(c, b.ClientId)
+	if err := h.guardStrictFilesystemPath(c, b.Path); err != nil {
+		return err
 	}
 
 	lfs, _, err := db_bridge.GetLocalFiles(h.App.Database)
@@ -82,6 +92,10 @@ func (h *Handler) HandleDirectstreamConvertSubs(c echo.Context) error {
 	}
 
 	// Convert from url
+	if err := security.ValidateOutboundUrl(b.Url); err != nil {
+		return h.RespondWithStatusError(c, echo.ErrForbidden.Code, err)
+	}
+
 	ret, err := h.App.VideoCore.FetchAndConvertSubsTo(b.Url, to)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -91,9 +105,21 @@ func (h *Handler) HandleDirectstreamConvertSubs(c echo.Context) error {
 }
 
 func (h *Handler) HandleDirectstreamGetStream() http.Handler {
-	return h.App.DirectStreamManager.ServeEchoStream()
+	streamHandler := h.App.DirectStreamManager.ServeEchoStream()
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h != nil && h.App != nil && h.App.Config != nil && !canConsumeMedia(r, h.App.Config.Server.Password, h.App.Config.Server.AccessAllowlist) {
+			http.Error(w, errPrivilegedExecutionDenied.Error(), http.StatusForbidden)
+			return
+		}
+
+		streamHandler.ServeHTTP(w, r)
+	})
 }
 
 func (h *Handler) HandleDirectstreamGetAttachments(c echo.Context) error {
+	if err := h.guardMediaConsumption(c); err != nil {
+		return err
+	}
+
 	return h.App.DirectStreamManager.ServeEchoAttachments(c)
 }

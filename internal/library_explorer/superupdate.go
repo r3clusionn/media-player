@@ -1,10 +1,13 @@
 package library_explorer
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"seanime/internal/database/db_bridge"
 	"seanime/internal/library/anime"
+	"seanime/internal/security"
+	"strings"
 	"sync"
 
 	"github.com/samber/lo"
@@ -40,6 +43,13 @@ func (l *LibraryExplorer) SuperUpdateFiles(opts []*SuperUpdateFileOptions) error
 	if err != nil {
 		return err
 	}
+	for _, opt := range opts {
+		lf, err := validateSuperUpdateFile(opt, lfs)
+		if err != nil {
+			return err
+		}
+		opt.Path = lf.Path
+	}
 
 	for _, opt := range opts {
 		go func(opt *SuperUpdateFileOptions) {
@@ -63,6 +73,36 @@ func (l *LibraryExplorer) SuperUpdateFiles(opts []*SuperUpdateFileOptions) error
 	return nil
 }
 
+func validateSuperUpdateFile(opt *SuperUpdateFileOptions, lfs []*anime.LocalFile) (*anime.LocalFile, error) {
+	if opt == nil {
+		return nil, fmt.Errorf("missing local file")
+	}
+
+	lf, found := lo.Find(lfs, func(i *anime.LocalFile) bool {
+		return i.HasSamePath(opt.Path)
+	})
+	if !found {
+		return nil, fmt.Errorf("local file not found: %s", opt.Path)
+	}
+
+	if opt.NewName != "" && !isValidSuperUpdateName(opt.NewName) {
+		return nil, fmt.Errorf("invalid file name: %s", opt.NewName)
+	}
+
+	return lf, nil
+}
+
+func isValidSuperUpdateName(name string) bool {
+	if strings.TrimSpace(name) == "" || name == "." || name == ".." {
+		return false
+	}
+	if filepath.IsAbs(name) || filepath.Base(name) != name {
+		return false
+	}
+
+	return !strings.ContainsAny(name, `/\\`)
+}
+
 func (l *LibraryExplorer) superUpdateFile(opt *SuperUpdateFileOptions, lfs []*anime.LocalFile, lfsId uint, libraryPaths []string) error {
 
 	l.logger.Debug().
@@ -72,6 +112,11 @@ func (l *LibraryExplorer) superUpdateFile(opt *SuperUpdateFileOptions, lfs []*an
 	lf, found := lo.Find(lfs, func(i *anime.LocalFile) bool {
 		return i.HasSamePath(opt.Path)
 	})
+	if security.IsStrict() { // in strict mode, only allow updates to files that are already known by the scanner
+		if !found {
+			return fmt.Errorf("local file not found: %s", opt.Path)
+		}
+	}
 
 	if opt.NewName != "" {
 		newPath := filepath.Join(filepath.Dir(opt.Path), opt.NewName)

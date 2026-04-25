@@ -15,6 +15,7 @@ var (
 	PluginPermissionStorage       PluginPermissionScope = "storage"        // Allows the plugin to store its own data
 	PluginPermissionDatabase      PluginPermissionScope = "database"       // Allows the plugin to read non-auth data from the database and write to it
 	PluginPermissionPlayback      PluginPermissionScope = "playback"       // Allows the plugin to use the playback manager
+	PluginPermissionDebrid        PluginPermissionScope = "debrid"         // Allows the plugin to manage debrid providers and torrents
 	PluginPermissionAnilist       PluginPermissionScope = "anilist"        // Allows the plugin to use the Anilist client
 	PluginPermissionAnilistToken  PluginPermissionScope = "anilist-token"  // Allows the plugin to see and use the Anilist token
 	PluginPermissionSystem        PluginPermissionScope = "system"         // Allows the plugin to use the OS/Filesystem/Filepath functions. SystemPermissions must be granted additionally.
@@ -272,6 +273,8 @@ func (p *PluginPermissions) GetDescription() string {
 				desc.WriteString("Database: Read and write non-auth data\n")
 			case PluginPermissionPlayback:
 				desc.WriteString("Playback: Control media playback and media players\n")
+			case PluginPermissionDebrid:
+				desc.WriteString("Debrid: Manage debrid providers, torrents, and stream selection\n")
 			case PluginPermissionAnilist:
 				desc.WriteString("AniList: View and edit your AniList lists\n")
 			case PluginPermissionAnilistToken:

@@ -40,6 +40,9 @@ func (h *Handler) HandleGetActiveTorrentList(c echo.Context) error {
 	// If an error occurred, try to start the torrent client and get the list again
 	// DEVNOTE: We try to get the list first because this route is called repeatedly by the client.
 	if err != nil {
+		if err := h.guardPrivilegedTorrentClient(c, h.App.Settings); err != nil {
+			return err
+		}
 		ok := h.App.TorrentClientRepository.Start()
 		if !ok {
 			return h.RespondWithError(c, errors.New("could not start torrent client, verify your settings"))
@@ -94,8 +97,21 @@ func (h *Handler) HandleTorrentClientAction(c echo.Context) error {
 			return h.RespondWithError(c, err)
 		}
 	case "open":
+		// Ensure the directory exists before attempting to open it, avoiding arbitrary string execution
 		if b.Dir == "" {
 			return h.RespondWithError(c, errors.New("directory not found"))
+		}
+		stat, err := os.Stat(b.Dir)
+		if err != nil {
+			return h.RespondWithError(c, errors.New("directory does not exist"))
+		}
+		// If it's a file, open its parent directory
+		if !stat.IsDir() {
+			b.Dir = filepath.Dir(b.Dir)
+		}
+
+		if err := h.guardPrivilegedLocalExecution(c); err != nil {
+			return err
 		}
 		OpenDirInExplorer(b.Dir)
 	}
@@ -191,12 +207,24 @@ func (h *Handler) HandleTorrentClientDownload(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
 	if b.Destination == "" {
 		return h.RespondWithError(c, errors.New("destination not found"))
 	}
 
 	if !filepath.IsAbs(b.Destination) {
 		return h.RespondWithError(c, errors.New("destination path must be absolute"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
 	}
 
 	// Check that the destination path is a library path
@@ -210,6 +238,9 @@ func (h *Handler) HandleTorrentClientDownload(c echo.Context) error {
 	//}
 
 	// try to start torrent client if it's not running
+	if err := h.guardPrivilegedTorrentClient(c, h.App.Settings); err != nil {
+		return err
+	}
 	ok := h.App.TorrentClientRepository.Start()
 	if !ok {
 		return h.RespondWithError(c, errors.New("could not contact torrent client, verify your settings or make sure it's running"))
@@ -319,6 +350,10 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
 	if b.RuleId == 0 || (b.MagnetUrl == "" && b.QueuedItemId == 0) {
 		return h.RespondWithError(c, errors.New("missing parameters"))
 	}
@@ -349,7 +384,18 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if !filepath.IsAbs(rule.Destination) {
+		return h.RespondWithError(c, errors.New("destination path must be absolute"))
+	}
+
+	if err := h.guardStrictFilesystemPath(c, rule.Destination); err != nil {
+		return err
+	}
+
 	// try to start torrent client if it's not running
+	if err := h.guardPrivilegedTorrentClient(c, h.App.Settings); err != nil {
+		return err
+	}
 	ok := h.App.TorrentClientRepository.Start()
 	if !ok {
 		return h.RespondWithError(c, errors.New("could not start torrent client, verify your settings"))

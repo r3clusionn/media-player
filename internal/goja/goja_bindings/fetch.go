@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	"strings"
 	"sync/atomic"
@@ -347,6 +348,11 @@ func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 	// Check if URL is allowed based on domain restrictions
 	if !f.isURLAllowed(url) {
 		reject(NewError(f.vm, fmt.Errorf("network access denied: URL '%s' does not match any allowed domain patterns", url)))
+		return f.vm.ToValue(promise)
+	}
+
+	if err := security.ValidateOutboundUrl(url); err != nil {
+		reject(NewError(f.vm, err))
 		return f.vm.ToValue(promise)
 	}
 

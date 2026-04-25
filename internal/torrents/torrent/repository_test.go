@@ -12,9 +12,24 @@ import (
 	"seanime/internal/api/metadata_provider"
 	"seanime/internal/extension"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
+	"seanime/internal/hook"
+	"seanime/internal/hook_resolver"
 	"seanime/internal/testmocks"
 	"seanime/internal/util"
 )
+
+func useTestHookManager(t *testing.T) hook.Manager {
+	t.Helper()
+
+	prev := hook.GlobalHookManager
+	hm := hook.NewHookManager(hook.NewHookManagerOptions{Logger: util.NewLogger()})
+	hook.SetGlobalHookManager(hm)
+	t.Cleanup(func() {
+		hook.SetGlobalHookManager(prev)
+	})
+
+	return hm
+}
 
 func TestRepositoryProviderSelection(t *testing.T) {
 	mainProvider := newStubAnimeProvider(hibiketorrent.AnimeProviderSettings{Type: hibiketorrent.AnimeProviderTypeMain})
@@ -102,6 +117,94 @@ func TestSearchAnimeSimpleFallbackDedupAndSorting(t *testing.T) {
 	require.Equal(t, "Example Show", lastSearch.Query)
 	require.Equal(t, media.ID, lastSearch.Media.ID)
 	require.Equal(t, media.GetTotalEpisodeCount(), lastSearch.Media.EpisodeCount)
+}
+
+func TestSearchAnimeUsesRequestedHookOverride(t *testing.T) {
+	metadataCache.Clear()
+	hm := useTestHookManager(t)
+	provider := newStubAnimeProvider(hibiketorrent.AnimeProviderSettings{Type: hibiketorrent.AnimeProviderTypeMain})
+	provider.searchResults = []*hibiketorrent.AnimeTorrent{{
+		Name:     "[Provider] Example Show - 01 (1080p).mkv",
+		InfoHash: "provider-hash",
+		Seeders:  10,
+	}}
+
+	hm.OnTorrentSearchRequested().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*TorrentSearchRequestedEvent)
+		event.SearchData = &SearchData{
+			Torrents: []*hibiketorrent.AnimeTorrent{{
+				Name:     "[Hook] Example Show - 01 (1080p).mkv",
+				InfoHash: "hook-hash",
+				Seeders:  99,
+			}},
+		}
+		event.PreventDefault()
+		return event.Next()
+	})
+
+	repo := newTorrentRepositoryForTests(map[string]*stubAnimeProvider{"main": provider}, testmocks.NewFakeMetadataProviderBuilder().Build())
+	repo.SetSettings(&RepositorySettings{DefaultAnimeProvider: "main"})
+
+	media := testmocks.NewBaseAnimeBuilder(101, "Example Show").WithEpisodes(12).Build()
+
+	result, err := repo.SearchAnime(context.Background(), AnimeSearchOptions{
+		Provider: "main",
+		Type:     AnimeSearchTypeSimple,
+		Media:    media,
+		Query:    "Example Show",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, provider.searchCallsCount())
+	require.Len(t, result.Torrents, 1)
+	require.Equal(t, "hook-hash", result.Torrents[0].InfoHash)
+}
+
+func TestSearchAnimeAppliesSearchHookBeforeCaching(t *testing.T) {
+	metadataCache.Clear()
+	hm := useTestHookManager(t)
+	provider := newStubAnimeProvider(hibiketorrent.AnimeProviderSettings{Type: hibiketorrent.AnimeProviderTypeMain})
+	provider.searchResults = []*hibiketorrent.AnimeTorrent{{
+		Name:     "[Provider] Example Show - 01 (1080p).mkv",
+		InfoHash: "provider-hash",
+		Seeders:  10,
+	}}
+
+	hookCalls := 0
+	hm.OnTorrentSearch().BindFunc(func(e hook_resolver.Resolver) error {
+		event := e.(*TorrentSearchEvent)
+		hookCalls++
+		event.SearchData.Torrents = append(event.SearchData.Torrents, &hibiketorrent.AnimeTorrent{
+			Name:     "[Hook] Example Show Batch (1080p).mkv",
+			InfoHash: "hook-added",
+			Seeders:  50,
+		})
+		return event.Next()
+	})
+
+	repo := newTorrentRepositoryForTests(map[string]*stubAnimeProvider{"main": provider}, testmocks.NewFakeMetadataProviderBuilder().Build())
+	repo.SetSettings(&RepositorySettings{DefaultAnimeProvider: "main"})
+
+	media := testmocks.NewBaseAnimeBuilder(102, "Example Show").WithEpisodes(12).Build()
+	searchOpts := AnimeSearchOptions{
+		Provider: "main",
+		Type:     AnimeSearchTypeSimple,
+		Media:    media,
+		Query:    "Example Show",
+	}
+
+	result, err := repo.SearchAnime(context.Background(), searchOpts)
+	require.NoError(t, err)
+	require.Len(t, result.Torrents, 2)
+	require.Equal(t, 1, provider.searchCallsCount())
+	require.Equal(t, 1, hookCalls)
+
+	cached, err := repo.SearchAnime(context.Background(), searchOpts)
+	require.NoError(t, err)
+	require.Len(t, cached.Torrents, 2)
+	require.Equal(t, "hook-added", cached.Torrents[0].InfoHash)
+	require.Equal(t, 1, provider.searchCallsCount())
+	require.Equal(t, 1, hookCalls)
 }
 
 func TestSearchAnimeSmartUsesMetadataAndSpecialProviders(t *testing.T) {

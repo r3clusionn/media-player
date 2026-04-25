@@ -239,6 +239,8 @@ func fromVideoCoreStatus(event *videocore.VideoStatusEvent, state *videocore.Pla
 		streamType = WatchPartyStreamTypeDebrid
 	} else if event.PlaybackType == videocore.PlaybackTypeOnlinestream {
 		streamType = WatchPartyStreamTypeOnlinestream
+	} else if event.PlaybackType == videocore.PlaybackTypeUrl {
+		// todo
 	}
 
 	return &WatchPartyPlayerVideoStatus{

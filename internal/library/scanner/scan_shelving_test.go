@@ -13,8 +13,8 @@ import (
 )
 
 func TestScanner_Shelving(t *testing.T) {
-	harness := newScannerFixtureHarness(t)
-	logger := harness.Logger
+	wrapper := newScannerFixtureWrapper(t)
+	logger := wrapper.Logger
 
 	// a temporary directory for the library
 	tempDir, err := os.MkdirTemp("", "seanime_test_library")
@@ -44,8 +44,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
-			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](wrapper.Platform),
+			MetadataProviderRef:  util.NewRef(wrapper.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -89,8 +89,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
-			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](wrapper.Platform),
+			MetadataProviderRef:  util.NewRef(wrapper.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -131,8 +131,8 @@ func TestScanner_Shelving(t *testing.T) {
 		scanner := &Scanner{
 			DirPath:              tempDir,
 			Enhanced:             false,
-			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
-			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](wrapper.Platform),
+			MetadataProviderRef:  util.NewRef(wrapper.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,
@@ -174,8 +174,8 @@ func TestScanner_Shelving(t *testing.T) {
 			DirPath:              tempDir,              // The main scan dir is tempDir
 			OtherDirPaths:        []string{missingDir}, // We include the missing dir as a library path
 			Enhanced:             false,
-			PlatformRef:          util.NewRef[platform.Platform](harness.Platform),
-			MetadataProviderRef:  util.NewRef(harness.MetadataProvider),
+			PlatformRef:          util.NewRef[platform.Platform](wrapper.Platform),
+			MetadataProviderRef:  util.NewRef(wrapper.MetadataProvider),
 			Logger:               logger,
 			WSEventManager:       wsEventManager,
 			ExistingLocalFiles:   existingLfs,

@@ -79,6 +79,7 @@ const (
 
 	ShowIndefiniteLoader = "show-indefinite-loader"
 	HideIndefiniteLoader = "hide-indefinite-loader"
+	ClientIdentity       = "client-identity"
 
 	// Nakama events
 	NakamaHostStarted          = "nakama-host-started"

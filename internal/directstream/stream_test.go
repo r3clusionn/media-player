@@ -423,7 +423,7 @@ func TestStream_listenToPlayerEventsIgnoresStalePlaybackTermination(t *testing.T
 		terminatedCh: make(chan struct{}),
 	}
 	manager.currentStream = mo.Some[Stream](stream)
-	manager.currentPlaybackID = "current-playback-id"
+	manager.currentPlaybackId = "current-playback-id"
 	manager.currentPlaybackClient = "player-client"
 
 	t.Cleanup(func() {

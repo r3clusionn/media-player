@@ -70,7 +70,23 @@ func (pm *PlaybackManager) handleTrackingStarted(status *mediaplayer.PlaybackSta
 
 	// Set the current media playback status
 	pm.currentMediaPlaybackStatus = status
-	// Get the playback state
+
+	// Retrieve data about the current video playback
+	// Set PlaybackManager.currentMediaListEntry to the list entry of the current video
+	currentMediaListEntry, currentLocalFile, currentLocalFileWrapperEntry, err := pm.getLocalFilePlaybackDetails(status.Filepath)
+	if err != nil {
+		pm.Logger.Error().Err(err).Msg("playback manager: Failed to get media data")
+		// Send error event to the client
+		pm.wsEventManager.SendEvent(events.ErrorToast, err.Error())
+		//
+		pm.MediaPlayerRepository.Cancel()
+		return
+	}
+
+	pm.currentMediaListEntry = mo.Some(currentMediaListEntry)
+	pm.currentLocalFile = mo.Some(currentLocalFile)
+	pm.currentLocalFileWrapperEntry = mo.Some(currentLocalFileWrapperEntry)
+	// Get the playback state after swapping in the new local-file metadata.
 	_ps := pm.getLocalFilePlaybackState(status)
 	// Log
 	pm.Logger.Debug().Msg("playback manager: Tracking started, extracting metadata...")
@@ -88,22 +104,6 @@ func (pm *PlaybackManager) handleTrackingStarted(status *mediaplayer.PlaybackSta
 			return true
 		})
 	}()
-
-	// Retrieve data about the current video playback
-	// Set PlaybackManager.currentMediaListEntry to the list entry of the current video
-	currentMediaListEntry, currentLocalFile, currentLocalFileWrapperEntry, err := pm.getLocalFilePlaybackDetails(status.Filepath)
-	if err != nil {
-		pm.Logger.Error().Err(err).Msg("playback manager: Failed to get media data")
-		// Send error event to the client
-		pm.wsEventManager.SendEvent(events.ErrorToast, err.Error())
-		//
-		pm.MediaPlayerRepository.Cancel()
-		return
-	}
-
-	pm.currentMediaListEntry = mo.Some(currentMediaListEntry)
-	pm.currentLocalFile = mo.Some(currentLocalFile)
-	pm.currentLocalFileWrapperEntry = mo.Some(currentLocalFileWrapperEntry)
 	pm.Logger.Debug().
 		Str("media", pm.currentMediaListEntry.MustGet().GetMedia().GetPreferredTitle()).
 		Int("episode", pm.currentLocalFile.MustGet().GetEpisodeNumber()).

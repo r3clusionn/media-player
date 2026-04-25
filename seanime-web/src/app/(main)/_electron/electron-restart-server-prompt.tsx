@@ -4,17 +4,18 @@ import { isUpdateInstalledAtom, isUpdatingAtom } from "@/app/(main)/_electron/el
 import { websocketConnectedAtom, websocketConnectionErrorCountAtom } from "@/app/websocket-provider"
 import { LuffyError } from "@/components/shared/luffy-error"
 import { Button } from "@/components/ui/button"
-import { LoadingOverlay } from "@/components/ui/loading-spinner"
 import { Modal } from "@/components/ui/modal"
-import { useAtom, useAtomValue } from "jotai/react"
+import { useAtomValue } from "jotai/react"
 import React from "react"
 import { toast } from "sonner"
 
 export function ElectronRestartServerPrompt() {
 
+    type ServerReachability = "unknown" | "reachable" | "unreachable"
+
     const [hasRendered, setHasRendered] = React.useState(false)
 
-    const [isConnected, setIsConnected] = useAtom(websocketConnectedAtom)
+    const isConnected = useAtomValue(websocketConnectedAtom)
     const connectionErrorCount = useAtomValue(websocketConnectionErrorCountAtom)
     const [hasClickedRestarted, setHasClickedRestarted] = React.useState(false)
     const isUpdatedInstalled = useAtomValue(isUpdateInstalledAtom)
@@ -22,27 +23,40 @@ export function ElectronRestartServerPrompt() {
 
     // Check if the server requires a password (no router dependency)
     const [serverHasPassword, setServerHasPassword] = React.useState(false)
+    const [serverReachability, setServerReachability] = React.useState<ServerReachability>("unknown")
     const serverAuthToken = useAtomValue(serverAuthTokenAtom)
 
-    React.useEffect(() => {
-        let cancelled = false
-        const checkStatus = async () => {
-            try {
-                const res = await fetch(`${getServerBaseUrl()}/api/v1/status`)
-                if (res.ok) {
-                    const json = await res.json() as any
-                    if (!cancelled) {
-                        setServerHasPassword(!!json?.data?.serverHasPassword)
-                    }
-                }
+    const probeServerHealth = React.useCallback(async () => {
+        try {
+            const headers: Record<string, string> = {}
+            if (serverAuthToken) {
+                headers["X-Seanime-Token"] = serverAuthToken
             }
-            catch {
-                // Server unreachable, leave as false
+
+            const res = await fetch(`${getServerBaseUrl()}/api/v1/status`, {
+                headers,
+                cache: "no-store",
+            })
+
+            if (!res.ok) {
+                setServerReachability("unreachable")
+                return false
             }
+
+            const json = await res.json() as { data?: { serverHasPassword?: boolean } }
+            setServerHasPassword(!!json?.data?.serverHasPassword)
+            setServerReachability("reachable")
+            return true
         }
-        checkStatus()
-        return () => { cancelled = true }
-    }, [])
+        catch {
+            setServerReachability("unreachable")
+            return false
+        }
+    }, [serverAuthToken])
+
+    React.useEffect(() => {
+        probeServerHealth()
+    }, [probeServerHealth])
 
     const threshold = 8
 
@@ -54,6 +68,25 @@ export function ElectronRestartServerPrompt() {
             }
         })()
     }, [])
+
+    React.useEffect(() => {
+        if (isConnected || !hasRendered) {
+            if (isConnected) {
+                setServerReachability("reachable")
+            }
+            return
+        }
+
+        probeServerHealth()
+
+        const interval = setInterval(() => {
+            probeServerHealth()
+        }, 2000)
+
+        return () => {
+            clearInterval(interval)
+        }
+    }, [hasRendered, isConnected, probeServerHealth])
 
     const handleRestart = async () => {
         if (import.meta.env.MODE === "development") return toast.warning("Dev mode: Not restarting server")
@@ -72,16 +105,24 @@ export function ElectronRestartServerPrompt() {
 
     // Server is reachable but user hasn't logged in yet
     const isUnauthenticated = (serverHasPassword && !serverAuthToken) || import.meta.env.MODE === "development"
+    const isServerUnavailable = serverReachability === "unreachable"
 
     // Try to reconnect automatically
     const tryAutoReconnectRef = React.useRef(true)
     React.useEffect(() => {
-        if (!isConnected && connectionErrorCount >= threshold && tryAutoReconnectRef.current && !isUpdatedInstalled && !isUnauthenticated) {
+        if (
+            !isConnected
+            && isServerUnavailable
+            && connectionErrorCount >= threshold
+            && tryAutoReconnectRef.current
+            && !isUpdatedInstalled
+            && !isUnauthenticated
+        ) {
             tryAutoReconnectRef.current = false
             console.log("Connection error count reached 10, restarting server automatically")
             handleRestart()
         }
-    }, [connectionErrorCount, isUnauthenticated])
+    }, [connectionErrorCount, isConnected, isServerUnavailable, isUnauthenticated, isUpdatedInstalled])
 
     React.useEffect(() => {
         if (isConnected) {
@@ -96,15 +137,15 @@ export function ElectronRestartServerPrompt() {
     return (
         <>
             {(!isConnected && connectionErrorCount > 2 && connectionErrorCount < threshold && !isUpdating && !isUpdatedInstalled) && (
-                <LoadingOverlay className="fixed left-0 top-0 z-[9999]">
-                    <p>
-                        The server connection has been lost. Please wait while we attempt to reconnect.
-                    </p>
-                </LoadingOverlay>
+                <div className="fixed top-4 left-1/2 z-[9999] -translate-x-1/2 rounded-full border bg-orange-950/85 px-4 py-2 text-sm text-gray-200 shadow-lg backdrop-blur-sm">
+                    {isServerUnavailable
+                        ? "The background server is not responding. Trying to recover..."
+                        : "Reconnecting to the background server..."}
+                </div>
             )}
 
             <Modal
-                open={!isConnected && connectionErrorCount >= threshold && !isUpdatedInstalled}
+                open={!isConnected && isServerUnavailable && connectionErrorCount >= threshold && !isUpdatedInstalled}
                 onOpenChange={() => {}}
                 hideCloseButton
                 contentClass="max-w-2xl"

@@ -8,6 +8,7 @@ import (
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/plugin"
+	"seanime/internal/security"
 	gojautil "seanime/internal/util/goja"
 	"seanime/internal/util/result"
 	"sync"
@@ -79,6 +80,7 @@ type Context struct {
 	trayManager           *TrayManager           // Register and manage tray
 	webviewManager        *WebviewManager        // Register and manage webviews
 	actionManager         *ActionManager         // Register and manage actions
+	episodeTabManager     *EpisodeTabManager     // Register and manage anime entry episode tabs
 	formManager           *FormManager           // Register and manage forms
 	toastManager          *ToastManager          // Register and manage toasts
 	commandPaletteManager *CommandPaletteManager // Register and manage command palette
@@ -145,6 +147,7 @@ func NewContext(ui *UI) *Context {
 	ret.trayManager = NewTrayManager(ret)
 	ret.webviewManager = NewWebviewManager(ret)
 	ret.actionManager = NewActionManager(ret)
+	ret.episodeTabManager = NewEpisodeTabManager(ret)
 	ret.webviewManager = NewWebviewManager(ret)
 	ret.screenManager = NewScreenManager(ret)
 	ret.formManager = NewFormManager(ret)
@@ -188,7 +191,9 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 
 	c.bindFetch(obj, c.ext.Plugin.Permissions.GetNetworkAccessAllowedDomains(), c.anilistToken)
 	c.bindAbortContext()
-	c.bindChromeDP(obj)
+	if !security.IsStrict() {
+		c.bindChromeDP(obj)
+	}
 	// Bind screen manager
 	c.screenManager.bind(obj)
 	// Bind action manager
@@ -201,6 +206,7 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindMangaToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind anime
 	plugin.GlobalAppContext.BindAnimeToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	c.episodeTabManager.bindAnime(obj.Get("anime").ToObject(vm))
 	// Bind continuity
 	plugin.GlobalAppContext.BindContinuityToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind filler manager
@@ -209,6 +215,12 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindAutoDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind auto scanner
 	plugin.GlobalAppContext.BindAutoScannerToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind auto select profile helpers
+	plugin.GlobalAppContext.BindAutoSelectToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind torrent search helpers
+	plugin.GlobalAppContext.BindTorrentSearchToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+	// Bind manual scanner helpers
+	plugin.GlobalAppContext.BindScannerToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind external player link
 	plugin.GlobalAppContext.BindExternalPlayerLinkToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 	// Bind onlinestream
@@ -217,14 +229,25 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	plugin.GlobalAppContext.BindMediastreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 
 	if c.ext.Plugin != nil {
+		hasPlayback := false
+		hasDebrid := false
 		for _, permission := range c.ext.Plugin.Permissions.Scopes {
 			switch permission {
 			case extension.PluginPermissionPlayback:
-				// Bind playback to the context object
-				plugin.GlobalAppContext.BindPlaybackToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				hasPlayback = true
+				if !security.IsStrict() {
+					// playback can bridge into external players or mpv sockets, so keep it out of strict mode
+					plugin.GlobalAppContext.BindPlaybackToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
+				plugin.GlobalAppContext.BindTorrentstreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 				plugin.GlobalAppContext.BindVideoCoreToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+			case extension.PluginPermissionDebrid:
+				hasDebrid = true
+				plugin.GlobalAppContext.BindDebridToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 			case extension.PluginPermissionSystem:
-				plugin.GlobalAppContext.BindDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindDownloaderToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 			case extension.PluginPermissionCron:
 				// Bind cron to the context object
 				cron := plugin.GlobalAppContext.BindCronToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
@@ -236,9 +259,14 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 				// Bind discord to the context object
 				plugin.GlobalAppContext.BindDiscordToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 			case extension.PluginPermissionTorrentClient:
-				// Bind torrent client to the context object
-				plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 			}
+		}
+
+		if hasPlayback && hasDebrid {
+			plugin.GlobalAppContext.BindDebridstreamToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 		}
 	}
 
@@ -1327,6 +1355,7 @@ func (c *Context) Stop() {
 
 	c.actionManager.UnmountAll()
 	c.actionManager.renderAnimePageButtons()
+	c.episodeTabManager.UnmountAll()
 
 	c.logger.Debug().Msg("plugin: Stopped context")
 }

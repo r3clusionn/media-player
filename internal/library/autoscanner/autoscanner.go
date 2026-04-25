@@ -133,6 +133,44 @@ func (as *AutoScanner) SetSettings(settings models.LibrarySettings) {
 	as.settings = settings
 }
 
+func (as *AutoScanner) IsEnabled() bool {
+	if as == nil {
+		return false
+	}
+
+	as.mu.Lock()
+	defer as.mu.Unlock()
+
+	return as.enabled
+}
+
+func (as *AutoScanner) IsWaiting() bool {
+	if as == nil {
+		return false
+	}
+
+	as.mu.Lock()
+	defer as.mu.Unlock()
+
+	return as.waiting
+}
+
+func (as *AutoScanner) IsScanning() bool {
+	if as == nil {
+		return false
+	}
+
+	return as.scanning.Load()
+}
+
+func (as *AutoScanner) GetWaitTime() time.Duration {
+	if as == nil {
+		return 0
+	}
+
+	return as.waitTime
+}
+
 // watch is used to watch for file actions and trigger a scan.
 // When a file action occurs, it will wait 30 seconds before triggering a scan.
 // If another file action occurs within that 30 seconds, it will reset the timer.

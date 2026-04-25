@@ -2,6 +2,37 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.7.0
+
+- 🔒 Security overhaul
+  - Passwordless access is now local-only by default
+  - Added `securemode = "strict"` which disables certain actions and plugin capabilities
+  - Config: Added `server.accessAllowlist` `server.trustedProxies` and `server.externalUrl` (Experimental)
+  - Improved Electron security for renderers
+  - Added security checks for server-side Electron macOS updater
+  - Improved client identity security checks
+- ⚡️ Search: Support for tags #614
+- ⚡️ Plugins: New APIs and Hooks
+  - Added VideoCore play methods (#699) and skip data manipulation
+  - Added API to register an episode tab
+  - Added Auto Downloader, Torrent search hooks
+  - Added Playback, Scanner, Debrid, Torrent streaming, Torrent search, Auto-select API methods
+- ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
+- ⚡️ Windows: Use user-default explorer application
+- ⚡️ Denshi: Right-click context menu for inputs
+- ⚡️ VideoCore: Increased subtitle parsing speed for local files
+- ⚡️ Denshi Player: Fullscreen with double click instead of double right-click
+- ⚡️ Search: Global search no longer filters out adult entries
+- 🦺 Denshi: Fixed blank screen after server reconnection
+- 🦺 Playback: Fixed stale data being used for events
+- 🦺 Transcoder: Potential fix for 10bit issues with NVENC (?)
+- 🦺 Continuity: Fixed potential progress being ignored
+- 🦺 Scanner: Fixed unrelated roman numerals being treated as seasons
+- 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
+- 🦺 Plugin: Fixed $storage API returning stale data
+- 🦺 VideoCore: Fixed screenshots with Anime4K
+- 🏗️ Denshi: App startup no longer relies on websocket connection
+
 ## v3.6.1
 
 - 🦺 In-App Player: Fixed deadlock caused by stream cancellation

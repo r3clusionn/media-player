@@ -80,6 +80,26 @@ func TestExtractSeasonNumber(t *testing.T) {
 			expected: 3,
 		},
 		{
+			name:     "Roman numerals after qualifiers are ignored",
+			input:    "Diamond no Ace Act II",
+			expected: -1,
+		},
+		{
+			name:     "Real season markers still work after qualifiers",
+			input:    "Diamond no Ace Act II Second Season",
+			expected: 2,
+		},
+		{
+			name:     "Roman numerals after part are ignored",
+			input:    "Attack on Titan Part II",
+			expected: -1,
+		},
+		{
+			name:     "Roman numerals after cour are ignored",
+			input:    "Attack on Titan Cour II",
+			expected: -1,
+		},
+		{
 			name:     "Does not contain season",
 			input:    "This is a test",
 			expected: -1,

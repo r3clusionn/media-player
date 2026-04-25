@@ -3,9 +3,11 @@ package handlers
 import (
 	"fmt"
 	"net/url"
+	"seanime/internal/constants"
 	"seanime/internal/core"
 	"seanime/internal/extension"
 	"seanime/internal/extension_playground"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	"strings"
 	"sync"
@@ -29,6 +31,10 @@ func (h *Handler) HandleFetchExternalExtensionData(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
 	ext, err := h.App.ExtensionRepository.FetchExternalExtensionData(b.ManifestURI)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -50,6 +56,10 @@ func (h *Handler) HandleInstallExternalExtension(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
 	}
 
 	res, err := h.App.ExtensionRepository.InstallExternalExtension(b.ManifestURI)
@@ -76,6 +86,10 @@ func (h *Handler) HandleInstallExternalExtensionRepository(c echo.Context) error
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
 	res, err := h.App.ExtensionRepository.InstallExternalExtensions(b.RepositoryURI, b.Install)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -97,6 +111,10 @@ func (h *Handler) HandleUninstallExternalExtension(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
 	}
 
 	err := h.App.ExtensionRepository.UninstallExternalExtension(b.ID)
@@ -123,6 +141,10 @@ func (h *Handler) HandleUpdateExtensionCode(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
 	err := h.App.ExtensionRepository.UpdateExtensionCode(b.ID, b.Payload)
 	if err != nil {
 		return h.RespondWithError(c, err)
@@ -137,6 +159,10 @@ func (h *Handler) HandleUpdateExtensionCode(c echo.Context) error {
 //	@route /api/v1/extensions/external/reload [POST]
 //	@returns bool
 func (h *Handler) HandleReloadExternalExtensions(c echo.Context) error {
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
 	h.App.ExtensionRepository.ReloadExternalExtensions()
 	return h.RespondWithData(c, true)
 }
@@ -155,6 +181,11 @@ func (h *Handler) HandleReloadExternalExtension(c echo.Context) error {
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
 	h.App.ExtensionRepository.ReloadExternalExtension(b.ID)
 	return h.RespondWithData(c, true)
 }
@@ -292,7 +323,8 @@ func (h *Handler) HandleSetPluginSettingsPinnedTrays(c echo.Context) error {
 
 type pluginGrantChallenge struct {
 	code        string
-	extensionID string
+	clientId    string
+	extensionId string
 	createdAt   time.Time
 }
 
@@ -318,8 +350,13 @@ func (h *Handler) HandleGrantPluginPermissions(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	if b.ClientId == "" {
-		return h.RespondWithError(c, fmt.Errorf("clientId is required"))
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
+	contextClientId := getContextClientId(c)
+	if contextClientId == "" {
+		return h.RespondWithError(c, fmt.Errorf("client session not found"))
 	}
 
 	// client requests a challenge code
@@ -336,14 +373,15 @@ func (h *Handler) HandleGrantPluginPermissions(c echo.Context) error {
 		}
 		grantChallenges[challengeID] = &pluginGrantChallenge{
 			code:        randomCode,
-			extensionID: b.ID,
+			clientId:    contextClientId,
+			extensionId: b.ID,
 			createdAt:   time.Now(),
 		}
 		grantChallengesMu.Unlock()
 
 		// Send challenge ID and code to the client via WebSocket
 		// Format: {extensionId}$$${challengeID}:{code}
-		h.App.WSEventManager.SendEventTo(b.ClientId, "grant-plugin-permission-check", b.ID+"$$$"+challengeID+":"+randomCode)
+		h.App.WSEventManager.SendEventTo(contextClientId, "grant-plugin-permission-check", b.ID+"$$$"+challengeID+":"+randomCode)
 		return h.RespondWithData(c, false)
 	}
 
@@ -376,8 +414,12 @@ func (h *Handler) HandleGrantPluginPermissions(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("invalid verification code"))
 	}
 
+	if challenge.clientId != contextClientId {
+		return h.RespondWithError(c, fmt.Errorf("verification code does not belong to this client session"))
+	}
+
 	// ensure the code was issued for this specific extension
-	if challenge.extensionID != b.ID {
+	if challenge.extensionId != b.ID {
 		return h.RespondWithError(c, fmt.Errorf("verification code does not match the requested extension"))
 	}
 
@@ -401,6 +443,10 @@ func (h *Handler) HandleRunExtensionPlaygroundCode(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
 	}
 
 	res, err := h.App.ExtensionPlaygroundRepository.RunPlaygroundCode(b.Params)
@@ -474,6 +520,14 @@ func (h *Handler) HandleGetMarketplaceExtensions(c echo.Context) error {
 
 	if h.App.FeatureManager.IsDisabled(core.ManageExtensions) {
 		marketplaceUrl = ""
+	}
+
+	targetMarketplaceUrl := marketplaceUrl
+	if targetMarketplaceUrl == "" {
+		targetMarketplaceUrl = constants.DefaultExtensionMarketplaceURL
+	}
+	if err := security.ValidateOutboundUrl(targetMarketplaceUrl); err != nil {
+		return h.RespondWithStatusError(c, echo.ErrForbidden.Code, err)
 	}
 
 	extensions, err := h.App.ExtensionRepository.GetMarketplaceExtensions(marketplaceUrl)

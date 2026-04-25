@@ -803,12 +803,12 @@ func (c *WebviewChannel) jsSync(call goja.FunctionCall) goja.Value {
 			c.sendStateToWebview(key, state.Value.Export())
 			// send the value again just in case
 			go func() {
+				time.Sleep(1000 * time.Millisecond)
 				state, ok := c.webview.webviewManager.ctx.states.Get(stateID)
 				if !ok {
 					c.webview.webviewManager.ctx.handleTypeError("sync: state not found")
 					return
 				}
-				time.Sleep(1000 * time.Millisecond)
 				c.sendStateToWebview(key, state.Value.Export())
 			}()
 		}

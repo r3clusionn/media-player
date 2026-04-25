@@ -17,7 +17,7 @@ import (
 
 func TestNewAutoScannerAppliesDefaultsAndSetters(t *testing.T) {
 	// the constructor should apply defaults, and then the setters should override them.
-	h := newAutoScannerTestHarness(t, false, 0)
+	h := newAutoScannerTestWrapper(t, false, 0)
 
 	require.Equal(t, 15*time.Second, h.autoScanner.waitTime)
 	require.NotNil(t, h.autoScanner.fileActionCh)
@@ -35,7 +35,7 @@ func TestNewAutoScannerAppliesDefaultsAndSetters(t *testing.T) {
 	require.True(t, h.autoScanner.enabled)
 	require.Equal(t, settings, h.autoScanner.settings)
 
-	custom := newAutoScannerTestHarness(t, true, 25*time.Millisecond)
+	custom := newAutoScannerTestWrapper(t, true, 25*time.Millisecond)
 	require.Equal(t, 25*time.Millisecond, custom.autoScanner.waitTime)
 	require.True(t, custom.autoScanner.enabled)
 }
@@ -46,7 +46,7 @@ func TestAutoScannerNotifyQueuesSignalsAndMissedActions(t *testing.T) {
 	nilScanner.Notify()
 
 	t.Run("enabled queue gets a signal", func(t *testing.T) {
-		h := newAutoScannerTestHarness(t, true, 10*time.Millisecond)
+		h := newAutoScannerTestWrapper(t, true, 10*time.Millisecond)
 
 		h.autoScanner.Notify()
 
@@ -56,7 +56,7 @@ func TestAutoScannerNotifyQueuesSignalsAndMissedActions(t *testing.T) {
 	})
 
 	t.Run("disabled scanner stays quiet", func(t *testing.T) {
-		h := newAutoScannerTestHarness(t, false, 10*time.Millisecond)
+		h := newAutoScannerTestWrapper(t, false, 10*time.Millisecond)
 
 		h.autoScanner.Notify()
 
@@ -65,7 +65,7 @@ func TestAutoScannerNotifyQueuesSignalsAndMissedActions(t *testing.T) {
 	})
 
 	t.Run("waiting scanner marks the action as missed", func(t *testing.T) {
-		h := newAutoScannerTestHarness(t, true, 10*time.Millisecond)
+		h := newAutoScannerTestWrapper(t, true, 10*time.Millisecond)
 		h.autoScanner.waiting = true
 
 		h.autoScanner.Notify()
@@ -77,7 +77,7 @@ func TestAutoScannerNotifyQueuesSignalsAndMissedActions(t *testing.T) {
 
 func TestAutoScannerWaitAndScanDebouncesMissedActions(t *testing.T) {
 	// when another file event lands during the wait window, we should restart the timer and still scan once.
-	h := newAutoScannerTestHarness(t, true, 25*time.Millisecond)
+	h := newAutoScannerTestWrapper(t, true, 25*time.Millisecond)
 	h.seedSettings(t, "")
 
 	startedAt := time.Now()
@@ -109,7 +109,7 @@ func TestAutoScannerWaitAndScanDebouncesMissedActions(t *testing.T) {
 
 func TestAutoScannerRunNowBypassesEnabledFlag(t *testing.T) {
 	// even if the scanner is disabled, RunNow should trigger a scan
-	h := newAutoScannerTestHarness(t, false, 10*time.Millisecond)
+	h := newAutoScannerTestWrapper(t, false, 10*time.Millisecond)
 	h.seedSettings(t, "")
 
 	h.autoScanner.RunNow()
@@ -125,7 +125,7 @@ func TestAutoScannerRunNowBypassesEnabledFlag(t *testing.T) {
 
 func TestAutoScannerScanSkipsConcurrentRuns(t *testing.T) {
 	// the compare-and-swap guard should keep a second scan from even starting.
-	h := newAutoScannerTestHarness(t, true, 10*time.Millisecond)
+	h := newAutoScannerTestWrapper(t, true, 10*time.Millisecond)
 	h.autoScanner.scanning.Store(true)
 	t.Cleanup(func() {
 		h.autoScanner.scanning.Store(false)
@@ -137,14 +137,14 @@ func TestAutoScannerScanSkipsConcurrentRuns(t *testing.T) {
 	require.True(t, h.autoScanner.scanning.Load())
 }
 
-type autoScannerTestHarness struct {
+type autoScannerTestWrapper struct {
 	database       *db.Database
 	wsEventManager *recordingWSEventManager
 	autoScanner    *AutoScanner
 	refreshCalls   atomic.Int32
 }
 
-func newAutoScannerTestHarness(t *testing.T, enabled bool, waitTime time.Duration) *autoScannerTestHarness {
+func newAutoScannerTestWrapper(t *testing.T, enabled bool, waitTime time.Duration) *autoScannerTestWrapper {
 	t.Helper()
 
 	resetAutoscannerTestState(t)
@@ -153,7 +153,7 @@ func newAutoScannerTestHarness(t *testing.T, enabled bool, waitTime time.Duratio
 	logger := util.NewLogger()
 	database := env.MustNewDatabase(logger)
 	wsEventManager := &recordingWSEventManager{MockWSEventManager: events.NewMockWSEventManager(logger)}
-	h := &autoScannerTestHarness{
+	h := &autoScannerTestWrapper{
 		database:       database,
 		wsEventManager: wsEventManager,
 	}
@@ -171,7 +171,7 @@ func newAutoScannerTestHarness(t *testing.T, enabled bool, waitTime time.Duratio
 	return h
 }
 
-func (h *autoScannerTestHarness) seedSettings(t *testing.T, libraryPath string) {
+func (h *autoScannerTestWrapper) seedSettings(t *testing.T, libraryPath string) {
 	t.Helper()
 
 	_, err := h.database.UpsertSettings(&models.Settings{

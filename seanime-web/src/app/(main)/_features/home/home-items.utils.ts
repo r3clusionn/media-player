@@ -257,6 +257,10 @@ export const HOME_ITEMS = {
                         label: "Current",
                     },
                     {
+                        value: "REPEATING",
+                        label: "Repeating",
+                    },
+                    {
                         value: "PAUSED",
                         label: "Paused",
                     },

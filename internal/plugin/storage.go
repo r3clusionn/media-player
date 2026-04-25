@@ -8,6 +8,7 @@ import (
 	gojautil "seanime/internal/util/goja"
 	"seanime/internal/util/result"
 	"strings"
+	"sync"
 
 	"github.com/dop251/goja"
 	"github.com/rs/zerolog"
@@ -15,34 +16,94 @@ import (
 )
 
 // Storage is used to store data for an extension.
-// A new instance is created for each extension.
+// A new binding is created for each runtime, but the cache and watchers are shared per extension.
 type Storage struct {
-	ctx            *AppContextImpl
-	ext            *extension.Extension
-	logger         *zerolog.Logger
-	runtime        *goja.Runtime
-	keyDataCache   *result.Map[string, interface{}]        // Cache to avoid repeated database calls
-	keySubscribers *result.Map[string, []chan interface{}] // Subscribers for key changes
-	scheduler      *gojautil.Scheduler
+	ctx       *AppContextImpl
+	ext       *extension.Extension
+	logger    *zerolog.Logger
+	runtime   *goja.Runtime
+	state     *storageState
+	scheduler *gojautil.Scheduler
+}
+
+type storageState struct {
+	keyDataCache   *result.Map[string, interface{}]
+	keySubscribers *result.Map[string, []*storageSubscriber]
+	stopOnce       sync.Once
+}
+
+type storageSubscriber struct {
+	channel   chan interface{}
+	closeOnce sync.Once
 }
 
 var (
 	ErrDatabaseNotInitialized = errors.New("database is not initialized")
+	storageStates             = result.NewMap[string, *storageState]()
+	storageStatesMu           sync.Mutex
 )
+
+func getOrCreateStorageState(extID string) *storageState {
+	if state, ok := storageStates.Get(extID); ok {
+		return state
+	}
+
+	storageStatesMu.Lock()
+	defer storageStatesMu.Unlock()
+
+	if state, ok := storageStates.Get(extID); ok {
+		return state
+	}
+
+	state := &storageState{
+		keyDataCache:   result.NewMap[string, interface{}](),
+		keySubscribers: result.NewMap[string, []*storageSubscriber](),
+	}
+	storageStates.Set(extID, state)
+	return state
+}
+
+func (s *storageSubscriber) notify(value interface{}) {
+	defer func() {
+		_ = recover()
+	}()
+
+	select {
+	case s.channel <- value:
+	default:
+	}
+}
+
+func (s *storageSubscriber) close() {
+	s.closeOnce.Do(func() {
+		close(s.channel)
+	})
+}
+
+func (s *storageState) stop() {
+	s.stopOnce.Do(func() {
+		s.keySubscribers.Range(func(key string, subscribers []*storageSubscriber) bool {
+			for _, subscriber := range subscribers {
+				subscriber.close()
+			}
+			return true
+		})
+		s.keySubscribers.Clear()
+		s.keyDataCache.Clear()
+	})
+}
 
 // BindStorage binds the storage API to the Goja runtime.
 // Permissions need to be checked by the caller.
 // Permissions needed: storage
 func (a *AppContextImpl) BindStorage(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) *Storage {
-	storageLogger := logger.With().Str("id", ext.ID).Logger()
 	storage := &Storage{
-		ctx:            a,
-		ext:            ext,
-		logger:         &storageLogger,
-		runtime:        vm,
-		keyDataCache:   result.NewMap[string, interface{}](),
-		keySubscribers: result.NewMap[string, []chan interface{}](),
-		scheduler:      scheduler,
+		ctx:       a,
+		ext:       ext,
+		logger:    new(logger.With().Str("id", ext.ID).Logger()),
+		runtime:   vm,
+		state:     getOrCreateStorageState(ext.ID),
+		scheduler: scheduler,
 	}
 	storageObj := vm.NewObject()
 	_ = storageObj.Set("get", storage.Get)
@@ -60,13 +121,10 @@ func (a *AppContextImpl) BindStorage(vm *goja.Runtime, logger *zerolog.Logger, e
 
 // Stop closes all subscriber channels.
 func (s *Storage) Stop() {
-	s.keySubscribers.Range(func(key string, subscribers []chan interface{}) bool {
-		for _, ch := range subscribers {
-			close(ch)
-		}
-		return true
-	})
-	s.keySubscribers.Clear()
+	s.state.stop()
+	storageStatesMu.Lock()
+	defer storageStatesMu.Unlock()
+	storageStates.Delete(s.ext.ID)
 }
 
 // getDB returns the database instance or an error if not initialized
@@ -143,7 +201,7 @@ func (s *Storage) saveDataMap(pluginData *models.PluginData, data map[string]int
 	}
 
 	// Clear all caches
-	s.keyDataCache.Clear()
+	s.state.keyDataCache.Clear()
 
 	return nil
 }
@@ -336,14 +394,9 @@ func getAllKeys(data map[string]interface{}, prefix string) []string {
 // If the value is nil, it indicates the key was deleted
 func (s *Storage) notifyKeyAndParents(key string, value interface{}, data map[string]interface{}) {
 	// Notify direct subscribers of this key
-	if subscribers, ok := s.keySubscribers.Get(key); ok {
-		for _, ch := range subscribers {
-			// Non-blocking send to avoid deadlocks
-			select {
-			case ch <- value:
-			default:
-				// Channel is full or closed, skip
-			}
+	if subscribers, ok := s.state.keySubscribers.Get(key); ok {
+		for _, subscriber := range subscribers {
+			subscriber.notify(value)
 		}
 	}
 
@@ -352,16 +405,11 @@ func (s *Storage) notifyKeyAndParents(key string, value interface{}, data map[st
 		parts := strings.Split(key, ".")
 		for i := 1; i < len(parts); i++ {
 			parentKey := strings.Join(parts[:i], ".")
-			if subscribers, ok := s.keySubscribers.Get(parentKey); ok {
+			if subscribers, ok := s.state.keySubscribers.Get(parentKey); ok {
 				// Get the current parent value
 				parentValue := getNestedValue(data, parentKey)
-				for _, ch := range subscribers {
-					// Non-blocking send to avoid deadlocks
-					select {
-					case ch <- parentValue:
-					default:
-						// Channel is full or closed, skip
-					}
+				for _, subscriber := range subscribers {
+					subscriber.notify(parentValue)
 				}
 			}
 		}
@@ -371,12 +419,12 @@ func (s *Storage) notifyKeyAndParents(key string, value interface{}, data map[st
 // invalidateKeyAndChildren removes a key and all its nested children from the cache
 func (s *Storage) invalidateKeyAndChildren(key string) {
 	// Remove the key itself
-	s.keyDataCache.Delete(key)
+	s.state.keyDataCache.Delete(key)
 
 	// Remove all child keys (keys that start with "key.")
 	prefix := key + "."
 	var keysToDelete []string
-	s.keyDataCache.Range(func(k string, v interface{}) bool {
+	s.state.keyDataCache.Range(func(k string, v interface{}) bool {
 		if strings.HasPrefix(k, prefix) {
 			keysToDelete = append(keysToDelete, k)
 		}
@@ -384,7 +432,27 @@ func (s *Storage) invalidateKeyAndChildren(key string) {
 	})
 
 	for _, k := range keysToDelete {
-		s.keyDataCache.Delete(k)
+		s.state.keyDataCache.Delete(k)
+	}
+}
+
+func (s *Storage) removeSubscriber(key string, target *storageSubscriber) {
+	existingSubscribers, ok := s.state.keySubscribers.Get(key)
+	if !ok {
+		return
+	}
+
+	newSubscribers := make([]*storageSubscriber, 0, len(existingSubscribers))
+	for _, subscriber := range existingSubscribers {
+		if subscriber != target {
+			newSubscribers = append(newSubscribers, subscriber)
+		}
+	}
+
+	if len(newSubscribers) > 0 {
+		s.state.keySubscribers.Set(key, newSubscribers)
+	} else {
+		s.state.keySubscribers.Delete(key)
 	}
 }
 
@@ -392,19 +460,19 @@ func (s *Storage) Watch(key string, callback goja.Callable) goja.Value {
 	s.logger.Trace().Msgf("plugin: Watching key %s", key)
 
 	// Create a channel to receive updates
-	updateCh := make(chan interface{}, 100)
+	subscriber := &storageSubscriber{channel: make(chan interface{}, 100)}
 
 	// Add this channel to the subscribers for this key
-	subscribers := []chan interface{}{}
-	if existingSubscribers, ok := s.keySubscribers.Get(key); ok {
+	subscribers := []*storageSubscriber{}
+	if existingSubscribers, ok := s.state.keySubscribers.Get(key); ok {
 		subscribers = existingSubscribers
 	}
-	subscribers = append(subscribers, updateCh)
-	s.keySubscribers.Set(key, subscribers)
+	subscribers = append(subscribers, subscriber)
+	s.state.keySubscribers.Set(key, subscribers)
 
 	// Start a goroutine to listen for updates
 	go func() {
-		for value := range updateCh {
+		for value := range subscriber.channel {
 			// Call the callback with the new value
 			s.scheduler.ScheduleAsync(func() error {
 				_, err := callback(goja.Undefined(), s.runtime.ToValue(value))
@@ -420,32 +488,13 @@ func (s *Storage) Watch(key string, callback goja.Callable) goja.Value {
 	// This allows watchers to get the current value right away
 	currentValue, _ := s.Get(key)
 	if currentValue != nil {
-		// Use non-blocking send
-		select {
-		case updateCh <- currentValue:
-		default:
-			// Channel is full, skip
-		}
+		subscriber.notify(currentValue)
 	}
 
 	// Return a function that can be used to cancel the watch
 	cancelFn := func() {
-		close(updateCh)
-		// Remove this specific channel from subscribers
-		if existingSubscribers, ok := s.keySubscribers.Get(key); ok {
-			newSubscribers := make([]chan interface{}, 0, len(existingSubscribers)-1)
-			for _, ch := range existingSubscribers {
-				if ch != updateCh {
-					newSubscribers = append(newSubscribers, ch)
-				}
-			}
-
-			if len(newSubscribers) > 0 {
-				s.keySubscribers.Set(key, newSubscribers)
-			} else {
-				s.keySubscribers.Delete(key)
-			}
-		}
+		subscriber.close()
+		s.removeSubscriber(key, subscriber)
 	}
 
 	return s.runtime.ToValue(cancelFn)
@@ -494,7 +543,7 @@ func (s *Storage) Drop() error {
 	// s.keySubscribers.Clear()
 
 	// Clear caches
-	s.keyDataCache.Clear()
+	s.state.keyDataCache.Clear()
 
 	db, err := s.getDB()
 	if err != nil {
@@ -508,7 +557,7 @@ func (s *Storage) Clear() error {
 	s.logger.Trace().Msg("plugin: Clearing storage")
 
 	// Clear key cache
-	s.keyDataCache.Clear()
+	s.state.keyDataCache.Clear()
 
 	pluginData, err := s.getPluginData(true)
 	if err != nil {
@@ -559,7 +608,7 @@ func (s *Storage) Keys() ([]string, error) {
 
 func (s *Storage) Has(key string) (bool, error) {
 	// Check key cache first
-	if s.keyDataCache.Has(key) {
+	if s.state.keyDataCache.Has(key) {
 		return true, nil
 	}
 
@@ -582,7 +631,7 @@ func (s *Storage) Has(key string) (bool, error) {
 	if exists {
 		value := getNestedValue(data, key)
 		if value != nil {
-			s.keyDataCache.Set(key, value)
+			s.state.keyDataCache.Set(key, value)
 		}
 	}
 
@@ -591,7 +640,7 @@ func (s *Storage) Has(key string) (bool, error) {
 
 func (s *Storage) Get(key string) (interface{}, error) {
 	// Check key cache first
-	if cachedValue, ok := s.keyDataCache.Get(key); ok {
+	if cachedValue, ok := s.state.keyDataCache.Get(key); ok {
 		return cachedValue, nil
 	}
 
@@ -609,7 +658,7 @@ func (s *Storage) Get(key string) (interface{}, error) {
 
 	// Cache the value
 	if value != nil {
-		s.keyDataCache.Set(key, value)
+		s.state.keyDataCache.Set(key, value)
 	}
 
 	return value, nil
@@ -639,7 +688,7 @@ func (s *Storage) Set(key string, value interface{}) error {
 	}
 
 	// Update key cache
-	s.keyDataCache.Set(key, value)
+	s.state.keyDataCache.Set(key, value)
 
 	// Notify subscribers
 	s.notifyKeyAndParents(key, value, data)
