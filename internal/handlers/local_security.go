@@ -26,8 +26,22 @@ var errStrictLocalOnlyDenied = errors.New("this action requires a trusted local 
 
 var errStrictFilesystemPathDenied = errors.New("this path is not allowed when secure mode is strict")
 
-func isStrictModeSensitive(req *http.Request, serverPassword string) bool {
-	return security.IsStrict() && serverPassword == "" && !isRequestFromTrustedOrigin(req)
+var errGuardResponseWritten = errors.New("guard response written")
+
+func respondWithAbort(c echo.Context, code int, err error) error {
+	if c == nil {
+		return err
+	}
+
+	if writeErr := c.JSON(code, NewErrorResponse(err)); writeErr != nil {
+		return writeErr
+	}
+
+	return errGuardResponseWritten
+}
+
+func isStrictModeSensitive(req *http.Request, _ string) bool {
+	return security.IsStrict() && !isRequestFromTrustedLocal(req)
 }
 
 func reqHasOriginMetadata(req *http.Request) bool {
@@ -155,7 +169,7 @@ func (h *Handler) guardPrivilegedSettingsMutation(c echo.Context, prev *models.S
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // guardPrivilegedExtensionManagement checks if a request meets the criteria for privileged extension management access.
@@ -164,15 +178,15 @@ func (h *Handler) guardPrivilegedExtensionManagement(c echo.Context) error {
 		return nil
 	}
 
-	if security.IsStrict() && !isRequestFromTrustedOrigin(c.Request()) {
-		return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	if security.IsStrict() && !isRequestFromTrustedLocal(c.Request()) {
+		return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 	}
 
 	if canUsePrivilegedExtensionManagement(c.Request(), h.App.Config.Server.Password) {
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // guardPrivilegedMediastreamSettingsMutation ensures that mutations to privileged mediastream settings are only allowed by trusted or authorized sources.
@@ -185,12 +199,12 @@ func (h *Handler) guardPrivilegedMediastreamSettingsMutation(c echo.Context, pre
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // canMutatePrivilegedSettings determines if privileged settings modifications can proceed based on request origin, server password, and settings changes.
 func canMutatePrivilegedSettings(req *http.Request, serverPassword string, prev *models.Settings, nextMedia *models.MediaPlayerSettings, nextTorrent *models.TorrentSettings) bool {
-	if security.IsStrict() && !isRequestFromTrustedOrigin(req) && privilegedSettingsChanged(prev, nextMedia, nextTorrent) {
+	if security.IsStrict() && !isRequestFromTrustedLocal(req) && privilegedSettingsChanged(prev, nextMedia, nextTorrent) {
 		return false
 	}
 
@@ -207,7 +221,7 @@ func canMutatePrivilegedSettings(req *http.Request, serverPassword string, prev 
 
 // canMutatePrivilegedMediastreamSettings determines if privileged mediastream settings can be modified based on request trust and setting changes.
 func canMutatePrivilegedMediastreamSettings(req *http.Request, serverPassword string, prev *models.MediastreamSettings, next *models.MediastreamSettings) bool {
-	if security.IsStrict() && !isRequestFromTrustedOrigin(req) && privilegedMediastreamSettingsChanged(prev, next) {
+	if security.IsStrict() && !isRequestFromTrustedLocal(req) && privilegedMediastreamSettingsChanged(prev, next) {
 		return false
 	}
 
@@ -224,7 +238,7 @@ func canMutatePrivilegedMediastreamSettings(req *http.Request, serverPassword st
 
 // canUsePrivilegedExtensionManagement determines if the request can access privileged extension management based on security mode, origin, and server password.
 func canUsePrivilegedExtensionManagement(req *http.Request, serverPassword string) bool {
-	if security.IsStrict() && !isRequestFromTrustedOrigin(req) {
+	if security.IsStrict() && !isRequestFromTrustedLocal(req) {
 		return false
 	}
 
@@ -237,15 +251,15 @@ func (h *Handler) guardPrivilegedMediaPlayer(c echo.Context, settings *models.Se
 		return nil
 	}
 
-	if security.IsStrict() && usesExternalMediaPlayer(settings) && !isRequestFromTrustedOrigin(c.Request()) {
-		return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	if security.IsStrict() && usesExternalMediaPlayer(settings) && !isRequestFromTrustedLocal(c.Request()) {
+		return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 	}
 
 	if isTrustedRequest(c.Request(), h.App.Config.Server.Password) || !isPrivilegedMediaPlayer(settings) {
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // guardPrivilegedTorrentClient ensures that only trusted or authorized requests can execute privileged torrent client actions.
@@ -254,15 +268,15 @@ func (h *Handler) guardPrivilegedTorrentClient(c echo.Context, settings *models.
 		return nil
 	}
 
-	if security.IsStrict() && usesExternalTorrentClient(settings) && !isRequestFromTrustedOrigin(c.Request()) {
-		return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	if security.IsStrict() && usesExternalTorrentClient(settings) && !isRequestFromTrustedLocal(c.Request()) {
+		return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 	}
 
 	if isTrustedRequest(c.Request(), h.App.Config.Server.Password) || !isPrivilegedTorrentClient(settings) {
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // guardPrivilegedMediastream ensures that privileged mediastream actions are restricted to trusted requests or server password authorization.
@@ -275,7 +289,7 @@ func (h *Handler) guardPrivilegedMediastream(c echo.Context, settings *models.Me
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // guardPrivilegedLocalExecution enforces security checks for privileged actions, ensuring the request originates from a trusted or authorized source.
@@ -284,15 +298,15 @@ func (h *Handler) guardPrivilegedLocalExecution(c echo.Context) error {
 		return nil
 	}
 
-	if security.IsStrict() && !isRequestFromTrustedOrigin(c.Request()) {
-		return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	if security.IsStrict() && !isRequestFromTrustedLocal(c.Request()) {
+		return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 	}
 
 	if isTrustedRequest(c.Request(), h.App.Config.Server.Password) {
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errPrivilegedExecutionDenied)
+	return respondWithAbort(c, http.StatusForbidden, errPrivilegedExecutionDenied)
 }
 
 // getContextClientId retrieves the client ID from the echo.Context by checking a header or a cookie, returning an empty string if not found.
@@ -470,6 +484,47 @@ func isRequestFromTrustedOrigin(req *http.Request) bool {
 	}
 
 	return isReqSameLiteralHost(req, parsed)
+}
+
+func isRequestFromTrustedLocal(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	view := createRequestBoundaryView(req)
+	if !isTrustedLocalClient(view) {
+		return false
+	}
+
+	if hasForwardedHeaders(req) && !view.trustedProxy {
+		return false
+	}
+
+	if !isTrustedRequestHost(req) {
+		return false
+	}
+
+	return isRequestFromTrustedOrigin(req)
+}
+
+func isTrustedLocalClient(view requestBoundaryView) bool {
+	if !view.clientIP.IsValid() {
+		return false
+	}
+
+	return view.clientIP.IsLoopback() || view.clientIP.IsPrivate()
+}
+
+func hasForwardedHeaders(req *http.Request) bool {
+	if req == nil {
+		return false
+	}
+
+	return strings.TrimSpace(req.Header.Get("Forwarded")) != "" ||
+		strings.TrimSpace(req.Header.Get("X-Forwarded-For")) != "" ||
+		strings.TrimSpace(req.Header.Get("X-Forwarded-Host")) != "" ||
+		strings.TrimSpace(req.Header.Get("X-Forwarded-Proto")) != "" ||
+		strings.TrimSpace(req.Header.Get("X-Real-IP")) != ""
 }
 
 func isAllowlistedRequestHost(req *http.Request, accessAllowlist []string) bool {

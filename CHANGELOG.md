@@ -14,6 +14,7 @@ All notable changes to this project will be documented in this file.
 - ⚡️ Search: Support for tags #614
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods (#699) and skip data manipulation
+  - Added API to register an episode tab
   - Added Auto Downloader, Torrent search hooks
   - Added Playback, Scanner, Debrid, Torrent streaming, Torrent search, Auto-select API methods
 - ⚡️ Home Screen: Added 'Repeating' filter for 'My lists'
@@ -30,6 +31,7 @@ All notable changes to this project will be documented in this file.
 - 🦺 Video Proxy: Fixed slow non-HLS video proxy #710
 - 🦺 Plugin: Fixed $storage API returning stale data
 - 🦺 VideoCore: Fixed screenshots with Anime4K
+- 🏗️ Denshi: App startup no longer relies on websocket connection
 
 ## v3.6.1
 

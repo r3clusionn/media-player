@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"seanime/internal/security"
 	"seanime/internal/util"
 
 	"github.com/imroc/req/v3"
@@ -55,6 +56,10 @@ func (ip *ImageProxy) ProxyImage(c echo.Context) (err error) {
 
 	if url == "" {
 		return c.String(echo.ErrBadRequest.Code, "No URL provided")
+	}
+
+	if err := security.ValidateOutboundUrl(url); err != nil {
+		return c.String(http.StatusForbidden, err.Error())
 	}
 
 	headers := make(map[string]string)

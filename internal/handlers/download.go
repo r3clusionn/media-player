@@ -23,7 +23,7 @@ import (
 
 type downloadGrantChallenge struct {
 	code      string
-	clientID  string
+	clientId  string
 	createdAt time.Time
 }
 
@@ -52,6 +52,10 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
 	if b.Destination == "" {
 		return h.RespondWithError(c, errors.New("destination not found"))
 	}
@@ -64,8 +68,8 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		return err
 	}
 
-	contextClientID := getContextClientId(c)
-	if contextClientID == "" {
+	contextClientId := getContextClientId(c)
+	if contextClientId == "" {
 		return h.RespondWithError(c, fmt.Errorf("client session not found"))
 	}
 
@@ -81,12 +85,12 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		}
 		downloadGrantChallenges[challengeID] = &downloadGrantChallenge{
 			code:      randomCode,
-			clientID:  contextClientID,
+			clientId:  contextClientId,
 			createdAt: time.Now(),
 		}
 		downloadGrantChallengesMu.Unlock()
 
-		h.App.WSEventManager.SendEventTo(contextClientID, "download-torrent-file-permission-check", challengeID+":"+randomCode)
+		h.App.WSEventManager.SendEventTo(contextClientId, "download-torrent-file-permission-check", challengeID+":"+randomCode)
 		return h.RespondWithData(c, false)
 	}
 
@@ -117,7 +121,7 @@ func (h *Handler) HandleDownloadTorrentFile(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("invalid verification code"))
 	}
 
-	if challenge.clientID != contextClientID {
+	if challenge.clientId != contextClientId {
 		return h.RespondWithError(c, fmt.Errorf("verification code does not belong to this client session"))
 	}
 
@@ -204,6 +208,14 @@ func (h *Handler) HandleDownloadRelease(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
 	}
 
 	if err := util.ValidateReleaseUrl(b.DownloadUrl); err != nil {

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net"
-	"net/netip"
 	"net/url"
 	"seanime/internal/security"
 	"seanime/internal/util"
@@ -275,54 +273,6 @@ func (f *Fetch) isURLAllowed(urlStr string) bool {
 	return false
 }
 
-func isPrivateNetworkUrlBlocked(urlStr string) error {
-	if !security.IsStrict() {
-		return nil
-	}
-
-	u, err := url.Parse(urlStr)
-	if err != nil {
-		return err
-	}
-
-	host := strings.TrimSpace(u.Hostname())
-	if host == "" {
-		return fmt.Errorf("missing host")
-	}
-
-	if strings.EqualFold(host, "localhost") {
-		return fmt.Errorf("private network access denied: host '%s' resolves to localhost", host)
-	}
-
-	if addr, err := netip.ParseAddr(host); err == nil {
-		if isPrivateNetworkAddr(addr) {
-			return fmt.Errorf("private network access denied: host '%s' is not reachable from strict mode", host)
-		}
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	addrs, err := net.DefaultResolver.LookupNetIP(ctx, "ip", host)
-	if err != nil {
-		return nil
-	}
-
-	for _, addr := range addrs {
-		if isPrivateNetworkAddr(addr) {
-			return fmt.Errorf("private network access denied: host '%s' resolves to a private address", host)
-		}
-	}
-
-	return nil
-}
-
-func isPrivateNetworkAddr(addr netip.Addr) bool {
-	addr = addr.Unmap()
-	return addr.IsLoopback() || addr.IsPrivate() || addr.IsLinkLocalUnicast() || addr.IsLinkLocalMulticast() || addr.IsMulticast() || addr.IsUnspecified()
-}
-
 func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 	defer func() {
 		if r := recover(); r != nil {
@@ -401,7 +351,7 @@ func (f *Fetch) Fetch(call goja.FunctionCall) goja.Value {
 		return f.vm.ToValue(promise)
 	}
 
-	if err := isPrivateNetworkUrlBlocked(url); err != nil {
+	if err := security.ValidateOutboundUrl(url); err != nil {
 		reject(NewError(f.vm, err))
 		return f.vm.ToValue(promise)
 	}

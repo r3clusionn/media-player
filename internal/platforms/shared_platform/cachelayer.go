@@ -108,8 +108,10 @@ type (
 
 const (
 	AnimeCollectionBucket          = "anime-collection"
+	AnimeCollectionTagsBucket      = "anime-collection-tags"
 	AnimeCollectionRelationsBucket = "anime-collection-relations"
 	MangaCollectionBucket          = "manga-collection"
+	MangaCollectionTagsBucket      = "manga-collection-tags"
 	BaseAnimeBucket                = "base-anime"
 	BaseAnimeMalBucket             = "base-anime-mal"
 	CompleteAnimeBucket            = "complete-anime"
@@ -204,8 +206,10 @@ func NewCacheLayer(anilistClientRef *util.Ref[anilist.AnilistClient], logoutFunc
 
 	buckets := make(map[string]filecache.PermanentBucket)
 	buckets[AnimeCollectionBucket] = filecache.NewPermanentBucket(AnimeCollectionBucket)
+	buckets[AnimeCollectionTagsBucket] = filecache.NewPermanentBucket(AnimeCollectionTagsBucket)
 	buckets[AnimeCollectionRelationsBucket] = filecache.NewPermanentBucket(AnimeCollectionRelationsBucket)
 	buckets[MangaCollectionBucket] = filecache.NewPermanentBucket(MangaCollectionBucket)
+	buckets[MangaCollectionTagsBucket] = filecache.NewPermanentBucket(MangaCollectionTagsBucket)
 	buckets[BaseAnimeBucket] = filecache.NewPermanentBucket(BaseAnimeBucket)
 	buckets[BaseAnimeMalBucket] = filecache.NewPermanentBucket(BaseAnimeMalBucket)
 	buckets[CompleteAnimeBucket] = filecache.NewPermanentBucket(CompleteAnimeBucket)
@@ -651,8 +655,10 @@ func (c *CacheLayer) invalidateCollectionCaches() {
 
 	collectionBuckets := []string{
 		AnimeCollectionBucket,
+		AnimeCollectionTagsBucket,
 		AnimeCollectionRelationsBucket,
 		MangaCollectionBucket,
+		MangaCollectionTagsBucket,
 		CustomQueryBucket,
 	}
 
@@ -809,7 +815,10 @@ func (c *CacheLayer) AnimeCollection(ctx context.Context, userName *string, inte
 }
 
 func (c *CacheLayer) AnimeCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.AnimeCollectionTags, error) {
-	return c.anilistClientRef.Get().AnimeCollectionTags(ctx, userName, interceptors...)
+	cacheKey := c.generateCacheKey("collection-tags", userName)
+	return networkFirstGet(c, AnimeCollectionTagsBucket, cacheKey, func() (*anilist.AnimeCollectionTags, error) {
+		return c.anilistClientRef.Get().AnimeCollectionTags(ctx, userName, interceptors...)
+	})
 }
 
 func (c *CacheLayer) AnimeCollectionWithRelations(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.AnimeCollectionWithRelations, error) {
@@ -1018,7 +1027,10 @@ func (c *CacheLayer) MangaCollection(ctx context.Context, userName *string, inte
 }
 
 func (c *CacheLayer) MangaCollectionTags(ctx context.Context, userName *string, interceptors ...clientv2.RequestInterceptor) (*anilist.MangaCollectionTags, error) {
-	return c.anilistClientRef.Get().MangaCollectionTags(ctx, userName, interceptors...)
+	cacheKey := c.generateCacheKey("collection-tags", userName)
+	return networkFirstGet(c, MangaCollectionTagsBucket, cacheKey, func() (*anilist.MangaCollectionTags, error) {
+		return c.anilistClientRef.Get().MangaCollectionTags(ctx, userName, interceptors...)
+	})
 }
 
 func (c *CacheLayer) SearchBaseManga(ctx context.Context, page *int, perPage *int, sort []*anilist.MediaSort, search *string, status []*anilist.MediaStatus, interceptors ...clientv2.RequestInterceptor) (*anilist.SearchBaseManga, error) {

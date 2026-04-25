@@ -593,6 +593,9 @@ func (h *Handler) HandleRemoveMangaMapping(c echo.Context) error {
 //	@route /api/v1/manga/local-page/{path} [GET]
 //	@returns manga.PageContainer
 func (h *Handler) HandleGetLocalMangaPage(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	path := c.Param("path")
 	path, err := url.PathUnescape(path)

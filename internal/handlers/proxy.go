@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	url2 "net/url"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	"strconv"
 	"strings"
@@ -22,6 +23,11 @@ var videoProxyClient2 = req.C().
 	EnableInsecureSkipVerify().
 	ImpersonateChrome()
 
+var videoProxyClientSecure = req.C().
+	DisableAutoReadResponse().
+	DisableCompression().
+	ImpersonateChrome()
+
 func (h *Handler) VideoProxy(c echo.Context) (err error) {
 	defer util.HandlePanicInModuleWithError("util/VideoProxy", &err)
 
@@ -29,7 +35,16 @@ func (h *Handler) VideoProxy(c echo.Context) (err error) {
 	headers := c.QueryParam("headers")
 	authToken := c.QueryParam("token")
 
-	r := videoProxyClient2.R()
+	if err := security.ValidateOutboundUrl(url); err != nil {
+		return h.RespondWithStatusError(c, http.StatusForbidden, err)
+	}
+
+	client := videoProxyClient2
+	if security.IsStrict() {
+		client = videoProxyClientSecure
+	}
+
+	r := client.R()
 
 	var headerMap map[string]string
 	if headers != "" {

@@ -16,11 +16,11 @@ import (
 
 // guardStrictLocalOnlyAction ensures an action is restricted to trusted local requests when in strict security mode, returning an error if denied.
 func (h *Handler) guardStrictLocalOnlyAction(c echo.Context) error {
-	if !security.IsStrict() || c == nil || isRequestFromTrustedOrigin(c.Request()) {
+	if !security.IsStrict() || c == nil || isRequestFromTrustedLocal(c.Request()) {
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 }
 
 // guardStrictFilesystemPath validates if a filesystem path is allowed under strict security mode based on origin and root constraints.
@@ -29,7 +29,7 @@ func (h *Handler) guardStrictFilesystemPath(c echo.Context, rawPath string) erro
 		return nil
 	}
 
-	if isRequestFromTrustedOrigin(c.Request()) {
+	if isRequestFromTrustedLocal(c.Request()) {
 		return nil
 	}
 
@@ -37,11 +37,11 @@ func (h *Handler) guardStrictFilesystemPath(c echo.Context, rawPath string) erro
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errStrictFilesystemPathDenied)
+	return respondWithAbort(c, http.StatusForbidden, errStrictFilesystemPathDenied)
 }
 
 func (h *Handler) guardStrictSettingsMutation(c echo.Context, prev *models.Settings, nextLibrary *models.LibrarySettings, nextManga *models.MangaSettings) error {
-	if !security.IsStrict() || c == nil || isRequestFromTrustedOrigin(c.Request()) {
+	if !security.IsStrict() || c == nil || isRequestFromTrustedLocal(c.Request()) {
 		return nil
 	}
 
@@ -49,11 +49,11 @@ func (h *Handler) guardStrictSettingsMutation(c echo.Context, prev *models.Setti
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 }
 
 func (h *Handler) guardStrictMediastreamRootMutation(c echo.Context, prev *models.MediastreamSettings, next *models.MediastreamSettings) error {
-	if !security.IsStrict() || c == nil || isRequestFromTrustedOrigin(c.Request()) {
+	if !security.IsStrict() || c == nil || isRequestFromTrustedLocal(c.Request()) {
 		return nil
 	}
 
@@ -61,11 +61,11 @@ func (h *Handler) guardStrictMediastreamRootMutation(c echo.Context, prev *model
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 }
 
 func (h *Handler) guardStrictTorrentstreamRootMutation(c echo.Context, prev *models.TorrentstreamSettings, next *models.TorrentstreamSettings) error {
-	if !security.IsStrict() || c == nil || isRequestFromTrustedOrigin(c.Request()) {
+	if !security.IsStrict() || c == nil || isRequestFromTrustedLocal(c.Request()) {
 		return nil
 	}
 
@@ -73,7 +73,7 @@ func (h *Handler) guardStrictTorrentstreamRootMutation(c echo.Context, prev *mod
 		return nil
 	}
 
-	return h.RespondWithStatusError(c, http.StatusForbidden, errStrictLocalOnlyDenied)
+	return respondWithAbort(c, http.StatusForbidden, errStrictLocalOnlyDenied)
 }
 
 func (h *Handler) strictFilesystemRoots() []string {

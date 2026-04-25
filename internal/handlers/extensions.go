@@ -3,9 +3,11 @@ package handlers
 import (
 	"fmt"
 	"net/url"
+	"seanime/internal/constants"
 	"seanime/internal/core"
 	"seanime/internal/extension"
 	"seanime/internal/extension_playground"
+	"seanime/internal/security"
 	"seanime/internal/util"
 	"strings"
 	"sync"
@@ -321,8 +323,8 @@ func (h *Handler) HandleSetPluginSettingsPinnedTrays(c echo.Context) error {
 
 type pluginGrantChallenge struct {
 	code        string
-	clientID    string
-	extensionID string
+	clientId    string
+	extensionId string
 	createdAt   time.Time
 }
 
@@ -371,8 +373,8 @@ func (h *Handler) HandleGrantPluginPermissions(c echo.Context) error {
 		}
 		grantChallenges[challengeID] = &pluginGrantChallenge{
 			code:        randomCode,
-			clientID:    contextClientId,
-			extensionID: b.ID,
+			clientId:    contextClientId,
+			extensionId: b.ID,
 			createdAt:   time.Now(),
 		}
 		grantChallengesMu.Unlock()
@@ -412,12 +414,12 @@ func (h *Handler) HandleGrantPluginPermissions(c echo.Context) error {
 		return h.RespondWithError(c, fmt.Errorf("invalid verification code"))
 	}
 
-	if challenge.clientID != contextClientId {
+	if challenge.clientId != contextClientId {
 		return h.RespondWithError(c, fmt.Errorf("verification code does not belong to this client session"))
 	}
 
 	// ensure the code was issued for this specific extension
-	if challenge.extensionID != b.ID {
+	if challenge.extensionId != b.ID {
 		return h.RespondWithError(c, fmt.Errorf("verification code does not match the requested extension"))
 	}
 
@@ -518,6 +520,14 @@ func (h *Handler) HandleGetMarketplaceExtensions(c echo.Context) error {
 
 	if h.App.FeatureManager.IsDisabled(core.ManageExtensions) {
 		marketplaceUrl = ""
+	}
+
+	targetMarketplaceUrl := marketplaceUrl
+	if targetMarketplaceUrl == "" {
+		targetMarketplaceUrl = constants.DefaultExtensionMarketplaceURL
+	}
+	if err := security.ValidateOutboundUrl(targetMarketplaceUrl); err != nil {
+		return h.RespondWithStatusError(c, echo.ErrForbidden.Code, err)
 	}
 
 	extensions, err := h.App.ExtensionRepository.GetMarketplaceExtensions(marketplaceUrl)

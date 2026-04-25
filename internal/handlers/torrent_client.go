@@ -207,6 +207,14 @@ func (h *Handler) HandleTorrentClientDownload(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
+	if err := h.guardStrictFilesystemPath(c, b.Destination); err != nil {
+		return err
+	}
+
 	if b.Destination == "" {
 		return h.RespondWithError(c, errors.New("destination not found"))
 	}
@@ -340,6 +348,10 @@ func (h *Handler) HandleTorrentClientAddMagnetFromRule(c echo.Context) error {
 	var b body
 	if err := c.Bind(&b); err != nil {
 		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
 	}
 
 	if b.RuleId == 0 || (b.MagnetUrl == "" && b.QueuedItemId == 0) {

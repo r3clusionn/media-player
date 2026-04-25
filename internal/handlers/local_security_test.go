@@ -3,8 +3,10 @@ package handlers
 import (
 	"net/http"
 	"net/http/httptest"
+	"seanime/internal/core"
 	"seanime/internal/database/models"
 	"seanime/internal/security"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -76,6 +78,75 @@ func TestRequestHasTrustedLocalOrigin(t *testing.T) {
 			}
 
 			assert.Equal(t, tt.want, isRequestFromTrustedOrigin(req))
+		})
+	}
+}
+
+func TestRequestHasStrictTrustedLocalBoundary(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetRequestBoundaryConfig(nil, "")
+	})
+
+	tests := []struct {
+		name       string
+		origin     string
+		reqHost    string
+		remoteAddr string
+		headers    map[string]string
+		want       bool
+	}{
+		{
+			name:       "allows direct loopback browser request",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
+		},
+		{
+			name:       "allows denshi from loopback",
+			origin:     "app://-",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
+			want:       true,
+		},
+		{
+			name:       "rejects public client spoofing loopback headers",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "203.0.113.10:51111",
+			want:       false,
+		},
+		{
+			name:       "rejects public host through local proxy",
+			origin:     "https://seanime.example",
+			reqHost:    "seanime.example",
+			remoteAddr: "127.0.0.1:51111",
+			want:       false,
+		},
+		{
+			name:       "rejects untrusted forwarded headers",
+			origin:     "http://127.0.0.1:43211",
+			reqHost:    "127.0.0.1:43211",
+			remoteAddr: "127.0.0.1:51111",
+			headers: map[string]string{
+				"X-Forwarded-For": "203.0.113.10",
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// strict local-only actions should not trust spoofable headers without a local client boundary.
+			req := httptest.NewRequest(http.MethodPost, "/api/v1/download-torrent-file", nil)
+			req.Host = tt.reqHost
+			req.RemoteAddr = tt.remoteAddr
+			req.Header.Set("Origin", tt.origin)
+			for key, value := range tt.headers {
+				req.Header.Set(key, value)
+			}
+
+			assert.Equal(t, tt.want, isRequestFromTrustedLocal(req))
 		})
 	}
 }
@@ -398,6 +469,26 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 			assert.Equal(t, tt.want, canMutatePrivilegedSettings(req, tt.serverPassword, prev, tt.nextMedia, tt.nextTorrent))
 		})
 	}
+
+	t.Run("rejects authenticated public clients in strict mode", func(t *testing.T) {
+		security.SetSecureMode(security.SecureModeStrict)
+		t.Cleanup(func() {
+			security.SetSecureMode("")
+		})
+
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/settings", nil)
+		req.Host = "127.0.0.1:43211"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "http://127.0.0.1:43211")
+
+		nextMedia := &models.MediaPlayerSettings{
+			Default: "mpv",
+			MpvPath: "/tmp/mpv-wrapper",
+			MpvArgs: "--no-config",
+		}
+
+		assert.False(t, canMutatePrivilegedSettings(req, "configured", prev, nextMedia, nil))
+	})
 }
 
 func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
@@ -470,6 +561,25 @@ func TestCanMutatePrivilegedMediastreamSettings(t *testing.T) {
 			assert.Equal(t, tt.want, canMutatePrivilegedMediastreamSettings(req, tt.serverPassword, prev, tt.next))
 		})
 	}
+
+	t.Run("rejects authenticated public clients in strict mode", func(t *testing.T) {
+		security.SetSecureMode(security.SecureModeStrict)
+		t.Cleanup(func() {
+			security.SetSecureMode("")
+		})
+
+		req := httptest.NewRequest(http.MethodPatch, "/api/v1/mediastream/settings", nil)
+		req.Host = "127.0.0.1:43211"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "http://127.0.0.1:43211")
+
+		next := &models.MediastreamSettings{
+			FfmpegPath:  "/tmp/ffmpeg-wrapper",
+			FfprobePath: "ffprobe",
+		}
+
+		assert.False(t, canMutatePrivilegedMediastreamSettings(req, "configured", prev, next))
+	})
 }
 
 func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
@@ -530,6 +640,20 @@ func TestCanUsePrivilegedExtensionManagement(t *testing.T) {
 			assert.Equal(t, tt.want, canUsePrivilegedExtensionManagement(req, tt.serverPassword))
 		})
 	}
+
+	t.Run("rejects authenticated public clients in strict mode", func(t *testing.T) {
+		security.SetSecureMode(security.SecureModeStrict)
+		t.Cleanup(func() {
+			security.SetSecureMode("")
+		})
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/extensions/external/install", nil)
+		req.Host = "127.0.0.1:43211"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "http://127.0.0.1:43211")
+
+		assert.False(t, canUsePrivilegedExtensionManagement(req, "configured"))
+	})
 }
 
 func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
@@ -539,6 +663,7 @@ func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/status", nil)
 	req.Host = "192.168.1.10:43211"
+	req.RemoteAddr = "203.0.113.10:51111"
 	req.Header.Set("Origin", "https://evil.example")
 
 	security.SetSecureMode("")
@@ -550,8 +675,85 @@ func TestShouldRestrictSensitiveLocalInfo(t *testing.T) {
 	security.SetSecureMode(security.SecureModeLax)
 	assert.False(t, isStrictModeSensitive(req, ""))
 
+	req.Host = "127.0.0.1:43211"
+	req.RemoteAddr = "127.0.0.1:51111"
 	req.Header.Set("Origin", "http://127.0.0.1:43211")
 	assert.False(t, isStrictModeSensitive(req, ""))
+}
+
+func TestGuardStrictLocalOnlyAction(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	h := &Handler{App: &core.App{Config: &core.Config{}}}
+	e := echo.New()
+
+	t.Run("rejects requests without a trusted local origin in strict mode", func(t *testing.T) {
+		security.SetSecureMode(security.SecureModeStrict)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/download-torrent-file", nil)
+		req.Host = "127.0.0.1:43211"
+		req.RemoteAddr = "203.0.113.10:51111"
+		req.Header.Set("Origin", "http://127.0.0.1:43211")
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.guardStrictLocalOnlyAction(c)
+		assert.ErrorIs(t, err, errGuardResponseWritten)
+		assert.Equal(t, http.StatusForbidden, rec.Code)
+	})
+
+	t.Run("allows trusted local origins in strict mode", func(t *testing.T) {
+		security.SetSecureMode(security.SecureModeStrict)
+
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/download-torrent-file", nil)
+		req.Host = "127.0.0.1:43211"
+		req.RemoteAddr = "127.0.0.1:51111"
+		req.Header.Set("Origin", "http://127.0.0.1:43211")
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+
+		err := h.guardStrictLocalOnlyAction(c)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rec.Code)
+	})
+}
+
+func TestHandleDirectorySelectorStrictMode(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	security.SetSecureMode(security.SecureModeStrict)
+	h := &Handler{App: &core.App{Config: &core.Config{}}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/directory-selector", strings.NewReader(`{"input":"/tmp"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := h.HandleDirectorySelector(c)
+	assert.ErrorIs(t, err, errGuardResponseWritten)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
+}
+
+func TestHandleTestDumpStrictMode(t *testing.T) {
+	t.Cleanup(func() {
+		security.SetSecureMode("")
+	})
+
+	security.SetSecureMode(security.SecureModeStrict)
+	h := &Handler{App: &core.App{Config: &core.Config{}}}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/test-dump", strings.NewReader(`{"dir":"/tmp","userName":"test"}`))
+	req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := h.HandleTestDump(c)
+	assert.ErrorIs(t, err, errGuardResponseWritten)
+	assert.Equal(t, http.StatusForbidden, rec.Code)
 }
 
 func TestRequestMatchescontextClientId(t *testing.T) {

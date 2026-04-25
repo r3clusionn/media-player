@@ -212,7 +212,13 @@ func (ac *AnilistClientImpl) BaseAnimeByMalID(ctx context.Context, id *int, inte
 }
 
 func (ac *AnilistClientImpl) BaseAnimeByID(ctx context.Context, id *int, interceptors ...clientv2.RequestInterceptor) (*BaseAnimeByID, error) {
-	ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching anime")
+	if id == nil {
+		return nil, errors.New("id cannot be nil")
+	}
+	// stupid hack to reduce log spam when anilist is down
+	if *id != 1 {
+		ac.logger.Debug().Int("mediaId", *id).Msg("anilist: Fetching anime")
+	}
 	return ac.Client.BaseAnimeByID(ctx, id, interceptors...)
 }
 
@@ -527,7 +533,7 @@ func (ac *AnilistClientImpl) customDoFunc(ctx context.Context, req *http.Request
 		timeSince := time.Since(reqTime)
 		formattedDur := timeSince.Truncate(time.Millisecond).String()
 		if err != nil {
-			ac.logger.Error().Str("duration", formattedDur).Str("rlr", rlRemainingStr).Err(err).Msg("anilist: Failed Request")
+			ac.logger.Error().Str("duration", formattedDur).Str("rlr", rlRemainingStr).Err(err).Str("document", gqlInfo.Request.OperationName).Msg("anilist: Failed Request")
 		} else {
 			if timeSince > 900*time.Millisecond {
 				ac.logger.Warn().Str("rtt", formattedDur).Str("rlr", rlRemainingStr).Msg("anilist: Successful Request (slow)")

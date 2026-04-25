@@ -26,6 +26,10 @@ func (h *Handler) HandleTestDump(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
+
 	localFiles, err := scanner.GetLocalFilesFromDir(body.Dir, h.App.Logger)
 	if err != nil {
 		return h.RespondWithError(c, err)

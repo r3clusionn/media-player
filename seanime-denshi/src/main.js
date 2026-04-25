@@ -450,6 +450,7 @@ let tray = null
 let serverProcess = null
 let isShutdown = false
 let serverStarted = false
+let mainWindowStartupReady = false
 let updateDownloaded = false
 let serverRestartPromise = null
 
@@ -612,12 +613,29 @@ async function launchSeanimeServer(isRestart) {
     return new Promise((resolve, reject) => {
         let startupResolved = false
         let startupPollInterval = null
+        let waitingForRenderer = false
 
         function clearStartupProbe() {
             if (startupPollInterval) {
                 clearInterval(startupPollInterval)
                 startupPollInterval = null
             }
+        }
+
+        function checkFinalizeStartup(source) {
+            if (startupResolved) {
+                return
+            }
+
+            if (!mainWindowStartupReady) {
+                if (!waitingForRenderer) {
+                    waitingForRenderer = true
+                    logStartupEvent("WAITING FOR RENDERER", source)
+                }
+                return
+            }
+
+            finalizeStartup(source)
         }
 
         function finalizeStartup(source) {
@@ -658,7 +676,7 @@ async function launchSeanimeServer(isRestart) {
             }
 
             if (await isDesktopServerReachable()) {
-                finalizeStartup("HTTP status probe")
+                checkFinalizeStartup("HTTP status probe")
             }
         }
 
@@ -763,7 +781,7 @@ async function launchSeanimeServer(isRestart) {
 
             // Check if the frontend is connected
             if (!serverStarted && lineStr.includes("Client connected")) {
-                finalizeStartup("websocket client connection")
+                checkFinalizeStartup("websocket client connection")
             }
         })
 
@@ -901,6 +919,7 @@ function showEditableContextMenu(webContents, params) {
 
 function createMainWindow() {
     logStartupEvent("Creating main window")
+    mainWindowStartupReady = false
 
     const windowOptions = {
         width: 800, height: 600, show: false,
@@ -1197,6 +1216,15 @@ app.whenReady().then(async () => {
 
     // Log environment information
     logEnvironmentInfo()
+
+    ipcMain.on("startup:renderer-ready", (event) => {
+        if (!mainWindow || event.sender !== mainWindow.webContents || mainWindowStartupReady) {
+            return
+        }
+
+        mainWindowStartupReady = true
+        logStartupEvent("RENDERER READY", "main window committed first frame")
+    })
 
     // Setup IPC handlers for update functions
     ipcMain.handle("check-for-updates", async () => {

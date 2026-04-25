@@ -17,6 +17,9 @@ import (
 //	@route /api/v1/library/scan [POST]
 //	@returns []anime.LocalFile
 func (h *Handler) HandleScanLocalFiles(c echo.Context) error {
+	if err := h.guardStrictLocalOnlyAction(c); err != nil {
+		return err
+	}
 
 	type body struct {
 		Enhanced                   bool `json:"enhanced"`
