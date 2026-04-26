@@ -4,6 +4,7 @@ All notable changes to this project will be documented in this file.
 
 ## v3.7.0
 
+- 🔒 BREAKING: Non-local instances now require a server password (Read the docs for more info).
 - ⚡️ Search: Support for tags #614
 - ⚡️ Plugins: New APIs and Hooks
   - Added VideoCore play methods (#699) and skip data manipulation
