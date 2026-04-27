@@ -483,6 +483,146 @@ func TestGojaPluginStore(t *testing.T) {
 	manager.PrintPluginPoolMetrics(opts.ID)
 }
 
+func TestGojaPluginSharedModules(t *testing.T) {
+	payload := `
+	function init() {
+		$shared.define("releaseMask", () => {
+			function keyFor(mediaId, episodeNumber) {
+				return mediaId + ":" + episodeNumber
+			}
+
+			function save(key, value) {
+				$store.set(key, value)
+				return value
+			}
+
+			return {
+				keyFor,
+				save,
+			}
+		})
+
+		$app.onGetAnime((e) => {
+			const releaseMask = $shared.use("releaseMask")
+			releaseMask.save("hook1", releaseMask.keyFor(e.anime.id, 1))
+			e.next()
+		})
+
+		$app.onGetAnime((e) => {
+			const releaseMask = $shared.use("releaseMask")
+			releaseMask.save("hook2", releaseMask.keyFor(e.anime.id, 2))
+			e.next()
+		})
+
+		$ui.register(() => {
+			const releaseMask = $shared.use("releaseMask")
+			releaseMask.save("ui", releaseMask.keyFor(21, 3))
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+
+	plugin, _, manager, anilistPlatform, _, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+
+	_, err = anilistPlatform.GetAnime(t.Context(), 178022)
+	require.NoError(t, err)
+
+	// the ui should also be able to instantiate the same helper
+	require.Equal(t, "178022:1", plugin.store.Get("hook1"))
+	require.Equal(t, "178022:2", plugin.store.Get("hook2"))
+	require.Equal(t, "21:3", plugin.store.Get("ui"))
+
+	manager.PrintPluginPoolMetrics(opts.ID)
+}
+
+func TestGojaPluginSharedModulesSupportConciseArrowFactories(t *testing.T) {
+	payload := `
+	function init() {
+		$shared.define("releaseMaskAdvanced", () => ({
+			normalize(value) {
+				return String(value || "").trim().toLowerCase()
+			},
+			makeRecord(mediaId, episodeNumber, title) {
+				return {
+					key: mediaId + ":" + episodeNumber,
+					title: this.normalize(title),
+				}
+			},
+			save(storeKey, record) {
+				$store.set(storeKey, record.key + "|" + record.title)
+				return record
+			},
+		}))
+
+		$app.onGetAnime((e) => {
+			const helper = $shared.use("releaseMaskAdvanced")
+			const record = helper.makeRecord(e.anime.id, 7, "  Advanced Example  ")
+			helper.save("advanced-edge", record)
+			e.next()
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+
+	plugin, _, manager, anilistPlatform, _, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+
+	_, err = anilistPlatform.GetAnime(t.Context(), 178022)
+	require.NoError(t, err)
+
+	require.Equal(t, "178022:7|advanced example", plugin.store.Get("advanced-edge"))
+
+	manager.PrintPluginPoolMetrics(opts.ID)
+}
+
+func TestGojaPluginSharedModulesRejectMissingReturnValue(t *testing.T) {
+	payload := `
+	function init() {
+		$shared.define("broken", () => {})
+
+		$app.onGetAnime((e) => {
+			$shared.use("broken")
+			e.next()
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+
+	_, _, _, anilistPlatform, _, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+
+	_, err = anilistPlatform.GetAnime(t.Context(), 178022)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "shared module \"broken\" must return a value")
+}
+
+func TestGojaPluginSharedModulesRejectDuplicateNames(t *testing.T) {
+	payload := `
+	function init() {
+		$shared.define("releaseMask", () => {
+			return { value: 1 }
+		})
+		$shared.define("releaseMask", () => {
+			return { value: 2 }
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+
+	_, _, _, _, _, err := InitTestPlugin(t, opts)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "shared module \"releaseMask\" already exists")
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////////
 
 func TestGojaPluginJsonFieldNames(t *testing.T) {

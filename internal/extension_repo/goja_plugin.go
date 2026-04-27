@@ -54,6 +54,7 @@ type GojaPlugin struct {
 	logger          *zerolog.Logger
 	pool            *goja_runtime.Pool
 	runtimeManager  *goja_runtime.Manager
+	sharedModules   *sharedModules
 	store           *plugin.Store[string, any]
 	storage         *plugin.Storage
 	ui              *plugin_ui.UI
@@ -134,6 +135,7 @@ func NewGojaPlugin(
 		ext:             ext,
 		logger:          logger,
 		runtimeManager:  runtimeManager,
+		sharedModules:   newSharedModules(),
 		store:           plugin.NewStore[string, any](nil), // Create a store (must be stopped when unloading)
 		scheduler:       gojautil.NewScheduler(),           // Create a scheduler (must be stopped when unloading)
 		ui:              nil,                               // To be initialized
@@ -146,6 +148,7 @@ func NewGojaPlugin(
 	// Bind shared APIs to the loader
 	ShareBinds(p.loader, logger, ext, wsEventManager)
 	BindUserConfig(p.loader, ext, logger)
+	p.sharedModules.Bind(p.loader, true)
 	// Bind hooks to the loader
 	p.bindHooks()
 
@@ -167,6 +170,7 @@ func NewGojaPlugin(
 		ShareBinds(runtime, logger, ext, wsEventManager)
 		goja_bindings.BindFetch(ext.ID, runtime, ext.Plugin.Permissions.GetNetworkAccessAllowedDomains())
 		BindUserConfig(runtime, ext, logger)
+		p.sharedModules.Bind(runtime, false)
 		p.BindPluginAPIs(runtime, logger)
 		return runtime
 	})
@@ -184,6 +188,7 @@ func NewGojaPlugin(
 	ShareBinds(uiVM, logger, ext, wsEventManager)
 	goja_bindings.BindFetch(ext.ID, uiVM, ext.Plugin.Permissions.GetNetworkAccessAllowedDomains())
 	BindUserConfig(uiVM, ext, logger)
+	p.sharedModules.Bind(uiVM, false)
 	// Bind the store to the UI VM
 	p.BindPluginAPIs(uiVM, logger)
 	// Create a new UI instance
