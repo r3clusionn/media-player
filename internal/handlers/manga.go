@@ -74,7 +74,7 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 //	@returns anilist.MediaTagMap
 func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
 	userName := h.App.GetUsername()
-	if userName == "" {
+	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
 	}
 

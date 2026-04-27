@@ -72,7 +72,7 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 //	@route /api/v1/anilist/collection/raw/tags [GET]
 func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
 	userName := h.App.GetUsername()
-	if userName == "" {
+	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
 	}
 
