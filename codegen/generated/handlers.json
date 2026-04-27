@@ -5277,6 +5277,27 @@
     }
   },
   {
+    "name": "isRequestFromTrustedLocal",
+    "trimmedName": "isRequestFromTrustedLocal",
+    "comments": [
+      "note: this rejects requests from hosted instances",
+      ""
+    ],
+    "filepath": "internal/handlers/local_security.go",
+    "filename": "local_security.go",
+    "api": {
+      "summary": "",
+      "descriptions": [],
+      "endpoint": "",
+      "methods": null,
+      "params": [],
+      "bodyFields": [],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "privilegedMediastreamSettingsChanged",
     "trimmedName": "privilegedMediastreamSettingsChanged",
     "comments": [

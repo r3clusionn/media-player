@@ -8,7 +8,7 @@ import (
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/library/anime"
-	util "seanime/internal/util"
+	"seanime/internal/util"
 	"time"
 
 	"github.com/dop251/goja"
@@ -56,6 +56,15 @@ func (a *AppContextImpl) BindDatabase(vm *goja.Runtime, logger *zerolog.Logger, 
 	_ = autoDownloaderRulesObj.Set("insert", db.insertAutoDownloaderRule)
 	_ = autoDownloaderRulesObj.Set("remove", db.deleteAutoDownloaderRule)
 	_ = dbObj.Set("autoDownloaderRules", autoDownloaderRulesObj)
+
+	// Auto downloader profiles
+	autoDownloaderProfilesObj := vm.NewObject()
+	_ = autoDownloaderProfilesObj.Set("getAll", db.getAllAutoDownloaderProfiles)
+	_ = autoDownloaderProfilesObj.Set("get", db.getAutoDownloaderProfile)
+	_ = autoDownloaderProfilesObj.Set("update", db.updateAutoDownloaderProfile)
+	_ = autoDownloaderProfilesObj.Set("insert", db.insertAutoDownloaderProfile)
+	_ = autoDownloaderProfilesObj.Set("remove", db.deleteAutoDownloaderProfile)
+	_ = dbObj.Set("autoDownloaderProfiles", autoDownloaderProfilesObj)
 
 	// Auto downloader items
 	autoDownloaderItemsObj := vm.NewObject()
@@ -298,6 +307,93 @@ func (d *Database) deleteAutoDownloaderRule(id uint) error {
 	ws, ok := d.ctx.wsEventManager.Get()
 	if ok {
 		ws.SendEvent(events.InvalidateQueries, []string{events.GetAutoDownloaderRulesEndpoint, events.GetAutoDownloaderRulesByAnimeEndpoint, events.GetAutoDownloaderRuleEndpoint, events.GetAutoDownloaderItemsEndpoint, events.GetAnimeEntryEndpoint})
+	}
+
+	return nil
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func (d *Database) getAllAutoDownloaderProfiles() ([]*anime.AutoDownloaderProfile, error) {
+	db, ok := d.ctx.database.Get()
+	if !ok {
+		return nil, errors.New("database not initialized")
+	}
+
+	profiles, err := db_bridge.GetAutoDownloaderProfiles(db)
+	if err != nil {
+		return nil, err
+	}
+
+	return profiles, nil
+}
+
+func (d *Database) getAutoDownloaderProfile(id uint) (*anime.AutoDownloaderProfile, error) {
+	db, ok := d.ctx.database.Get()
+	if !ok {
+		return nil, errors.New("database not initialized")
+	}
+
+	profile, err := db_bridge.GetAutoDownloaderProfile(db, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return profile, nil
+}
+
+func (d *Database) insertAutoDownloaderProfile(profile *anime.AutoDownloaderProfile) error {
+	db, ok := d.ctx.database.Get()
+	if !ok {
+		return errors.New("database not initialized")
+	}
+
+	if err := db_bridge.InsertAutoDownloaderProfile(db, profile); err != nil {
+		return err
+	}
+
+	ws, ok := d.ctx.wsEventManager.Get()
+	if ok {
+		ws.SendEvent(events.InvalidateQueries, []string{events.GetAutoDownloaderProfilesEndpoint, events.GetAutoDownloaderProfileEndpoint})
+	}
+
+	return nil
+}
+
+func (d *Database) updateAutoDownloaderProfile(id uint, profile *anime.AutoDownloaderProfile) error {
+	db, ok := d.ctx.database.Get()
+	if !ok {
+		return errors.New("database not initialized")
+	}
+
+	if err := db_bridge.UpdateAutoDownloaderProfile(db, id, profile); err != nil {
+		return err
+	}
+
+	ws, ok := d.ctx.wsEventManager.Get()
+	if ok {
+		ws.SendEvent(events.InvalidateQueries, []string{events.GetAutoDownloaderProfilesEndpoint, events.GetAutoDownloaderProfileEndpoint})
+	}
+
+	return nil
+}
+
+func (d *Database) deleteAutoDownloaderProfile(id uint) error {
+	db, ok := d.ctx.database.Get()
+	if !ok {
+		return errors.New("database not initialized")
+	}
+
+	if err := db_bridge.DeleteAutoDownloaderProfile(db, id); err != nil {
+		return err
+	}
+
+	ws, ok := d.ctx.wsEventManager.Get()
+	if ok {
+		ws.SendEvent(events.InvalidateQueries, []string{events.GetAutoDownloaderProfilesEndpoint, events.GetAutoDownloaderProfileEndpoint})
 	}
 
 	return nil

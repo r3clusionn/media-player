@@ -140,11 +140,11 @@ type AnimeLibraryStreamCollectionEvent struct {
 // This is triggered before [AnimeEntryDownloadInfoEvent].
 type AnimeEntryDownloadInfoRequestedEvent struct {
 	hook_resolver.Event
-	LocalFiles    []*LocalFile `json:"localFiles"`
-	AnimeMetadata *metadata.AnimeMetadata
-	Media         *anilist.BaseAnime
-	Progress      *int
-	Status        *anilist.MediaListStatus
+	LocalFiles    []*LocalFile             `json:"localFiles"`
+	AnimeMetadata *metadata.AnimeMetadata  `json:"animeMetadata"`
+	Media         *anilist.BaseAnime       `json:"media"`
+	Progress      *int                     `json:"progress"`
+	Status        *anilist.MediaListStatus `json:"status"`
 	// Empty download info object, will be used if the hook prevents the default behavior
 	EntryDownloadInfo *EntryDownloadInfo `json:"entryDownloadInfo"`
 }

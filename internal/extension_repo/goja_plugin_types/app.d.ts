@@ -329,10 +329,10 @@ declare namespace $app {
         next(): void;
 
         localFiles?: Array<Anime_LocalFile>;
-        AnimeMetadata?: Metadata_AnimeMetadata;
-        Media?: AL_BaseAnime;
-        Progress?: number;
-        Status?: AL_MediaListStatus;
+        animeMetadata?: Metadata_AnimeMetadata;
+        media?: AL_BaseAnime;
+        progress?: number;
+        status?: AL_MediaListStatus;
         entryDownloadInfo?: Anime_EntryDownloadInfo;
     }
 
@@ -4087,16 +4087,16 @@ declare namespace $app {
      * - Filepath: internal/torrents/torrent/search.go
      */
     interface Torrent_AnimeSearchOptions {
-        Provider: string;
-        Type: Torrent_AnimeSearchType;
-        Media?: AL_BaseAnime;
-        Query: string;
-        Batch: boolean;
-        EpisodeNumber: number;
-        BestReleases: boolean;
-        Resolution: string;
-        IncludeSpecialProviders: boolean;
-        SkipPreviews: boolean;
+        provider: string;
+        type?: Torrent_AnimeSearchType;
+        media?: AL_BaseAnime;
+        query?: string;
+        batch?: boolean;
+        episodeNumber?: number;
+        bestReleases?: boolean;
+        resolution?: string;
+        includeSpecialProviders?: boolean;
+        skipPreviews?: boolean;
     }
 
     /**

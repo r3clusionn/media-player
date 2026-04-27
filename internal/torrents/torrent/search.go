@@ -37,18 +37,18 @@ type (
 
 	AnimeSearchOptions struct {
 		// Provider extension ID
-		Provider string
-		Type     AnimeSearchType
-		Media    *anilist.BaseAnime
+		Provider string             `json:"provider"`
+		Type     AnimeSearchType    `json:"type,omitempty"`
+		Media    *anilist.BaseAnime `json:"media,omitempty"`
 		// Search options
-		Query string
+		Query string `json:"query,omitempty"`
 		// Filter options
-		Batch                   bool
-		EpisodeNumber           int
-		BestReleases            bool
-		Resolution              string
-		IncludeSpecialProviders bool
-		SkipPreviews            bool
+		Batch                   bool   `json:"batch,omitempty"`
+		EpisodeNumber           int    `json:"episodeNumber,omitempty"`
+		BestReleases            bool   `json:"bestReleases,omitempty"`
+		Resolution              string `json:"resolution,omitempty"`
+		IncludeSpecialProviders bool   `json:"includeSpecialProviders,omitempty"`
+		SkipPreviews            bool   `json:"skipPreviews,omitempty"`
 	}
 
 	// Preview contains the torrent and episode information

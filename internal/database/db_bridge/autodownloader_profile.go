@@ -58,9 +58,16 @@ func InsertAutoDownloaderProfile(db *db.Database, sm *anime.AutoDownloaderProfil
 	}
 
 	// Save the data
-	return db.Gorm().Create(&models.AutoDownloaderProfile{
+	model := &models.AutoDownloaderProfile{
 		Value: bytes,
-	}).Error
+	}
+	if err := db.Gorm().Create(model).Error; err != nil {
+		return err
+	}
+
+	sm.DbID = model.ID
+
+	return nil
 }
 
 func DeleteAutoDownloaderProfile(db *db.Database, id uint) error {

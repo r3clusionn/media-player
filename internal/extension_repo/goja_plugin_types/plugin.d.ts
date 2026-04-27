@@ -2645,6 +2645,39 @@ declare namespace $database {
         function remove(id: number): void
     }
 
+    namespace autoDownloaderProfiles {
+        /**
+         * Gets all auto downloader profiles
+         */
+        function getAll(): $app.Anime_AutoDownloaderProfile[]
+
+        /**
+         * Gets an auto downloader profile by the database id
+         * @param id - The id of the auto downloader profile in the database
+         * @returns The auto downloader profile
+         */
+        function get(id: number): $app.Anime_AutoDownloaderProfile | undefined
+
+        /**
+         * Inserts an auto downloader profile
+         * @param profile - The auto downloader profile to insert
+         */
+        function insert(profile: Omit<$app.Anime_AutoDownloaderProfile, "dbId">): void
+
+        /**
+         * Updates an auto downloader profile
+         * @param id - The id of the auto downloader profile in the database
+         * @param profile - The auto downloader profile to update
+         */
+        function update(id: number, profile: Omit<$app.Anime_AutoDownloaderProfile, "dbId">): void
+
+        /**
+         * Deletes an auto downloader profile
+         * @param id - The id of the auto downloader profile in the database
+         */
+        function remove(id: number): void
+    }
+
     namespace autoDownloaderItems {
         /**
          * Gets all auto downloader items
