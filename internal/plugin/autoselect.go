@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"context"
+	"seanime/internal/api/anilist"
 	"seanime/internal/database/db_bridge"
 	"seanime/internal/extension"
 	"seanime/internal/goja/goja_bindings"
@@ -11,8 +13,22 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (a *AppContextImpl) BindAutoSelectToContextObj(vm *goja.Runtime, obj *goja.Object, _ *zerolog.Logger, _ *extension.Extension, _ *gojautil.Scheduler) {
+type autoSelectBindings struct {
+	vm        *goja.Runtime
+	ctx       *AppContextImpl
+	scheduler *gojautil.Scheduler
+}
+
+func (a *AppContextImpl) BindAutoSelectToContextObj(vm *goja.Runtime, obj *goja.Object, _ *zerolog.Logger, _ *extension.Extension, scheduler *gojautil.Scheduler) {
 	autoSelectObj := vm.NewObject()
+
+	b := autoSelectBindings{
+		vm:        vm,
+		ctx:       a,
+		scheduler: scheduler,
+	}
+
+	_ = autoSelectObj.Set("search", b.search)
 
 	_ = autoSelectObj.Set("getProfile", func() goja.Value {
 		database, ok := a.database.Get()
@@ -21,7 +37,10 @@ func (a *AppContextImpl) BindAutoSelectToContextObj(vm *goja.Runtime, obj *goja.
 		}
 
 		profile, err := db_bridge.GetAutoSelectProfile(database)
-		if err != nil || profile == nil {
+		if err != nil {
+			goja_bindings.PanicThrowError(vm, err)
+		}
+		if profile == nil || profile.DbID == 0 {
 			return goja.Undefined()
 		}
 
@@ -60,4 +79,41 @@ func (a *AppContextImpl) BindAutoSelectToContextObj(vm *goja.Runtime, obj *goja.
 	})
 
 	_ = obj.Set("autoSelect", autoSelectObj)
+}
+
+func (p *autoSelectBindings) search(media *anilist.BaseAnime, episodeNumber int) goja.Value {
+	promise, resolve, reject := p.vm.NewPromise()
+
+	autoSelect, ok := p.ctx.autoSelect.Get()
+	if !ok {
+		goja_bindings.PanicThrowErrorString(p.vm, "autoSelect not set")
+	}
+
+	database, ok := p.ctx.database.Get()
+	if !ok {
+		goja_bindings.PanicThrowErrorString(p.vm, "database not set")
+	}
+
+	profile, err := db_bridge.GetAutoSelectProfile(database)
+	if err != nil {
+		goja_bindings.PanicThrowError(p.vm, err)
+	}
+	if profile == nil {
+		profile = &anime.AutoSelectProfile{}
+	}
+
+	go func() {
+		res, err := autoSelect.Search(context.Background(), media, episodeNumber, profile)
+		p.scheduler.ScheduleAsync(func() error {
+			if err != nil {
+				jsErr := p.vm.NewGoError(err)
+				reject(jsErr)
+			} else {
+				resolve(p.vm.ToValue(res))
+			}
+			return nil
+		})
+	}()
+
+	return p.vm.ToValue(promise)
 }

@@ -20,6 +20,7 @@ import (
 	"seanime/internal/onlinestream"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/torrent_clients/torrent_client"
+	"seanime/internal/torrents/autoselect"
 	"seanime/internal/torrents/torrent"
 	"seanime/internal/torrentstream"
 	"seanime/internal/util"
@@ -56,6 +57,7 @@ type AppContextModules struct {
 	FillerManager                   *fillermanager.FillerManager
 	VideoCore                       *videocore.VideoCore
 	DirectStreamManager             *directstream.Manager
+	AutoSelect                      *autoselect.AutoSelect
 	OnRefreshAnilistAnimeCollection func()
 	OnRefreshAnilistMangaCollection func()
 }
@@ -192,12 +194,12 @@ type AppContextImpl struct {
 	videoCore                       mo.Option[*videocore.VideoCore]
 	directStreamManager             mo.Option[*directstream.Manager]
 	isOfflineRef                    *util.Ref[bool]
+	autoSelect                      mo.Option[*autoselect.AutoSelect]
 }
 
 func NewAppContext() AppContext {
-	nopLogger := zerolog.Nop()
 	appCtx := &AppContextImpl{
-		logger:                          &nopLogger,
+		logger:                          new(zerolog.Nop()),
 		database:                        mo.None[*db.Database](),
 		playbackManager:                 mo.None[*playbackmanager.PlaybackManager](),
 		mediaplayerRepo:                 mo.None[*mediaplayer.Repository](),
@@ -222,6 +224,7 @@ func NewAppContext() AppContext {
 		videoCore:                       mo.None[*videocore.VideoCore](),
 		directStreamManager:             mo.None[*directstream.Manager](),
 		isOfflineRef:                    util.NewRef(false),
+		autoSelect:                      mo.None[*autoselect.AutoSelect](),
 	}
 
 	return appCtx
@@ -338,6 +341,7 @@ func (a *AppContextImpl) SetModulesPartial(modules AppContextModules) {
 
 	if modules.TorrentstreamRepository != nil {
 		a.torrentstreamRepository = mo.Some(modules.TorrentstreamRepository)
+		a.autoSelect = mo.Some(modules.TorrentstreamRepository.GetAutoSelect())
 	}
 
 	if modules.MediastreamRepository != nil {

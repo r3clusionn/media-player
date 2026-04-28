@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.7.1
+
+- ⚡️ Plugin: Added more APIs
+  - Added '$shared' API for sharing pure functions between hooks and runtimes
+  - Added 'ctx.jobs', 'ctx.settings', 'ctx.cache', '$debug'
+- 🦺 Home: Fixed 'not authencated' errors for unauthenticated users
+- 🦺 Torrentstream: Fixed 'Disable IPV6' option not working
+- 🦺 Plugin: Fixed potential crash caused by concurrent shared map writes
+
 ## v3.7.0
 
 - 🔒 BREAKING: Non-local instances now require a server password (Read the docs for more info).

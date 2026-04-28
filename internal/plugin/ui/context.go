@@ -44,6 +44,8 @@ type Context struct {
 	ext            *extension.Extension
 	logger         *zerolog.Logger
 	wsEventManager events.WSEventManagerInterface
+	store          *plugin.Store[string, any]
+	storage        *plugin.Storage
 
 	mu       sync.RWMutex
 	fetchSem chan struct{} // Semaphore for concurrent fetch requests
@@ -123,6 +125,8 @@ func NewContext(ui *UI) *Context {
 		ext:                           ui.ext,
 		logger:                        ui.logger,
 		vm:                            ui.vm,
+		store:                         ui.store,
+		storage:                       ui.storage,
 		states:                        result.NewMap[string, *State](),
 		fetchSem:                      make(chan struct{}, MaxConcurrentFetchRequests),
 		stateSubscribers:              result.NewMap[string, *StateSubscriber](),
@@ -182,6 +186,7 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 	_ = obj.Set("registerEventHandler", c.jsRegisterEventHandler)
 	_ = obj.Set("eventHandler", c.jsEventHandler)
 	_ = obj.Set("fieldRef", c.jsfieldRef)
+	c.bindDXHelpers(obj)
 
 	anilistToken := ""
 	if db, ok := c.ui.appContext.Database().Get(); ok {
@@ -750,6 +755,8 @@ func (c *Context) jsSetTimeout(call goja.FunctionCall) goja.Value {
 		cancel()
 		return goja.Undefined()
 	}
+
+	c.registerOnCleanup(cancel)
 
 	return c.vm.ToValue(cancelFunc)
 }

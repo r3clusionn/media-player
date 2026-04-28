@@ -198,6 +198,8 @@ func NewGojaPlugin(
 		VM:        uiVM,
 		WSManager: wsEventManager,
 		Scheduler: p.scheduler,
+		Store:     p.store,
+		Storage:   p.storage,
 		OnCrash:   onCrash,
 	})
 
@@ -251,6 +253,7 @@ func (p *GojaPlugin) BindPluginAPIs(vm *goja.Runtime, logger *zerolog.Logger) {
 	gojautil.BindAwait(vm)
 	// Bind console bindings
 	_ = goja_bindings.BindConsoleWithWS(p.ext, vm, logger, p.wsEventManager)
+	plugin_ui.BindDebug(vm, p.ext, p.wsEventManager)
 
 	// Bind the app context
 	plugin.GlobalAppContext.BindApp(vm, logger, p.ext)

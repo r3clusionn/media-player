@@ -19,9 +19,11 @@ import (
 	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/plugin"
+	plugin_ui "seanime/internal/plugin/ui"
 	"seanime/internal/testutil"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
+	"strings"
 	"testing"
 	"time"
 
@@ -57,6 +59,7 @@ type TestPluginOptions struct {
 	Permissions extension.PluginPermissions
 	PoolSize    int
 	SetupHooks  bool
+	Development bool
 }
 
 // DefaultTestPluginOptions returns default options for a test plugin
@@ -79,10 +82,11 @@ func InitTestPlugin(t testing.TB, opts TestPluginOptions) (*GojaPlugin, *zerolog
 	}
 
 	ext := &extension.Extension{
-		ID:       opts.ID,
-		Payload:  opts.Payload,
-		Language: opts.Language,
-		Plugin:   &extension.PluginManifest{},
+		ID:            opts.ID,
+		Payload:       opts.Payload,
+		Language:      opts.Language,
+		Plugin:        &extension.PluginManifest{},
+		IsDevelopment: opts.Development,
 	}
 
 	if len(opts.Permissions.Scopes) > 0 {
@@ -621,6 +625,207 @@ func TestGojaPluginSharedModulesRejectDuplicateNames(t *testing.T) {
 	_, _, _, _, _, err := InitTestPlugin(t, opts)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "shared module \"releaseMask\" already exists")
+}
+
+func TestGojaPluginContextDXHelpers(t *testing.T) {
+	payload := `
+	function init() {
+		$ui.register((ctx) => {
+			const settings = ctx.settings.define("panel", { enabled: false, nested: { count: 1 } })
+			const unwatch = settings.watch((value) => $store.set("settingsWatch", value.enabled))
+			settings.set({ enabled: true })
+			settings.set("nested.count", 2)
+
+			const first = ctx.cache.getOrLoad("entry", () => {
+				$store.set("cacheCalls", ($store.get("cacheCalls") || 0) + 1)
+				return { value: 1 }
+			})
+			const second = ctx.cache.getOrLoad("entry", () => {
+				$store.set("cacheCalls", 99)
+				return { value: 99 }
+			})
+			ctx.cache.set("short", "gone", { ttl: 5 })
+
+			ctx.jobs.debounce("refresh", () => $store.set("debounced", ($store.get("debounced") || 0) + 1), 5)
+			ctx.jobs.debounce("refresh", () => $store.set("debounced", ($store.get("debounced") || 0) + 1), 5)
+
+			ctx.jobs.singleflight("load", () => {
+				$store.set("singleflightCalls", ($store.get("singleflightCalls") || 0) + 1)
+				return Promise.resolve("ok")
+			})
+			ctx.jobs.singleflight("load", () => {
+				$store.set("singleflightCalls", 99)
+				return Promise.resolve("bad")
+			}).then((value) => $store.set("singleflightResult", value))
+
+			ctx.setTimeout(() => {
+				unwatch()
+				$store.set("settingsEnabled", settings.get("enabled"))
+				$store.set("settingsCount", settings.get("nested.count"))
+				$store.set("cacheSame", first.value === second.value && first.value === 1)
+				$store.set("cacheExpired", ctx.cache.has("short"))
+				$store.set("done", true)
+			}, 35)
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+	opts.SetupHooks = false
+
+	plugin, _, _, _, _, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return plugin.store.Get("done") == true
+	}, time.Second, 10*time.Millisecond)
+
+	require.Equal(t, true, plugin.store.Get("settingsEnabled"))
+	require.EqualValues(t, 2, plugin.store.Get("settingsCount"))
+	require.Equal(t, true, plugin.store.Get("settingsWatch"))
+	require.Equal(t, true, plugin.store.Get("cacheSame"))
+	require.EqualValues(t, 1, plugin.store.Get("cacheCalls"))
+	require.Equal(t, false, plugin.store.Get("cacheExpired"))
+	require.EqualValues(t, 1, plugin.store.Get("debounced"))
+	require.EqualValues(t, 1, plugin.store.Get("singleflightCalls"))
+	require.Equal(t, "ok", plugin.store.Get("singleflightResult"))
+}
+
+func TestGojaPluginContextDXPollImmediateRunsInCurrentTurn(t *testing.T) {
+	payload := `
+	function init() {
+		$ui.register((ctx) => {
+			// keep this observable from the same register turn.
+			ctx.jobs.poll("refresh", () => {
+				$store.set("pollCalls", ($store.get("pollCalls") || 0) + 1)
+			}, 1000, { immediate: true })
+
+			// immediate should run before register continues.
+			$store.set("pollCallsAfterRegister", $store.get("pollCalls") || 0)
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+	opts.SetupHooks = false
+
+	plugin, _, _, _, _, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+
+	require.EqualValues(t, 1, plugin.store.Get("pollCallsAfterRegister"))
+	require.EqualValues(t, 1, plugin.store.Get("pollCalls"))
+}
+
+func TestGojaPluginContextDebugDevelopmentOnly(t *testing.T) {
+	payload := `
+	function init() {
+		$app.onGetAnime((e) => {
+			$store.set("hookDebugEnabled", $debug.enabled)
+			$debug.info("hook-loaded", { mediaId: e.anime.id })
+			e.next()
+		})
+
+		$ui.register((ctx) => {
+			$store.set("debugEnabled", $debug.enabled)
+			$debug.info("ui-loaded", { value: 1 })
+			$debug.clear()
+		})
+	}
+	`
+
+	opts := DefaultTestPluginOptions()
+	opts.Payload = payload
+	plugin, _, _, anilistPlatform, wsEventManager, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+	_, err = anilistPlatform.GetAnime(t.Context(), 178022)
+	require.NoError(t, err)
+
+	require.Equal(t, false, plugin.store.Get("debugEnabled"))
+	require.Equal(t, false, plugin.store.Get("hookDebugEnabled"))
+	time.Sleep(30 * time.Millisecond)
+	_, ok := findTestPluginEvent(wsEventManager, plugin_ui.ServerDebugLogEvent)
+	require.False(t, ok)
+
+	opts.ID = "dev-plugin"
+	opts.Development = true
+	devPlugin, _, _, anilistPlatform, wsEventManager, err := InitTestPlugin(t, opts)
+	require.NoError(t, err)
+	_, err = anilistPlatform.GetAnime(t.Context(), 178022)
+	require.NoError(t, err)
+	require.Equal(t, true, devPlugin.store.Get("debugEnabled"))
+	require.Equal(t, true, devPlugin.store.Get("hookDebugEnabled"))
+
+	mock, ok := wsEventManager.(*events.MockWSEventManager)
+	require.True(t, ok)
+
+	var uiDebugLog *plugin_ui.ServerPluginEvent
+	var hookDebugLog *plugin_ui.ServerPluginEvent
+	require.Eventually(t, func() bool {
+		for _, sentEvent := range mock.Events() {
+			payload, ok := sentEvent.Payload.(*plugin_ui.ServerPluginEvent)
+			if !ok || payload.Type != plugin_ui.ServerDebugLogEvent {
+				continue
+			}
+			payloadValue, ok := payload.Payload.(plugin_ui.ServerDebugLogEventPayload)
+			if !ok {
+				continue
+			}
+			if strings.Contains(payloadValue.Message, "ui-loaded") {
+				uiDebugLog = payload
+			}
+			if strings.Contains(payloadValue.Message, "hook-loaded") {
+				hookDebugLog = payload
+			}
+		}
+		return uiDebugLog != nil && hookDebugLog != nil
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		_, ok := findTestPluginEvent(wsEventManager, plugin_ui.ServerDebugClearEvent)
+		return ok
+	}, time.Second, 10*time.Millisecond)
+
+	payloadValue, ok := uiDebugLog.Payload.(plugin_ui.ServerDebugLogEventPayload)
+	require.True(t, ok)
+	require.Equal(t, "info", payloadValue.Level)
+	require.Contains(t, payloadValue.Message, "ui-loaded")
+
+	hookPayload, ok := hookDebugLog.Payload.(plugin_ui.ServerDebugLogEventPayload)
+	require.True(t, ok)
+	require.Equal(t, "info", hookPayload.Level)
+	require.Contains(t, hookPayload.Message, "hook-loaded")
+}
+
+func findTestPluginEvent(wsEventManager events.WSEventManagerInterface, eventType plugin_ui.ServerEventType) (*plugin_ui.ServerPluginEvent, bool) {
+	mock, ok := wsEventManager.(*events.MockWSEventManager)
+	if !ok {
+		return nil, false
+	}
+
+	for _, sentEvent := range mock.Events() {
+		payload, ok := sentEvent.Payload.(*plugin_ui.ServerPluginEvent)
+		if !ok {
+			continue
+		}
+		if payload.Type == eventType {
+			return payload, true
+		}
+		if payload.Type != "plugin:batch-events" {
+			continue
+		}
+		batch, ok := payload.Payload.(*plugin_ui.BatchedPluginEvents)
+		if !ok {
+			continue
+		}
+		for _, pluginEvent := range batch.Events {
+			if pluginEvent.Type == eventType {
+				return pluginEvent, true
+			}
+		}
+	}
+
+	return nil, false
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////

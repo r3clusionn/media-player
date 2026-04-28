@@ -89,6 +89,8 @@ export enum PluginServerEvents {
     DOMObserveInView = "dom:observe-in-view",
     DOMGetViewportSize = "dom:get-viewport-size",
     DOMClipboardWrite = "dom:clipboard:write",
+    DebugLog = "debug:log",
+    DebugClear = "debug:clear",
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -1307,6 +1309,33 @@ export function usePluginListenDOMClipboardWriteEvent(cb: (payload: Plugin_Serve
     return useWebsocketPluginMessageListener<Plugin_Server_DOMClipboardWriteEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.DOMClipboardWrite,
+        onMessage: cb,
+    })
+}
+
+export type Plugin_Server_DebugLogEventPayload = {
+    at: number
+    level: string
+    message: string
+    values: Array<any>
+}
+
+export function usePluginListenDebugLogEvent(cb: (payload: Plugin_Server_DebugLogEventPayload, extensionId: string) => void, extensionID: string) {
+    return useWebsocketPluginMessageListener<Plugin_Server_DebugLogEventPayload>({
+        extensionId: extensionID,
+        type: PluginServerEvents.DebugLog,
+        onMessage: cb,
+    })
+}
+
+export type Plugin_Server_DebugClearEventPayload = {}
+
+export function usePluginListenDebugClearEvent(cb: (payload: Plugin_Server_DebugClearEventPayload, extensionId: string) => void,
+    extensionID: string,
+) {
+    return useWebsocketPluginMessageListener<Plugin_Server_DebugClearEventPayload>({
+        extensionId: extensionID,
+        type: PluginServerEvents.DebugClear,
         onMessage: cb,
     })
 }

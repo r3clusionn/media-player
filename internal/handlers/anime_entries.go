@@ -454,8 +454,6 @@ func (h *Handler) HandleAnimeEntryManualMatch(c echo.Context) error {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-var missingEpisodesCache *anime.MissingEpisodes
-
 // HandleGetMissingEpisodes
 //
 //	@summary returns a list of episodes missing from the user's library collection
@@ -465,10 +463,10 @@ var missingEpisodesCache *anime.MissingEpisodes
 //	@returns anime.MissingEpisodes
 func (h *Handler) HandleGetMissingEpisodes(c echo.Context) error {
 	h.App.AddOnRefreshAnilistCollectionFunc("HandleGetMissingEpisodes", func() {
-		missingEpisodesCache = nil
+		anime.ClearMissingEpisodesCache()
 	})
 
-	if missingEpisodesCache != nil {
+	if missingEpisodesCache, ok := anime.GetMissingEpisodesCache(); ok {
 		return h.RespondWithData(c, missingEpisodesCache)
 	}
 
@@ -502,7 +500,7 @@ func (h *Handler) HandleGetMissingEpisodes(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	missingEpisodesCache = event.MissingEpisodes
+	anime.SetMissingEpisodesCache(event.MissingEpisodes)
 
 	return h.RespondWithData(c, event.MissingEpisodes)
 }
@@ -592,7 +590,7 @@ func (h *Handler) HandleToggleAnimeEntrySilenceStatus(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	missingEpisodesCache = nil
+	anime.ClearMissingEpisodesCache()
 
 	animeEntry, err := h.App.Database.GetSilencedMediaEntry(uint(b.MediaId))
 	if err != nil {
