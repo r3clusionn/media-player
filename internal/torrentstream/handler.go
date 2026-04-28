@@ -27,28 +27,28 @@ func newHandler(repository *Repository) *handler {
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.repository.logger.Trace().Str("range", r.Header.Get("Range")).Msg("torrentstream: Stream endpoint hit")
 
-	if h.repository.client.currentFile.IsAbsent() || h.repository.client.currentTorrent.IsAbsent() {
+	file, found := h.repository.client.currentFile.Get()
+	if !found || h.repository.client.currentTorrent.IsAbsent() {
 		h.repository.logger.Error().Msg("torrentstream: No torrent to stream")
 		http.Error(w, "No torrent to stream", http.StatusNotFound)
 		return
 	}
 
 	if r.Method == http.MethodHead {
-		r.Response.Header.Set("Content-Type", "video/mp4")
-		r.Response.Header.Set("Content-Length", strconv.Itoa(int(h.repository.client.currentFile.MustGet().Length())))
-		r.Response.Header.Set("Content-Disposition", "inline; filename="+h.repository.client.currentFile.MustGet().DisplayPath())
-		r.Response.Header.Set("Accept-Ranges", "bytes")
-		r.Response.Header.Set("Cache-Control", "no-cache")
-		r.Response.Header.Set("Pragma", "no-cache")
-		r.Response.Header.Set("Expires", "0")
-		r.Response.Header.Set("X-Content-Type-Options", "nosniff")
-
-		// No content, just headers
+		length := file.Length()
+		filePath := file.DisplayPath()
+		w.Header().Set("Content-Type", "video/mp4")
+		w.Header().Set("Content-Length", strconv.FormatInt(length, 10))
+		w.Header().Set("Content-Disposition", "inline; filename="+filePath)
+		w.Header().Set("Accept-Ranges", "bytes")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Pragma", "no-cache")
+		w.Header().Set("Expires", "0")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
 
-	file := h.repository.client.currentFile.MustGet()
 	h.repository.logger.Trace().Str("file", file.DisplayPath()).Msg("torrentstream: New reader")
 	tr := file.NewReader()
 	defer func(tr torrent.Reader) {
