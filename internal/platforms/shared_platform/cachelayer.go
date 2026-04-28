@@ -9,6 +9,7 @@ import (
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 	"seanime/internal/util/result"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -408,17 +409,25 @@ func (c *CacheLayer) generateCacheKey(params ...interface{}) string {
 				keyParts = append(keyParts, "nil")
 			}
 		case []*int:
+			tmp := make([]int, 0, len(v))
 			for _, id := range v {
 				if id != nil {
-					keyParts = append(keyParts, strconv.Itoa(*id))
+					tmp = append(tmp, *id)
 				}
+			}
+			slices.Sort(tmp)
+			for _, id := range tmp {
+				keyParts = append(keyParts, strconv.Itoa(id))
 			}
 		case []*string:
+			tmp := make([]string, 0, len(v))
 			for _, s := range v {
 				if s != nil {
-					keyParts = append(keyParts, *s)
+					tmp = append(tmp, *s)
 				}
 			}
+			slices.Sort(tmp)
+			keyParts = append(keyParts, tmp...)
 		default:
 			keyParts = append(keyParts, fmt.Sprintf("%v", param))
 		}
@@ -935,7 +944,8 @@ func (c *CacheLayer) ListAnime(ctx context.Context, page *int, search *string, p
 }
 
 func (c *CacheLayer) ListRecentAnime(ctx context.Context, page *int, perPage *int, airingAtGreater *int, airingAtLesser *int, notYetAired *bool, interceptors ...clientv2.RequestInterceptor) (*anilist.ListRecentAnime, error) {
-	cacheKey := c.generateCacheKey(page, perPage, airingAtGreater, airingAtLesser, notYetAired)
+	// devnote: don't include airingAt params since they're unique for each requests, just return from the other params
+	cacheKey := c.generateCacheKey(page, perPage, notYetAired)
 	return networkFirstGetWithBoundedCache(c, ListRecentAnimeBucket, cacheKey, func() (*anilist.ListRecentAnime, error) {
 		return c.anilistClientRef.Get().ListRecentAnime(ctx, page, perPage, airingAtGreater, airingAtLesser, notYetAired, interceptors...)
 	})

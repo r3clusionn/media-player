@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file.
 - 🦺 Home: Fixed 'not authencated' errors for unauthenticated users
 - 🦺 Torrentstream: Fixed 'Disable IPV6' option not working
 - 🦺 Plugin: Fixed potential crash caused by concurrent shared map writes
+- 🦺 Server: Fixed certain queries bypassing the cache layer
 
 ## v3.7.0
 
