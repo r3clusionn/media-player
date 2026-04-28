@@ -474,9 +474,7 @@ export type Plugin_Client_AnimeEntryEpisodeTabsRenderEventPayload = {
 export function usePluginSendAnimeEntryEpisodeTabsRenderEvent() {
     const { sendPluginMessage } = useWebsocketSender()
 
-    const sendAnimeEntryEpisodeTabsRenderEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabsRenderEventPayload,
-        extensionID?: string,
-    ) => {
+    const sendAnimeEntryEpisodeTabsRenderEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabsRenderEventPayload, extensionID?: string) => {
         sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabsRender, payload, extensionID)
     }, [])
 
@@ -511,9 +509,7 @@ export type Plugin_Client_AnimeEntryEpisodeTabSelectEpisodeEventPayload = {
 export function usePluginSendAnimeEntryEpisodeTabSelectEpisodeEvent() {
     const { sendPluginMessage } = useWebsocketSender()
 
-    const sendAnimeEntryEpisodeTabSelectEpisodeEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabSelectEpisodeEventPayload,
-        extensionID?: string,
-    ) => {
+    const sendAnimeEntryEpisodeTabSelectEpisodeEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabSelectEpisodeEventPayload, extensionID?: string) => {
         sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabSelectEpisode, payload, extensionID)
     }, [])
 
@@ -529,9 +525,7 @@ export type Plugin_Client_AnimeEntryEpisodeTabStateChangedEventPayload = {
 export function usePluginSendAnimeEntryEpisodeTabStateChangedEvent() {
     const { sendPluginMessage } = useWebsocketSender()
 
-    const sendAnimeEntryEpisodeTabStateChangedEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabStateChangedEventPayload,
-        extensionID?: string,
-    ) => {
+    const sendAnimeEntryEpisodeTabStateChangedEvent = useCallback((payload: Plugin_Client_AnimeEntryEpisodeTabStateChangedEventPayload, extensionID?: string) => {
         sendPluginMessage(PluginClientEvents.AnimeEntryEpisodeTabStateChanged, payload, extensionID)
     }, [])
 
@@ -1077,9 +1071,7 @@ export type Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload = {
     tabs: any
 }
 
-export function usePluginListenAnimeEntryEpisodeTabsUpdatedEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload,
-    extensionId: string,
-) => void, extensionID: string) {
+export function usePluginListenAnimeEntryEpisodeTabsUpdatedEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload, extensionId: string) => void, extensionID: string) {
     return useWebsocketPluginMessageListener<Plugin_Server_AnimeEntryEpisodeTabsUpdatedEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.AnimeEntryEpisodeTabsUpdated,
@@ -1091,9 +1083,7 @@ export type Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload = {
     episodeCollection: any
 }
 
-export function usePluginListenAnimeEntryEpisodeTabEpisodeCollectionEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload,
-    extensionId: string,
-) => void, extensionID: string) {
+export function usePluginListenAnimeEntryEpisodeTabEpisodeCollectionEvent(cb: (payload: Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload, extensionId: string) => void, extensionID: string) {
     return useWebsocketPluginMessageListener<Plugin_Server_AnimeEntryEpisodeTabEpisodeCollectionEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.AnimeEntryEpisodeTabEpisodeCollection,
@@ -1328,11 +1318,10 @@ export function usePluginListenDebugLogEvent(cb: (payload: Plugin_Server_DebugLo
     })
 }
 
-export type Plugin_Server_DebugClearEventPayload = {}
+export type Plugin_Server_DebugClearEventPayload = {
+}
 
-export function usePluginListenDebugClearEvent(cb: (payload: Plugin_Server_DebugClearEventPayload, extensionId: string) => void,
-    extensionID: string,
-) {
+export function usePluginListenDebugClearEvent(cb: (payload: Plugin_Server_DebugClearEventPayload, extensionId: string) => void, extensionID: string) {
     return useWebsocketPluginMessageListener<Plugin_Server_DebugClearEventPayload>({
         extensionId: extensionID,
         type: PluginServerEvents.DebugClear,

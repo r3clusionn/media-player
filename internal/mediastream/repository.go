@@ -10,6 +10,7 @@ import (
 	"seanime/internal/mediastream/videofile"
 	"seanime/internal/util/filecache"
 	"seanime/internal/videocore"
+	"strings"
 	"sync"
 
 	"github.com/rs/zerolog"
@@ -86,10 +87,12 @@ func (r *Repository) InitializeModules(settings *models.MediastreamSettings, cac
 		r.logger.Error().Err(err).Msg("mediastream: Failed to create transcode directory")
 	}
 
+	settings.FfmpegPath = strings.TrimSpace(strings.Trim(settings.FfmpegPath, "\""))
 	if settings.FfmpegPath == "" {
 		settings.FfmpegPath = "ffmpeg"
 	}
 
+	settings.FfprobePath = strings.TrimSpace(strings.Trim(settings.FfprobePath, "\""))
 	if settings.FfprobePath == "" {
 		settings.FfprobePath = "ffprobe"
 	}
