@@ -5,8 +5,10 @@ import { vc_miniPlayer } from "@/app/(main)/_features/video-core/video-core-atom
 import { vc_busy } from "@/app/(main)/_features/video-core/video-core-atoms"
 import { VideoCoreLifecycleState } from "@/app/(main)/_features/video-core/video-core.atoms"
 import { cn } from "@/components/ui/core/styling"
+import { useRouter } from "@/lib/navigation.ts"
 import { __isDesktop__ } from "@/types/constants"
 import { useAtomValue } from "jotai"
+import { useAtom } from "jotai/react"
 import React from "react"
 
 export function VideoCoreTopSection(props: { children?: React.ReactNode, inline?: boolean }) {
@@ -54,10 +56,11 @@ export function VideoCoreTopSection(props: { children?: React.ReactNode, inline?
 export function VideoCoreTopPlaybackInfo(props: { state: VideoCoreLifecycleState, children?: React.ReactNode }) {
     const { state, children, ...rest } = props
 
-    const busy = useAtomValue(vc_busy)
     const paused = useAtomValue(vc_paused)
-    const isMiniPlayer = useAtomValue(vc_miniPlayer)
+    const [isMiniPlayer, setMiniPlayer] = useAtom(vc_miniPlayer)
     const hoveringControlBar = useAtomValue(vc_hoveringControlBar)
+
+    const router = useRouter()
 
     if (isMiniPlayer) return null
 
@@ -71,7 +74,14 @@ export function VideoCoreTopPlaybackInfo(props: { state: VideoCoreLifecycleState
                 )}
             >
                 {state.playbackInfo?.episode?.baseAnime?.title?.userPreferred &&
-                    <p data-vc-element="top-playback-info-title" className="text-white/50 font-medium text-sm max-w-[400px] line-clamp-1">
+                    <p
+                        data-vc-element="top-playback-info-title"
+                        className="text-white/50 font-medium text-sm max-w-[400px] line-clamp-1 cursor-pointer"
+                        onClick={() => {
+                            router.push(`/entry?id=${state.playbackInfo?.episode?.baseAnime?.id}`)
+                            setMiniPlayer(true)
+                        }}
+                    >
                         {state.playbackInfo?.episode?.baseAnime?.title?.userPreferred}
                     </p>}
                 <div className="flex flex-row gap-2" data-vc-element="top-playback-info-episode">
