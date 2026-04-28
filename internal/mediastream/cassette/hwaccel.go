@@ -195,8 +195,20 @@ func qsvProfile(device, preset string) HwAccelProfile {
 }
 
 func nvidiaProfile(preset string) HwAccelProfile {
-	if preset == "ultrafast" {
+	// map to nvenc presets
+	switch preset {
+	case "ultrafast":
 		preset = "p1"
+	case "superfast", "veryfast":
+		preset = "p2"
+	case "faster", "fast":
+		preset = "p3"
+	case "medium":
+		preset = "p4"
+	case "slow", "slower":
+		preset = "p6"
+	case "veryslow", "placebo":
+		preset = "p7"
 	}
 	return HwAccelProfile{
 		Name: "nvidia",
