@@ -2,6 +2,7 @@ package events
 
 import (
 	"seanime/internal/util/result"
+	"sync"
 
 	"github.com/rs/zerolog"
 )
@@ -11,6 +12,8 @@ type (
 		Conn                   interface{}
 		Logger                 *zerolog.Logger
 		ClientEventSubscribers *result.Map[string, *ClientEventSubscriber]
+		mu                     sync.Mutex
+		sentEvents             []MockWSEvent
 	}
 
 	MockWSEvent struct {
@@ -28,13 +31,27 @@ func NewMockWSEventManager(logger *zerolog.Logger) *MockWSEventManager {
 
 // SendEvent sends a websocket event to the client.
 func (m *MockWSEventManager) SendEvent(t string, payload interface{}) {
+	m.mu.Lock()
+	m.sentEvents = append(m.sentEvents, MockWSEvent{Type: t, Payload: payload})
+	m.mu.Unlock()
 	m.Logger.Trace().Any("payload", payload).Str("type", t).Msg("ws: Sent message")
 }
 
 func (m *MockWSEventManager) SendEventTo(clientId string, t string, payload interface{}, noLog ...bool) {
+	m.mu.Lock()
+	m.sentEvents = append(m.sentEvents, MockWSEvent{Type: t, Payload: payload})
+	m.mu.Unlock()
 	if len(noLog) == 0 || !noLog[0] {
 		m.Logger.Trace().Any("payload", payload).Str("type", t).Str("clientId", clientId).Msg("ws: Sent message to client")
 	}
+}
+
+func (m *MockWSEventManager) Events() []MockWSEvent {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	ret := make([]MockWSEvent, len(m.sentEvents))
+	copy(ret, m.sentEvents)
+	return ret
 }
 
 func (m *MockWSEventManager) GetClientIds() []string {

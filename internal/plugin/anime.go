@@ -47,6 +47,18 @@ func (a *AppContextImpl) BindAnimeToContextObj(vm *goja.Runtime, obj *goja.Objec
 		}
 		return goja.Undefined()
 	})
+	_ = animeObj.Set("clearEpisodeCollectionCache", func(call goja.FunctionCall) goja.Value {
+		anime.ClearEpisodeCollectionCache()
+		return goja.Undefined()
+	})
+	_ = animeObj.Set("clearMissingEpisodesCache", func(call goja.FunctionCall) goja.Value {
+		anime.ClearMissingEpisodesCache()
+		return goja.Undefined()
+	})
+	_ = animeObj.Set("clearScheduleCache", func(call goja.FunctionCall) goja.Value {
+		anime.ClearScheduleCache()
+		return goja.Undefined()
+	})
 	_ = obj.Set("anime", animeObj)
 }
 

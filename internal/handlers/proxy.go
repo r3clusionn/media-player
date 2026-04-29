@@ -28,6 +28,19 @@ var videoProxyClientSecure = req.C().
 	DisableCompression().
 	ImpersonateChrome()
 
+var videoProxyClient2Http1 = req.C().
+	DisableAutoReadResponse().
+	DisableCompression().
+	EnableInsecureSkipVerify().
+	EnableForceHTTP1().
+	ImpersonateChrome()
+
+var videoProxyClientSecureHttp1 = req.C().
+	DisableAutoReadResponse().
+	DisableCompression().
+	EnableForceHTTP1().
+	ImpersonateChrome()
+
 func (h *Handler) VideoProxy(c echo.Context) (err error) {
 	defer util.HandlePanicInModuleWithError("util/VideoProxy", &err)
 
@@ -42,6 +55,18 @@ func (h *Handler) VideoProxy(c echo.Context) (err error) {
 	client := videoProxyClient2
 	if security.IsStrict() {
 		client = videoProxyClientSecure
+	}
+
+	parsedUrl, err := url2.Parse(url)
+	if err == nil && parsedUrl != nil {
+		host := strings.ToLower(parsedUrl.Host)
+		if strings.Contains(host, "googleapis.com") || strings.Contains(host, "googleusercontent.com") || strings.Contains(host, "drive.google.com") {
+			if security.IsStrict() {
+				client = videoProxyClientSecureHttp1
+			} else {
+				client = videoProxyClient2Http1
+			}
+		}
 	}
 
 	r := client.R()

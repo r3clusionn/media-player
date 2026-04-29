@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/components/ui/core/styling"
 import { Field, Form } from "@/components/ui/form"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter, useSearchParams } from "@/lib/navigation"
@@ -136,6 +137,8 @@ export default function Page() {
             }, 500)
         }
     }, [searchParams])
+
+    if (!status?.settings) return <LoadingSpinner />
 
     return (
         <>

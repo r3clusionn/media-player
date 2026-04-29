@@ -3032,7 +3032,7 @@
         },
         {
           "name": "AnimeMetadata",
-          "jsonName": "AnimeMetadata",
+          "jsonName": "animeMetadata",
           "goType": "metadata.AnimeMetadata",
           "typescriptType": "Metadata_AnimeMetadata",
           "usedTypescriptType": "Metadata_AnimeMetadata",
@@ -3043,7 +3043,7 @@
         },
         {
           "name": "Media",
-          "jsonName": "Media",
+          "jsonName": "media",
           "goType": "anilist.BaseAnime",
           "typescriptType": "AL_BaseAnime",
           "usedTypescriptType": "AL_BaseAnime",
@@ -3054,7 +3054,7 @@
         },
         {
           "name": "Progress",
-          "jsonName": "Progress",
+          "jsonName": "progress",
           "goType": "int",
           "typescriptType": "number",
           "required": false,
@@ -3063,7 +3063,7 @@
         },
         {
           "name": "Status",
-          "jsonName": "Status",
+          "jsonName": "status",
           "goType": "anilist.MediaListStatus",
           "typescriptType": "AL_MediaListStatus",
           "usedTypescriptType": "AL_MediaListStatus",

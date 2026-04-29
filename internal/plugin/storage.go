@@ -106,7 +106,14 @@ func (a *AppContextImpl) BindStorage(vm *goja.Runtime, logger *zerolog.Logger, e
 		scheduler: scheduler,
 	}
 	storageObj := vm.NewObject()
-	_ = storageObj.Set("get", storage.Get)
+	_ = storageObj.Set("get", func(key string) (interface{}, error) {
+		value, err := storage.Get(key)
+		if err != nil {
+			return nil, err
+		}
+		// devnote: clone the value so we don't run into concurrent map write panics
+		return cloneRefValue(value), nil
+	})
 	_ = storageObj.Set("set", storage.Set)
 	_ = storageObj.Set("remove", storage.Delete)
 	_ = storageObj.Set("drop", storage.Drop)
@@ -475,7 +482,7 @@ func (s *Storage) Watch(key string, callback goja.Callable) goja.Value {
 		for value := range subscriber.channel {
 			// Call the callback with the new value
 			s.scheduler.ScheduleAsync(func() error {
-				_, err := callback(goja.Undefined(), s.runtime.ToValue(value))
+				_, err := callback(goja.Undefined(), s.runtime.ToValue(cloneRefValue(value)))
 				if err != nil {
 					s.logger.Error().Err(err).Msgf("plugin: Error calling watch callback for key %s", key)
 				}

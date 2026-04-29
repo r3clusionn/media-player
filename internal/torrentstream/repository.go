@@ -134,6 +134,10 @@ func (r *Repository) GetPreviousStreamOptions() (*StartStreamOptions, bool) {
 	return r.previousStreamOptions.OrElse(nil), r.previousStreamOptions.IsPresent()
 }
 
+func (r *Repository) GetAutoSelect() *autoselect.AutoSelect {
+	return r.autoSelect
+}
+
 // SetMediaPlayerRepository sets the mediaplayer repository and listens to events.
 // This MUST be called after instantiating the repository and will run even if the module is disabled.
 //

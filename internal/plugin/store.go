@@ -58,19 +58,34 @@ func (s *Store[K, T]) Stop() {
 func (s *Store[K, T]) Bind(vm *goja.Runtime, scheduler *gojautil.Scheduler) {
 	// Create a new object for the store
 	storeObj := vm.NewObject()
-	_ = storeObj.Set("get", s.Get)
+	_ = storeObj.Set("get", func(key K) interface{} {
+		// devnote: clone the value so we don't run into concurrent map write panics
+		return cloneRefValue(s.Get(key))
+	})
 	_ = storeObj.Set("set", s.Set)
 	_ = storeObj.Set("length", s.Length)
 	_ = storeObj.Set("remove", s.Remove)
 	_ = storeObj.Set("removeAll", s.RemoveAll)
-	_ = storeObj.Set("getAll", s.GetAll)
+	_ = storeObj.Set("getAll", func() interface{} {
+		return cloneRefValue(s.GetAll())
+	})
 	_ = storeObj.Set("has", s.Has)
-	_ = storeObj.Set("getOrSet", s.GetOrSet)
-	_ = storeObj.Set("setIfLessThanLimit", s.SetIfLessThanLimit)
+	_ = storeObj.Set("getOrSet", func(key K, setFunc func() T) interface{} {
+		// devnote: clone the value so we don't run into concurrent map write panics
+		return cloneRefValue(s.GetOrSet(key, func() T {
+			return cloneValueT(setFunc())
+		}))
+	})
+	_ = storeObj.Set("setIfLessThanLimit", func(key K, value T, maxAllowedElements int) bool {
+		return s.SetIfLessThanLimit(key, cloneValueT(value), maxAllowedElements)
+	})
 	_ = storeObj.Set("unmarshalJSON", s.UnmarshalJSON)
 	_ = storeObj.Set("marshalJSON", s.MarshalJSON)
 	_ = storeObj.Set("reset", s.Reset)
-	_ = storeObj.Set("values", s.Values)
+	_ = storeObj.Set("values", func() interface{} {
+		// devnote: clone the value so we don't run into concurrent map write panics
+		return cloneRefValue(s.Values())
+	})
 	s.bindWatch(storeObj, vm, scheduler)
 	_ = vm.Set("$store", storeObj)
 }
@@ -95,7 +110,7 @@ func (s *Store[K, T]) bindWatch(storeObj *goja.Object, vm *goja.Runtime, schedul
 			for value := range subscriber.Channel {
 				// Schedule the callback when the value changes
 				scheduler.ScheduleAsync(func() error {
-					callback(goja.Undefined(), vm.ToValue(value))
+					callback(goja.Undefined(), vm.ToValue(cloneRefValue(value)))
 					return nil
 				})
 			}

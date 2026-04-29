@@ -72,11 +72,11 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 //	@route /api/v1/anilist/collection/raw/tags [GET]
 func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
 	userName := h.App.GetUsername()
-	if userName == "" {
+	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
 	}
 
-	ret, err := h.App.AnilistClientRef.Get().AnimeCollectionTags(c.Request().Context(), &userName)
+	ret, err := h.App.AnilistPlatformRef.Get().GetAnilistClient().AnimeCollectionTags(c.Request().Context(), &userName)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -341,7 +341,7 @@ func (h *Handler) HandleAnilistListAnime(c echo.Context) error {
 	}
 
 	ret, err := anilist.ListAnimeM(
-		shared_platform.NewCacheLayer(h.App.AnilistClientRef),
+		h.App.AnilistPlatformRef.Get().GetAnilistClient(),
 		p.Page,
 		p.Search,
 		p.PerPage,
@@ -405,7 +405,7 @@ func (h *Handler) HandleAnilistListRecentAiringAnime(c echo.Context) error {
 	}
 
 	ret, err := anilist.ListRecentAiringAnimeM(
-		shared_platform.NewCacheLayer(h.App.AnilistClientRef),
+		h.App.AnilistPlatformRef.Get().GetAnilistClient(),
 		p.Page,
 		p.Search,
 		p.PerPage,
@@ -449,7 +449,7 @@ func (h *Handler) HandleAnilistListMissedSequels(c echo.Context) error {
 	}
 
 	ret, err := anilist.ListMissedSequels(
-		shared_platform.NewCacheLayer(h.App.AnilistClientRef),
+		h.App.AnilistPlatformRef.Get().GetAnilistClient(),
 		animeCollection,
 		h.App.Logger,
 		h.App.GetUserAnilistToken(),

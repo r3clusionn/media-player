@@ -513,6 +513,15 @@ func (c *Client) readyToStream() bool {
 	// For large files, use a smaller percentage
 	var percentThreshold float64
 	fileSize := file.Length()
+	if fileSize == 0 {
+		return false
+	}
+
+	bytesCompleted := file.BytesCompleted()
+
+	if bytesCompleted == fileSize {
+		return true
+	}
 
 	switch {
 	case fileSize > 5*1024*1024*1024: // > 5GB
@@ -523,7 +532,6 @@ func (c *Client) readyToStream() bool {
 		percentThreshold = 0.5 // 0.5% for smaller files
 	}
 
-	bytesCompleted := file.BytesCompleted()
 	percentCompleted := float64(bytesCompleted) / float64(fileSize) * 100
 
 	// Ready when both minimum buffer is met AND percentage threshold is reached

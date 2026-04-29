@@ -3,7 +3,6 @@ package plugin
 import (
 	"context"
 	"seanime/internal/api/anilist"
-	"seanime/internal/events"
 	"seanime/internal/extension"
 	"seanime/internal/library/anime"
 
@@ -21,11 +20,10 @@ type Anilist struct {
 // Permissions need to be checked by the caller.
 // Permissions needed: anilist
 func (a *AppContextImpl) BindAnilist(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension) {
-	anilistLogger := logger.With().Str("id", ext.ID).Logger()
 	al := &Anilist{
 		ctx:    a,
 		ext:    ext,
-		logger: &anilistLogger,
+		logger: new(logger.With().Str("id", ext.ID).Logger()),
 	}
 	anilistObj := vm.NewObject()
 	_ = anilistObj.Set("refreshAnimeCollection", al.RefreshAnimeCollection)
@@ -91,6 +89,8 @@ func (a *AppContextImpl) BindAnilist(vm *goja.Runtime, logger *zerolog.Logger, e
 		_ = anilistObj.Set("clearCache", func() {
 			anilistPlatformRef.Get().ClearCache()
 			anime.ClearEpisodeCollectionCache()
+			anime.ClearMissingEpisodesCache()
+			anime.ClearScheduleCache()
 		})
 		_ = anilistObj.Set("customQuery", func(body map[string]interface{}, token string) (interface{}, error) {
 			return anilist.CustomQuery(body, a.logger, token)
@@ -109,10 +109,6 @@ func (a *Anilist) RefreshAnimeCollection() {
 	}
 
 	onRefreshAnilistAnimeCollection()
-	wsEventManager, ok := a.ctx.wsEventManager.Get()
-	if ok {
-		wsEventManager.SendEvent(events.RefreshedAnilistAnimeCollection, nil)
-	}
 }
 
 func (a *Anilist) RefreshMangaCollection() {
@@ -123,8 +119,4 @@ func (a *Anilist) RefreshMangaCollection() {
 	}
 
 	onRefreshAnilistMangaCollection()
-	wsEventManager, ok := a.ctx.wsEventManager.Get()
-	if ok {
-		wsEventManager.SendEvent(events.RefreshedAnilistMangaCollection, nil)
-	}
 }

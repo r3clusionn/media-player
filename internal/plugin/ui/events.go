@@ -257,6 +257,8 @@ const (
 	ServerDOMGetViewportSizeEvent ServerEventType = "dom:get-viewport-size"
 
 	ServerDOMClipboardWriteEvent ServerEventType = "dom:clipboard:write"
+	ServerDebugLogEvent          ServerEventType = "debug:log"
+	ServerDebugClearEvent        ServerEventType = "debug:clear"
 )
 
 type ServerTrayUpdatedEventPayload struct {
@@ -407,6 +409,15 @@ type ServerScreenGetCurrentEventPayload struct{}
 type ServerDOMClipboardWriteEventPayload struct {
 	Text string `json:"text"`
 }
+
+type ServerDebugLogEventPayload struct {
+	At      int64         `json:"at"`
+	Level   string        `json:"level"`
+	Message string        `json:"message"`
+	Values  []interface{} `json:"values,omitempty"`
+}
+
+type ServerDebugClearEventPayload struct{}
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -8,7 +8,6 @@ import (
 	"seanime/internal/extension"
 	"seanime/internal/manga"
 	manga_providers "seanime/internal/manga/providers"
-	"seanime/internal/platforms/shared_platform"
 	"seanime/internal/util/result"
 	"strconv"
 	"strings"
@@ -74,11 +73,11 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 //	@returns anilist.MediaTagMap
 func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
 	userName := h.App.GetUsername()
-	if userName == "" {
+	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
 	}
 
-	ret, err := h.App.AnilistClientRef.Get().MangaCollectionTags(c.Request().Context(), &userName)
+	ret, err := h.App.AnilistPlatformRef.Get().GetAnilistClient().MangaCollectionTags(c.Request().Context(), &userName)
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
@@ -416,7 +415,7 @@ func (h *Handler) HandleAnilistListManga(c echo.Context) error {
 	}
 
 	ret, err := anilist.ListMangaM(
-		shared_platform.NewCacheLayer(h.App.AnilistClientRef),
+		h.App.AnilistPlatformRef.Get().GetAnilistClient(),
 		p.Page,
 		p.Search,
 		p.PerPage,

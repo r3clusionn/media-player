@@ -127,15 +127,26 @@ func (m *Mpv) launchPlayer(idle bool, filePath string, args ...string) error {
 		return err
 	}
 
+	stderrPipe, err := m.cmd.StderrPipe()
+	if err != nil {
+		m.Logger.Error().Err(err).Msg("mpv: Failed to create stderr pipe")
+		return err
+	}
+
 	err = m.cmd.Start()
 	if err != nil {
 		return err
 	}
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-
-	receivedLog := false
+	timer := time.NewTimer(2 * time.Second)
+	defer timer.Stop()
+	receivedLogCh := make(chan struct{})
+	var receivedLogOnce sync.Once
+	notifyLogReceived := func() {
+		receivedLogOnce.Do(func() {
+			close(receivedLogCh)
+		})
+	}
 
 	go func() {
 		scanner := bufio.NewScanner(stdoutPipe)
@@ -146,22 +157,39 @@ func (m *Mpv) launchPlayer(idle bool, filePath string, args ...string) error {
 			}
 			line := strings.TrimSpace(scanner.Text())
 			if line != "" {
-				if !receivedLog {
-					receivedLog = true
-					wg.Done()
-				}
+				notifyLogReceived()
 				m.Logger.Trace().Msg("mpv cmd: " + line) // Print to logger
 			}
 		}
 		if err := scanner.Err(); err != nil {
 			if strings.Contains(err.Error(), "file already closed") {
 				m.Logger.Debug().Msg("mpv: File closed")
-				//close(m.exitedCh)
-				//m.exitedCh = make(chan struct{})
 			} else {
 				m.Logger.Error().Err(err).Msg("mpv: Error reading from stdout")
 			}
 		}
+		// unblock startup when stdout closes before logging.
+		notifyLogReceived()
+	}()
+
+	go func() {
+		scanner := bufio.NewScanner(stderrPipe)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				notifyLogReceived()
+				m.Logger.Trace().Msg("mpv stderr: " + line)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			if strings.Contains(err.Error(), "file already closed") {
+				m.Logger.Debug().Msg("mpv: Stderr pipe closed")
+			} else {
+				m.Logger.Error().Err(err).Msg("mpv: Error reading from stderr")
+			}
+		}
+		// unblock startup when stderr closes before logging
+		notifyLogReceived()
 	}()
 
 	go func() {
@@ -171,7 +199,13 @@ func (m *Mpv) launchPlayer(idle bool, filePath string, args ...string) error {
 		}
 	}()
 
-	wg.Wait()
+	// Wait until either an initial log is received or 2 seconds have passed
+	select {
+	case <-receivedLogCh:
+	case <-timer.C:
+		m.Logger.Trace().Msg("mpv: Proceeding without initial log (timeout reached)")
+	}
+
 	time.Sleep(1 * time.Second)
 
 	m.Logger.Debug().Msg("mpv: Player started")

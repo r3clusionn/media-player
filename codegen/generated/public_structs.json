@@ -29375,7 +29375,7 @@
         "required": true,
         "public": true,
         "comments": [
-          " empty = baseline defaults, \"lax\" disables baseline request-boundary restrictions, \"strict\" enables extra restrictions"
+          " empty = current baseline defaults, \"hardened\" opts into a stricter passwordless boundary, \"lax\" disables baseline request-boundary restrictions, \"strict\" includes hardened plus extra restrictions"
         ]
       },
       {
@@ -39009,6 +39009,28 @@
         "required": false,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "sentEvents",
+        "jsonName": "sentEvents",
+        "goType": "[]MockWSEvent",
+        "typescriptType": "Array\u003cEvents_MockWSEvent\u003e",
+        "usedTypescriptType": "Events_MockWSEvent",
+        "usedStructName": "events.MockWSEvent",
+        "required": false,
+        "public": false,
+        "comments": []
       }
     ],
     "comments": []
@@ -42430,6 +42452,17 @@
         "comments": []
       },
       {
+        "name": "sharedModules",
+        "jsonName": "sharedModules",
+        "goType": "sharedModules",
+        "typescriptType": "ExtensionRepo_sharedModules",
+        "usedTypescriptType": "ExtensionRepo_sharedModules",
+        "usedStructName": "extension_repo.sharedModules",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "store",
         "jsonName": "store",
         "goType": "",
@@ -42573,6 +42606,15 @@
       {
         "name": "SetupHooks",
         "jsonName": "SetupHooks",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Development",
+        "jsonName": "Development",
         "goType": "bool",
         "typescriptType": "boolean",
         "required": true,
@@ -49019,7 +49061,7 @@
       },
       {
         "name": "AnimeMetadata",
-        "jsonName": "AnimeMetadata",
+        "jsonName": "animeMetadata",
         "goType": "metadata.AnimeMetadata",
         "typescriptType": "Metadata_AnimeMetadata",
         "usedTypescriptType": "Metadata_AnimeMetadata",
@@ -49030,7 +49072,7 @@
       },
       {
         "name": "Media",
-        "jsonName": "Media",
+        "jsonName": "media",
         "goType": "anilist.BaseAnime",
         "typescriptType": "AL_BaseAnime",
         "usedTypescriptType": "AL_BaseAnime",
@@ -49041,7 +49083,7 @@
       },
       {
         "name": "Progress",
-        "jsonName": "Progress",
+        "jsonName": "progress",
         "goType": "int",
         "typescriptType": "number",
         "required": false,
@@ -49050,7 +49092,7 @@
       },
       {
         "name": "Status",
-        "jsonName": "Status",
+        "jsonName": "status",
         "goType": "anilist.MediaListStatus",
         "typescriptType": "AL_MediaListStatus",
         "usedTypescriptType": "AL_MediaListStatus",
@@ -75011,6 +75053,17 @@
         "comments": []
       },
       {
+        "name": "AutoSelect",
+        "jsonName": "AutoSelect",
+        "goType": "autoselect.AutoSelect",
+        "typescriptType": "AutoSelect",
+        "usedTypescriptType": "AutoSelect",
+        "usedStructName": "autoselect.AutoSelect",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
         "name": "OnRefreshAnilistAnimeCollection",
         "jsonName": "OnRefreshAnilistAnimeCollection",
         "goType": "",
@@ -75271,6 +75324,15 @@
         "goType": "",
         "typescriptType": "any",
         "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "autoSelect",
+        "jsonName": "autoSelect",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
         "public": false,
         "comments": []
       }
@@ -77274,6 +77336,26 @@
         "comments": []
       },
       {
+        "name": "store",
+        "jsonName": "store",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "storage",
+        "jsonName": "storage",
+        "goType": "plugin.Storage",
+        "typescriptType": "Storage",
+        "usedTypescriptType": "Storage",
+        "usedStructName": "plugin.Storage",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "mu",
         "jsonName": "mu",
         "goType": "sync.RWMutex",
@@ -79111,7 +79193,9 @@
         "\"dom:manipulate\"",
         "\"dom:observe-in-view\"",
         "\"dom:get-viewport-size\"",
-        "\"dom:clipboard:write\""
+        "\"dom:clipboard:write\"",
+        "\"debug:log\"",
+        "\"debug:clear\""
       ]
     },
     "comments": []
@@ -79962,6 +80046,61 @@
         "comments": []
       }
     ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/ui/events.go",
+    "filename": "events.go",
+    "name": "ServerDebugLogEventPayload",
+    "formattedName": "PluginUI_ServerDebugLogEventPayload",
+    "package": "plugin_ui",
+    "fields": [
+      {
+        "name": "At",
+        "jsonName": "at",
+        "goType": "int64",
+        "typescriptType": "number",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Level",
+        "jsonName": "level",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Message",
+        "jsonName": "message",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Values",
+        "jsonName": "values",
+        "goType": "[]",
+        "typescriptType": "Array\u003cany\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/ui/events.go",
+    "filename": "events.go",
+    "name": "ServerDebugClearEventPayload",
+    "formattedName": "PluginUI_ServerDebugClearEventPayload",
+    "package": "plugin_ui",
+    "fields": [],
     "comments": []
   },
   {
@@ -80901,6 +81040,26 @@
         "comments": []
       },
       {
+        "name": "store",
+        "jsonName": "store",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "storage",
+        "jsonName": "storage",
+        "goType": "plugin.Storage",
+        "typescriptType": "Storage",
+        "usedTypescriptType": "Storage",
+        "usedStructName": "plugin.Storage",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "onCrash",
         "jsonName": "onCrash",
         "goType": "",
@@ -80999,6 +81158,26 @@
         "typescriptType": "Scheduler",
         "usedTypescriptType": "Scheduler",
         "usedStructName": "gojautil.Scheduler",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Store",
+        "jsonName": "Store",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Storage",
+        "jsonName": "Storage",
+        "goType": "plugin.Storage",
+        "typescriptType": "Storage",
+        "usedTypescriptType": "Storage",
+        "usedStructName": "plugin.Storage",
         "required": false,
         "public": true,
         "comments": []
@@ -88939,7 +89118,7 @@
     "fields": [
       {
         "name": "Provider",
-        "jsonName": "Provider",
+        "jsonName": "provider",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -88948,18 +89127,18 @@
       },
       {
         "name": "Type",
-        "jsonName": "Type",
+        "jsonName": "type",
         "goType": "AnimeSearchType",
         "typescriptType": "Torrent_AnimeSearchType",
         "usedTypescriptType": "Torrent_AnimeSearchType",
         "usedStructName": "torrent.AnimeSearchType",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "Media",
-        "jsonName": "Media",
+        "jsonName": "media",
         "goType": "anilist.BaseAnime",
         "typescriptType": "AL_BaseAnime",
         "usedTypescriptType": "AL_BaseAnime",
@@ -88970,64 +89149,64 @@
       },
       {
         "name": "Query",
-        "jsonName": "Query",
+        "jsonName": "query",
         "goType": "string",
         "typescriptType": "string",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "Batch",
-        "jsonName": "Batch",
+        "jsonName": "batch",
         "goType": "bool",
         "typescriptType": "boolean",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "EpisodeNumber",
-        "jsonName": "EpisodeNumber",
+        "jsonName": "episodeNumber",
         "goType": "int",
         "typescriptType": "number",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "BestReleases",
-        "jsonName": "BestReleases",
+        "jsonName": "bestReleases",
         "goType": "bool",
         "typescriptType": "boolean",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "Resolution",
-        "jsonName": "Resolution",
+        "jsonName": "resolution",
         "goType": "string",
         "typescriptType": "string",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "IncludeSpecialProviders",
-        "jsonName": "IncludeSpecialProviders",
+        "jsonName": "includeSpecialProviders",
         "goType": "bool",
         "typescriptType": "boolean",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       },
       {
         "name": "SkipPreviews",
-        "jsonName": "SkipPreviews",
+        "jsonName": "skipPreviews",
         "goType": "bool",
         "typescriptType": "boolean",
-        "required": true,
+        "required": false,
         "public": true,
         "comments": []
       }

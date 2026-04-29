@@ -11,7 +11,6 @@ import (
 	"seanime/internal/library/anime"
 	"seanime/internal/library/scanner"
 	"seanime/internal/library/summary"
-	"seanime/internal/platforms/shared_platform"
 	"seanime/internal/util"
 	"seanime/internal/util/limiter"
 	"seanime/internal/util/result"
@@ -294,7 +293,7 @@ func (h *Handler) HandleFetchAnimeEntrySuggestions(c echo.Context) error {
 	h.App.Logger.Info().Str("title", title).Msg("handlers: Fetching anime suggestions")
 
 	res, err := anilist.ListAnimeM(
-		shared_platform.NewCacheLayer(h.App.AnilistClientRef),
+		h.App.AnilistPlatformRef.Get().GetAnilistClient(),
 		new(1),
 		&title,
 		new(8),
@@ -454,8 +453,6 @@ func (h *Handler) HandleAnimeEntryManualMatch(c echo.Context) error {
 
 //----------------------------------------------------------------------------------------------------------------------
 
-var missingEpisodesCache *anime.MissingEpisodes
-
 // HandleGetMissingEpisodes
 //
 //	@summary returns a list of episodes missing from the user's library collection
@@ -465,10 +462,10 @@ var missingEpisodesCache *anime.MissingEpisodes
 //	@returns anime.MissingEpisodes
 func (h *Handler) HandleGetMissingEpisodes(c echo.Context) error {
 	h.App.AddOnRefreshAnilistCollectionFunc("HandleGetMissingEpisodes", func() {
-		missingEpisodesCache = nil
+		anime.ClearMissingEpisodesCache()
 	})
 
-	if missingEpisodesCache != nil {
+	if missingEpisodesCache, ok := anime.GetMissingEpisodesCache(); ok {
 		return h.RespondWithData(c, missingEpisodesCache)
 	}
 
@@ -502,7 +499,7 @@ func (h *Handler) HandleGetMissingEpisodes(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	missingEpisodesCache = event.MissingEpisodes
+	anime.SetMissingEpisodesCache(event.MissingEpisodes)
 
 	return h.RespondWithData(c, event.MissingEpisodes)
 }
@@ -592,7 +589,7 @@ func (h *Handler) HandleToggleAnimeEntrySilenceStatus(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	missingEpisodesCache = nil
+	anime.ClearMissingEpisodesCache()
 
 	animeEntry, err := h.App.Database.GetSilencedMediaEntry(uint(b.MediaId))
 	if err != nil {

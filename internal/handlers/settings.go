@@ -8,6 +8,7 @@ import (
 	"seanime/internal/database/models"
 	"seanime/internal/torrents/torrent"
 	"seanime/internal/util"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -182,6 +183,14 @@ func (h *Handler) HandleSaveSettings(c echo.Context) error {
 	if err := h.guardPrivilegedSettingsMutation(c, prevSettings, &b.MediaPlayer, &b.Torrent); err != nil {
 		return err
 	}
+
+	b.MediaPlayer.VlcPath = strings.TrimSpace(strings.Trim(b.MediaPlayer.VlcPath, "\""))
+	b.MediaPlayer.MpcPath = strings.TrimSpace(strings.Trim(b.MediaPlayer.MpcPath, "\""))
+	b.MediaPlayer.MpvPath = strings.TrimSpace(strings.Trim(b.MediaPlayer.MpvPath, "\""))
+	b.MediaPlayer.IinaPath = strings.TrimSpace(strings.Trim(b.MediaPlayer.IinaPath, "\""))
+
+	b.Torrent.QBittorrentPath = strings.TrimSpace(strings.Trim(b.Torrent.QBittorrentPath, "\""))
+	b.Torrent.TransmissionPath = strings.TrimSpace(strings.Trim(b.Torrent.TransmissionPath, "\""))
 
 	if b.Library.LibraryPath != "" {
 		b.Library.LibraryPath = filepath.ToSlash(filepath.Clean(b.Library.LibraryPath))

@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.7.1
+
+- ⚡️ Cache mode: Ability to update entries in the cache (Experimental)
+  - You can now update progress while AniList is down. Data will be auto-synced when AniList is back online.
+- ⚡️ VideoCore: Ability to save screenshots to disk
+- ⚡️ Plugin: Added more APIs
+  - Added '$shared' API for sharing pure functions between hooks and runtimes
+  - Added 'ctx.jobs', 'ctx.settings', 'ctx.cache' for less boilerplate
+  - Added '$debug' API for looking at plugin logs on the client
+- 🦺 Cache mode: Fixed certain queries bypassing the cache layer
+- 🦺 Home: Fixed 'not authenticated' errors for local accounts
+- 🦺 Torrentstream: Fixed 'Disable IPV6' option not working
+- 🦺 Plugin: Fixed potential crash caused by concurrent shared map writes
+- 🦺 Torrentstream: Fixed HEAD requests
+- 🦺 MPV: Fixed player launch when using '--terminal=no --really-quiet'
+- 🦺 Auto-select: Fixed form fields showing empty values after saving
+- 🦺 Settings: Fixed form fields showing empty values after saving
+- 🦺 UI: Fixed some UI issues
+
 ## v3.7.0
 
 - 🔒 BREAKING: Non-local instances now require a server password (Read the docs for more info).

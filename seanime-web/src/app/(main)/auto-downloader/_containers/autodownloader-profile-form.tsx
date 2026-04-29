@@ -4,6 +4,7 @@ import { useAnimeListTorrentProviderExtensions } from "@/api/hooks/extensions.ho
 import { Button, IconButton } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Combobox } from "@/components/ui/combobox"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { NumberInput } from "@/components/ui/number-input"
 import { Select } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
@@ -78,6 +79,7 @@ export function AutoDownloaderProfileForm(props: AutoDownloaderProfileFormProps)
     const { mutate: updateProfile, isPending: updating } = useUpdateAutoDownloaderProfile()
 
     const [formData, setFormData] = useAtom(formDataAtom)
+    const [shouldRender, setShouldRender] = React.useState(false)
 
     React.useEffect(() => {
         setFormData(draft => {
@@ -103,6 +105,9 @@ export function AutoDownloaderProfileForm(props: AutoDownloaderProfileFormProps)
             draft.delayMinutes = profile?.delayMinutes ?? 0
             draft.skipDelayScore = profile?.skipDelayScore ?? 0
             return
+        })
+        React.startTransition(() => {
+            setShouldRender(true)
         })
     }, [profile])
 
@@ -143,6 +148,8 @@ export function AutoDownloaderProfileForm(props: AutoDownloaderProfileFormProps)
             })
         }
     }
+
+    if (!shouldRender) return <LoadingSpinner />
 
     return (
         <form onSubmit={handleSubmit} className="space-y-4">

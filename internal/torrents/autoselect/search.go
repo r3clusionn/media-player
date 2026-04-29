@@ -15,6 +15,16 @@ import (
 	"github.com/samber/lo"
 )
 
+func (s *AutoSelect) Search(ctx context.Context, media *anilist.BaseAnime, episodeNumber int, profile *anime.AutoSelectProfile) ([]*hibiketorrent.AnimeTorrent, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if media == nil {
+		return nil, fmt.Errorf("media cannot be nil")
+	}
+	return s.search(ctx, media.ToCompleteAnime(), episodeNumber, profile)
+}
+
 func (s *AutoSelect) search(ctx context.Context, media *anilist.CompleteAnime, episodeNumber int, profile *anime.AutoSelectProfile) ([]*hibiketorrent.AnimeTorrent, error) {
 	s.log("Starting auto-select search")
 	s.logger.Debug().Msgf("autoselect: Searching for episode %d of %s", episodeNumber, media.GetTitleSafe())

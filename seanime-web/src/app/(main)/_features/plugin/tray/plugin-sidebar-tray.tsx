@@ -6,6 +6,9 @@ import {
     useSetPluginSettingsPinnedTrays,
 } from "@/api/hooks/extensions.hooks"
 import { WebSocketContext } from "@/app/(main)/_atoms/websocket.atoms"
+import { DebugLogEntry } from "@/app/(main)/_features/plugin/tray/plugin-debug-window.tsx"
+import { maxDebugLogs } from "@/app/(main)/_features/plugin/tray/plugin-debug-window.tsx"
+import { PluginDebugWindow } from "@/app/(main)/_features/plugin/tray/plugin-debug-window.tsx"
 import { PluginTray, TrayIcon } from "@/app/(main)/_features/plugin/tray/plugin-tray"
 import { useWebsocketMessageListener } from "@/app/(main)/_hooks/handle-websockets"
 import { useServerDisabledFeatures } from "@/app/(main)/_hooks/use-server-status"
@@ -20,9 +23,12 @@ import { useWindowSize } from "@uidotdev/usehooks"
 import { useAtom } from "jotai/react"
 import { atom } from "jotai/vanilla"
 import React from "react"
+import { LuSquareTerminal } from "react-icons/lu"
 import { LuBlocks, LuCircleDashed, LuCircuitBoard, LuComponent, LuRefreshCw } from "react-icons/lu"
 import { TbPinned, TbPinnedFilled } from "react-icons/tb"
 import {
+    usePluginListenDebugClearEvent,
+    usePluginListenDebugLogEvent,
     usePluginListenTrayCloseEvent,
     usePluginListenTrayIconEvent,
     usePluginListenTrayOpenEvent,
@@ -40,7 +46,9 @@ export const __plugin_openedTrayPlugin = atom<string | null>(null)
 const ExtensionList = ({
     place,
     developmentModeExtensions,
+    debugCounts,
     isReloadingExtension,
+    openDebugWindow,
     reloadExternalExtension,
     trayIcons,
     settings,
@@ -48,7 +56,9 @@ const ExtensionList = ({
 }: {
     place: "sidebar" | "top";
     developmentModeExtensions: Extension_Extension[];
+    debugCounts: Record<string, number>;
     isReloadingExtension: boolean;
+    openDebugWindow: (extensionId: string) => void;
     reloadExternalExtension: (params: { id: string }) => void;
     trayIcons: TrayIcon[];
     settings: ExtensionRepo_StoredPluginSettingsData | undefined;
@@ -243,8 +253,19 @@ const ExtensionList = ({
                         </div>
                         {developmentModeExtensions?.sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true })).map(extension => (
                             <div key={extension.id} className="flex items-center gap-2 justify-between bg-[--subtle] rounded-md px-2 py-1">
-                                <p className="text-sm font-medium">{extension.id}</p>
-                                <div>
+                                <p className="min-w-0 truncate text-sm font-medium">{extension.id}</p>
+                                <div className="flex items-center gap-1">
+                                    <Tooltip
+                                        trigger={<div>
+                                            <IconButton
+                                                intent={debugCounts[extension.id] ? "primary-basic" : "gray-basic"}
+                                                size="sm"
+                                                icon={<LuSquareTerminal className="size-5" />}
+                                                className="rounded-full"
+                                                onClick={() => openDebugWindow(extension.id)}
+                                            />
+                                        </div>}
+                                    >Debug logs</Tooltip>
                                     <IconButton
                                         intent="warning-basic"
                                         size="sm"
@@ -384,10 +405,48 @@ export function PluginSidebarTray({ place }: { place: "sidebar" | "top" }) {
     const { data: developmentModeExtensions, refetch } = useListDevelopmentModeExtensions()
     const { mutate: reloadExternalExtension, isPending: isReloadingExtension } = useReloadExternalExtension()
 
+    const [debugLogs, setDebugLogs] = React.useState<Record<string, DebugLogEntry[]>>({})
+    const [openDebugWindows, setOpenDebugWindows] = React.useState<string[]>([])
+    const debugLogId = React.useRef(0)
+
+    const debugCounts = React.useMemo(() => {
+        return Object.fromEntries(Object.entries(debugLogs).map(([extensionId, logs]) => [extensionId, logs.length]))
+    }, [debugLogs])
+
+    const openDebugWindow = React.useCallback((extensionId: string) => {
+        setOpenDebugWindows(prev => prev.includes(extensionId) ? prev : [...prev, extensionId])
+    }, [])
+
+    const closeDebugWindow = React.useCallback((extensionId: string) => {
+        setOpenDebugWindows(prev => prev.filter(id => id !== extensionId))
+    }, [])
+
+    const clearDebugLogs = React.useCallback((extensionId: string) => {
+        setDebugLogs(prev => ({ ...prev, [extensionId]: [] }))
+    }, [])
+
+    usePluginListenDebugLogEvent((payload, extensionId) => {
+        setDebugLogs(prev => {
+            const nextLog = { ...payload, id: ++debugLogId.current, extensionId }
+            return {
+                ...prev,
+                [extensionId]: [...(prev[extensionId] || []), nextLog].slice(-maxDebugLogs),
+            }
+        })
+    }, "")
+
+    usePluginListenDebugClearEvent((_, extensionId) => {
+        clearDebugLogs(extensionId)
+    }, "")
+
     useWebsocketMessageListener({
         type: WSEvents.PLUGIN_UNLOADED,
         onMessage: (extensionId) => {
-            setTrayIcons(prev => prev.filter(icon => icon.extensionId !== extensionId))
+            const id = String(extensionId || "")
+            if (!id) return
+            setTrayIcons(prev => prev.filter(icon => icon.extensionId !== id))
+            setDebugLogs(prev => ({ ...prev, [id]: [] }))
+            setOpenDebugWindows(prev => prev.filter(openId => openId !== id))
             setTimeout(() => {
                 refetch()
             }, 1000)
@@ -405,7 +464,9 @@ export function PluginSidebarTray({ place }: { place: "sidebar" | "top" }) {
             {!isMobile && place === "sidebar" && <ExtensionList
                 place={place}
                 developmentModeExtensions={developmentModeExtensions || []}
+                debugCounts={debugCounts}
                 isReloadingExtension={isReloadingExtension}
+                openDebugWindow={openDebugWindow}
                 reloadExternalExtension={reloadExternalExtension}
                 trayIcons={trayIcons}
                 settings={pluginSettings}
@@ -432,7 +493,9 @@ export function PluginSidebarTray({ place }: { place: "sidebar" | "top" }) {
                     <ExtensionList
                         place={place}
                         developmentModeExtensions={developmentModeExtensions || []}
+                        debugCounts={debugCounts}
                         isReloadingExtension={isReloadingExtension}
+                        openDebugWindow={openDebugWindow}
                         reloadExternalExtension={reloadExternalExtension}
                         trayIcons={trayIcons}
                         settings={pluginSettings}
@@ -440,6 +503,18 @@ export function PluginSidebarTray({ place }: { place: "sidebar" | "top" }) {
                     />
                 </Popover>
             </div>}
+            {openDebugWindows.map((extensionId, index) => {
+                const extension = developmentModeExtensions?.find(extension => extension.id === extensionId)
+                return <PluginDebugWindow
+                    key={extensionId}
+                    extensionId={extensionId}
+                    extensionName={extension?.name}
+                    logs={debugLogs[extensionId] || []}
+                    index={index}
+                    onClear={() => clearDebugLogs(extensionId)}
+                    onClose={() => closeDebugWindow(extensionId)}
+                />
+            })}
         </>
     )
 }

@@ -5,6 +5,7 @@ import (
 	"seanime/internal/api/anilist"
 	"seanime/internal/customsource"
 	"seanime/internal/hook"
+	"seanime/internal/util/result"
 	"time"
 
 	"github.com/samber/lo"
@@ -22,6 +23,20 @@ type ScheduleItem struct {
 	EpisodeNumber  int       `json:"episodeNumber"`
 	IsMovie        bool      `json:"isMovie"`
 	IsSeasonFinale bool      `json:"isSeasonFinale"`
+}
+
+var scheduleCache = result.NewCache[int, []*ScheduleItem]()
+
+func GetScheduleCache() ([]*ScheduleItem, bool) {
+	return scheduleCache.Get(0)
+}
+
+func SetScheduleCache(val []*ScheduleItem) {
+	scheduleCache.Set(0, val)
+}
+
+func ClearScheduleCache() {
+	scheduleCache.Delete(0)
 }
 
 func GetScheduleItems(animeSchedule *anilist.AnimeAiringSchedule, animeCollection *anilist.AnimeCollection) []*ScheduleItem {

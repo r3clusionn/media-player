@@ -75,6 +75,63 @@ func TestStorageSharesFreshDataAcrossBinders(t *testing.T) {
 	require.Nil(t, value)
 }
 
+func TestStorageBindingGetReturnsDetachedObjects(t *testing.T) {
+	appCtx, logger := newStorageTestAppContext(t)
+	extID := t.Name()
+
+	storage, runtime, _ := bindTestStorage(t, appCtx, logger, extID)
+
+	require.NoError(t, storage.Set("foo", map[string]interface{}{
+		"nested": map[string]interface{}{"count": 1},
+	}))
+
+	_, err := runtime.RunString(`
+		const value = $storage.get("foo")
+		value.nested.count = 2
+		value.extra = true
+	`)
+	require.NoError(t, err)
+
+	value, err := storage.Get("foo")
+	require.NoError(t, err)
+
+	objectValue, ok := value.(map[string]interface{})
+	require.True(t, ok)
+
+	nested, ok := objectValue["nested"].(map[string]interface{})
+	require.True(t, ok)
+	require.EqualValues(t, 1, nested["count"])
+	_, exists := objectValue["extra"]
+	require.False(t, exists)
+}
+
+func TestStorageBindingSetDetachesOriginalObject(t *testing.T) {
+	appCtx, logger := newStorageTestAppContext(t)
+	extID := t.Name()
+
+	storage, runtime, _ := bindTestStorage(t, appCtx, logger, extID)
+
+	_, err := runtime.RunString(`
+		const value = { nested: { count: 1 } }
+		$storage.set("foo", value)
+		value.nested.count = 2
+		value.extra = true
+	`)
+	require.NoError(t, err)
+
+	stored, err := storage.Get("foo")
+	require.NoError(t, err)
+
+	objectValue, ok := stored.(map[string]interface{})
+	require.True(t, ok)
+
+	nested, ok := objectValue["nested"].(map[string]interface{})
+	require.True(t, ok)
+	require.EqualValues(t, 1, nested["count"])
+	_, exists := objectValue["extra"]
+	require.False(t, exists)
+}
+
 func TestStorageWatchSharesUpdatesAcrossBinders(t *testing.T) {
 	appCtx, logger := newStorageTestAppContext(t)
 	extID := t.Name()
@@ -108,4 +165,48 @@ func TestStorageWatchSharesUpdatesAcrossBinders(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for cross-binder storage watch update")
 	}
+}
+
+func TestStorageWatchReturnsDetachedObjects(t *testing.T) {
+	appCtx, logger := newStorageTestAppContext(t)
+	extID := t.Name()
+
+	watcherStorage, runtime, _ := bindTestStorage(t, appCtx, logger, extID)
+	writerStorage, _, _ := bindTestStorage(t, appCtx, logger, extID)
+
+	updates := make(chan interface{}, 1)
+	require.NoError(t, runtime.Set("recordStorageValue", func(value interface{}) {
+		updates <- value
+	}))
+
+	_, err := runtime.RunString(`
+		$storage.watch("foo", function(value) {
+			value.nested.count = 2
+			value.extra = true
+			recordStorageValue(value)
+		})
+	`)
+	require.NoError(t, err)
+
+	require.NoError(t, writerStorage.Set("foo", map[string]interface{}{
+		"nested": map[string]interface{}{"count": 1},
+	}))
+
+	select {
+	case <-updates:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for detached storage watch update")
+	}
+
+	value, err := watcherStorage.Get("foo")
+	require.NoError(t, err)
+
+	objectValue, ok := value.(map[string]interface{})
+	require.True(t, ok)
+
+	nested, ok := objectValue["nested"].(map[string]interface{})
+	require.True(t, ok)
+	require.EqualValues(t, 1, nested["count"])
+	_, exists := objectValue["extra"]
+	require.False(t, exists)
 }

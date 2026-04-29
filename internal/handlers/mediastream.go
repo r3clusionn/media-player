@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"seanime/internal/database/models"
 	"seanime/internal/mediastream"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 )
@@ -47,6 +48,9 @@ func (h *Handler) HandleSaveMediastreamSettings(c echo.Context) error {
 	if err := h.guardPrivilegedMediastreamSettingsMutation(c, prevSettings, &b.Settings); err != nil {
 		return err
 	}
+
+	b.Settings.FfmpegPath = strings.TrimSpace(strings.Trim(b.Settings.FfmpegPath, "\""))
+	b.Settings.FfprobePath = strings.TrimSpace(strings.Trim(b.Settings.FfprobePath, "\""))
 
 	settings, err := h.App.Database.UpsertMediastreamSettings(&b.Settings)
 	if err != nil {
