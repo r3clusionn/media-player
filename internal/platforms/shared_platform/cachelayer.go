@@ -72,6 +72,7 @@ func init() {
 			if err != nil {
 				IsWorking.Store(false)
 			} else {
+				clearFailureTracking()
 				events.GlobalWSEventManager.SendEvent(events.InfoToast, "The AniList API is back online")
 				IsWorking.Store(true)
 			}
@@ -92,18 +93,19 @@ type (
 	// CacheLayer is a "network-first" wrapper around an AniList client that caches fetched data in cache files.
 	// It detects when the API client is not working and falls back to the cached data instead.
 	// When the API client not working, it will still send the requests in the background and transition back to working state when the API client is working again.
-	// Mutations will always return an error if the API client is not working.
+	// Entry/progress updates are queued when the API client is not working; other mutations return an error.
 	// Caching strategy:
 	// - All queries to a specific media that IS in the anime collection or manga collection will be always cached/updated without limit
 	// - Media that are NOT in the anime or manga collection will be bounded to a maximum of 10 entries
 	CacheLayer struct {
-		anilistClientRef     *util.Ref[anilist.AnilistClient]
-		fileCacher           *filecache.Cacher
-		buckets              map[string]filecache.PermanentBucket
-		logger               *zerolog.Logger
-		collectionMediaIDs   *result.Map[int, struct{}] // Track which media IDs are in collections
-		lastCollectionUpdate time.Time                  // When collections were last fetched
-		logoutFunc           func()                     // called when an invalid token is detected
+		anilistClientRef       *util.Ref[anilist.AnilistClient]
+		fileCacher             *filecache.Cacher
+		buckets                map[string]filecache.PermanentBucket
+		logger                 *zerolog.Logger
+		collectionMediaIDs     *result.Map[int, struct{}] // Track which media IDs are in collections
+		lastCollectionUpdate   time.Time                  // When collections were last fetched
+		logoutFunc             func()                     // called when an invalid token is detected
+		pendingUpdateSyncMutex sync.Mutex
 	}
 )
 
@@ -130,6 +132,7 @@ const (
 	ListMangaBucket                = "list-manga"
 	SearchBaseAnimeByIdsBucket     = "search-base-anime-by-ids"
 	CustomQueryBucket              = "custom-query"
+	PendingMediaListUpdatesBucket  = "pending-media-list-updates"
 
 	maxNonCollectionCacheEntries      = 10
 	maxNonCollectionMediaCacheEntries = 50
@@ -228,6 +231,7 @@ func NewCacheLayer(anilistClientRef *util.Ref[anilist.AnilistClient], logoutFunc
 	buckets[ListMangaBucket] = filecache.NewPermanentBucket(ListMangaBucket)
 	buckets[SearchBaseAnimeByIdsBucket] = filecache.NewPermanentBucket(SearchBaseAnimeByIdsBucket)
 	buckets[CustomQueryBucket] = filecache.NewPermanentBucket(CustomQueryBucket)
+	buckets[PendingMediaListUpdatesBucket] = filecache.NewPermanentBucket(PendingMediaListUpdatesBucket)
 
 	logger := util.NewLogger()
 
@@ -246,6 +250,7 @@ func NewCacheLayer(anilistClientRef *util.Ref[anilist.AnilistClient], logoutFunc
 	}
 
 	AnilistClient.Store(anilistClientRef.Get())
+	cl.startQueuedUpdateSync()
 
 	return cl
 }
@@ -815,6 +820,12 @@ func (c *CacheLayer) AnimeCollection(ctx context.Context, userName *string, inte
 		return c.anilistClientRef.Get().AnimeCollection(ctx, userName, interceptors...)
 	})
 
+	if err == nil && res != nil && c.applyQueuedUpdatesToAnimeCollection(res) {
+		if err := c.fileCacher.SetPerm(c.buckets[AnimeCollectionBucket], cacheKey, res); err != nil {
+			c.logger.Warn().Err(err).Msg("anilist cache: Failed to apply queued updates to anime collection cache")
+		}
+	}
+
 	// Update collection tracking with the fetched data
 	if err == nil && res != nil {
 		go c.updateCollectionTrackingFromAnimeCollection(res)
@@ -954,11 +965,22 @@ func (c *CacheLayer) ListRecentAnime(ctx context.Context, page *int, perPage *in
 func (c *CacheLayer) UpdateMediaListEntry(ctx context.Context, mediaID *int, status *anilist.MediaListStatus, scoreRaw *int, progress *int, startedAt *anilist.FuzzyDateInput, completedAt *anilist.FuzzyDateInput, interceptors ...clientv2.RequestInterceptor) (*anilist.UpdateMediaListEntry, error) {
 	// Mutations require the API to be working
 	if !IsWorking.Load() {
-		return nil, fmt.Errorf("anilist cache: API client is not working, mutation operations are not available")
+		entryID, err := c.queueMediaListEntryUpdate(mediaID, status, scoreRaw, progress, startedAt, completedAt)
+		if err != nil {
+			return nil, err
+		}
+		return &anilist.UpdateMediaListEntry{SaveMediaListEntry: &anilist.UpdateMediaListEntry_SaveMediaListEntry{ID: entryID}}, nil
 	}
 
 	res, err := c.anilistClientRef.Get().UpdateMediaListEntry(ctx, mediaID, status, scoreRaw, progress, startedAt, completedAt, interceptors...)
 	c.checkAndUpdateWorkingState(err)
+	if err != nil && shouldQueueMediaListUpdate(err) {
+		entryID, queueErr := c.queueMediaListEntryUpdate(mediaID, status, scoreRaw, progress, startedAt, completedAt)
+		if queueErr != nil {
+			return nil, queueErr
+		}
+		return &anilist.UpdateMediaListEntry{SaveMediaListEntry: &anilist.UpdateMediaListEntry_SaveMediaListEntry{ID: entryID}}, nil
+	}
 
 	// Invalidate relevant caches on successful mutation
 	if err == nil && mediaID != nil {
@@ -972,11 +994,22 @@ func (c *CacheLayer) UpdateMediaListEntry(ctx context.Context, mediaID *int, sta
 func (c *CacheLayer) UpdateMediaListEntryProgress(ctx context.Context, mediaID *int, progress *int, status *anilist.MediaListStatus, interceptors ...clientv2.RequestInterceptor) (*anilist.UpdateMediaListEntryProgress, error) {
 	// Mutations require the API to be working
 	if !IsWorking.Load() {
-		return nil, fmt.Errorf("anilist cache: API client is not working, mutation operations are not available")
+		entryID, err := c.queueMediaListEntryProgressUpdate(mediaID, progress, status)
+		if err != nil {
+			return nil, err
+		}
+		return &anilist.UpdateMediaListEntryProgress{SaveMediaListEntry: &anilist.UpdateMediaListEntryProgress_SaveMediaListEntry{ID: entryID}}, nil
 	}
 
 	res, err := c.anilistClientRef.Get().UpdateMediaListEntryProgress(ctx, mediaID, progress, status, interceptors...)
 	c.checkAndUpdateWorkingState(err)
+	if err != nil && shouldQueueMediaListUpdate(err) {
+		entryID, queueErr := c.queueMediaListEntryProgressUpdate(mediaID, progress, status)
+		if queueErr != nil {
+			return nil, queueErr
+		}
+		return &anilist.UpdateMediaListEntryProgress{SaveMediaListEntry: &anilist.UpdateMediaListEntryProgress_SaveMediaListEntry{ID: entryID}}, nil
+	}
 
 	// Invalidate relevant caches on successful mutation
 	if err == nil && mediaID != nil {
@@ -1027,6 +1060,12 @@ func (c *CacheLayer) MangaCollection(ctx context.Context, userName *string, inte
 	res, err := networkFirstGet(c, MangaCollectionBucket, cacheKey, func() (*anilist.MangaCollection, error) {
 		return c.anilistClientRef.Get().MangaCollection(ctx, userName, interceptors...)
 	})
+
+	if err == nil && res != nil && c.applyQueuedUpdatesToMangaCollection(res) {
+		if err := c.fileCacher.SetPerm(c.buckets[MangaCollectionBucket], cacheKey, res); err != nil {
+			c.logger.Warn().Err(err).Msg("anilist cache: Failed to apply queued updates to manga collection cache")
+		}
+	}
 
 	// Update collection tracking with the fetched data
 	if err == nil && res != nil {
