@@ -1,6 +1,6 @@
 package plugin
 
-import "encoding/json"
+import "github.com/goccy/go-json"
 
 func cloneRefValue(value interface{}) interface{} {
 	switch value.(type) {

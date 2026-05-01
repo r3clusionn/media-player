@@ -114,6 +114,7 @@ func (a *AppContextImpl) BindStorage(vm *goja.Runtime, logger *zerolog.Logger, e
 		// devnote: clone the value so we don't run into concurrent map write panics
 		return cloneRefValue(value), nil
 	})
+	_ = storageObj.Set("getUnsafe", storage.Get)
 	_ = storageObj.Set("set", storage.Set)
 	_ = storageObj.Set("remove", storage.Delete)
 	_ = storageObj.Set("drop", storage.Drop)

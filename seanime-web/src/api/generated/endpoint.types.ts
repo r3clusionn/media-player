@@ -853,6 +853,18 @@ export type ReloadExternalExtension_Variables = {
 /**
  * - Filepath: internal/handlers/extensions.go
  * - Filename: extensions.go
+ * - Endpoint: /api/v1/extensions/external/disabled
+ * @description
+ * Route enables or disables an external extension.
+ */
+export type SetExternalExtensionDisabled_Variables = {
+    id: string
+    disabled: boolean
+}
+
+/**
+ * - Filepath: internal/handlers/extensions.go
+ * - Filename: extensions.go
  * - Endpoint: /api/v1/extensions/all
  * @description
  * Route returns all loaded and invalid extensions.

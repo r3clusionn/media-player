@@ -42334,6 +42334,25 @@
     "comments": []
   },
   {
+    "filepath": "../internal/extension_repo/external_settings.go",
+    "filename": "external_settings.go",
+    "name": "StoredExtensionSettingsData",
+    "formattedName": "ExtensionRepo_StoredExtensionSettingsData",
+    "package": "extension_repo",
+    "fields": [
+      {
+        "name": "DisabledExtensionIds",
+        "jsonName": "disabledExtensionIds",
+        "goType": "map[string]bool",
+        "typescriptType": "Record\u003cstring, boolean\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
     "filepath": "../internal/extension_repo/goja_anime_torrent_provider.go",
     "filename": "goja_anime_torrent_provider.go",
     "name": "GojaAnimeTorrentProvider",
@@ -42729,6 +42748,15 @@
         "comments": []
       },
       {
+        "name": "disabledExtensions",
+        "jsonName": "disabledExtensions",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "hookManager",
         "jsonName": "hookManager",
         "goType": "hook.Manager",
@@ -42831,6 +42859,17 @@
         "typescriptType": "Array\u003cExtension_InvalidExtension\u003e",
         "usedTypescriptType": "Extension_InvalidExtension",
         "usedStructName": "extension.InvalidExtension",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DisabledExtensions",
+        "jsonName": "disabledExtensions",
+        "goType": "[]extension.Extension",
+        "typescriptType": "Array\u003cExtension_Extension\u003e",
+        "usedTypescriptType": "Extension_Extension",
+        "usedStructName": "extension.Extension",
         "required": false,
         "public": true,
         "comments": []
@@ -73905,6 +73944,17 @@
         "comments": [
           " called when an invalid token is detected"
         ]
+      },
+      {
+        "name": "pendingUpdateSyncMutex",
+        "jsonName": "pendingUpdateSyncMutex",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
       }
     ],
     "comments": []

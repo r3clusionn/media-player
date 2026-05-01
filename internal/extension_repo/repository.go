@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"seanime/internal/events"
 	"seanime/internal/extension"
 	hibikecustomsource "seanime/internal/extension/hibike/customsource"
@@ -39,7 +40,8 @@ type (
 		// - When reloading extensions, external extensions are removed & re-added
 		extensionBankRef *util.Ref[*extension.UnifiedBank]
 
-		invalidExtensions *result.Map[string, *extension.InvalidExtension]
+		invalidExtensions  *result.Map[string, *extension.InvalidExtension]
+		disabledExtensions *result.Map[string, *extension.Extension]
 
 		hookManager hook.Manager
 
@@ -64,8 +66,9 @@ type (
 	}
 
 	AllExtensions struct {
-		Extensions        []*extension.Extension        `json:"extensions"`
-		InvalidExtensions []*extension.InvalidExtension `json:"invalidExtensions"`
+		Extensions         []*extension.Extension        `json:"extensions"`
+		InvalidExtensions  []*extension.InvalidExtension `json:"invalidExtensions"`
+		DisabledExtensions []*extension.Extension        `json:"disabledExtensions"`
 		// List of extensions with invalid user config extensions, these extensions are still loaded
 		InvalidUserConfigExtensions []*extension.InvalidExtension `json:"invalidUserConfigExtensions"`
 		// List of extension IDs that have an update available
@@ -135,6 +138,7 @@ func NewRepository(opts *NewRepositoryOptions) *Repository {
 		gojaRuntimeManager: goja_runtime.NewManager(opts.Logger),
 		extensionBankRef:   opts.ExtensionBankRef,
 		invalidExtensions:  result.NewMap[string, *extension.InvalidExtension](),
+		disabledExtensions: result.NewMap[string, *extension.Extension](),
 		fileCacher:         opts.FileCacher,
 		hookManager:        opts.HookManager,
 		client:             http.DefaultClient,
@@ -194,6 +198,7 @@ func (r *Repository) GetAllExtensions(withUpdates bool) (ret *AllExtensions) {
 	ret = &AllExtensions{
 		Extensions:                  r.ListExtensionData(),
 		InvalidExtensions:           fatalInvalidExtensions,
+		DisabledExtensions:          r.ListDisabledExtensionData(),
 		InvalidUserConfigExtensions: userConfigInvalidExtensions,
 		UnsafeExtensions:            make(map[string]bool),
 	}
@@ -205,6 +210,11 @@ func (r *Repository) GetAllExtensions(withUpdates bool) (ret *AllExtensions) {
 	}
 	for _, ext := range ret.InvalidExtensions {
 		if ext.Extension.Plugin != nil && ext.Extension.Plugin.IsUnsafe() {
+			ret.UnsafeExtensions[ext.ID] = true
+		}
+	}
+	for _, ext := range ret.DisabledExtensions {
+		if ext.Plugin != nil && ext.Plugin.IsUnsafe() {
 			ret.UnsafeExtensions[ext.ID] = true
 		}
 	}
@@ -259,6 +269,17 @@ func (r *Repository) ListInvalidExtensions() (ret []*extension.InvalidExtension)
 	return ret
 }
 
+func (r *Repository) ListDisabledExtensionData() (ret []*extension.Extension) {
+	r.disabledExtensions.Range(func(key string, ext *extension.Extension) bool {
+		retExt := *ext
+		retExt.Payload = ""
+		ret = append(ret, &retExt)
+		return true
+	})
+
+	return ret
+}
+
 func (r *Repository) GetExtensionPayload(id string) (ret string) {
 	ext, found := r.extensionBankRef.Get().Get(id)
 	if !found {
@@ -278,7 +299,34 @@ func (r *Repository) GetExtensionPayload(id string) (ret string) {
 			ret, _ = r.downloadPayload(ext.PayloadURI)
 			return
 		}
-		return ""
+
+		disabledExt, found := r.disabledExtensions.Get(id)
+		if found {
+			ret = disabledExt.Payload
+			if len(ret) > 0 {
+				return
+			}
+			if disabledExt.PayloadURI == "" || disabledExt.IsDevelopment {
+				return
+			}
+			ret, _ = r.downloadPayload(disabledExt.PayloadURI)
+			return
+		}
+
+		if !isValidExtensionIDString(id) {
+			return ""
+		}
+
+		extFromFile, err := extractExtensionFromFile(filepath.Join(r.extensionDir, id+".json"))
+		if err != nil || extFromFile == nil {
+			return ""
+		}
+		ret = extFromFile.Payload
+		if len(ret) > 0 || extFromFile.PayloadURI == "" || extFromFile.IsDevelopment {
+			return
+		}
+		ret, _ = r.downloadPayload(extFromFile.PayloadURI)
+		return
 	}
 
 	ret = ext.GetPayload()

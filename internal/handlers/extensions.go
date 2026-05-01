@@ -190,6 +190,33 @@ func (h *Handler) HandleReloadExternalExtension(c echo.Context) error {
 	return h.RespondWithData(c, true)
 }
 
+// HandleSetExternalExtensionDisabled
+//
+//	@summary enables or disables an external extension.
+//	@route /api/v1/extensions/external/disabled [POST]
+//	@returns bool
+func (h *Handler) HandleSetExternalExtensionDisabled(c echo.Context) error {
+	type body struct {
+		ID       string `json:"id"`
+		Disabled bool   `json:"disabled"`
+	}
+
+	var b body
+	if err := c.Bind(&b); err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
+	if err := h.App.ExtensionRepository.SetExternalExtensionDisabled(b.ID, b.Disabled); err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, true)
+}
+
 // HandleListExtensionData
 //
 //	@summary returns the loaded extensions

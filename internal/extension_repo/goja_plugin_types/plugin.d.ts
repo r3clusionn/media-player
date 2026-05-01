@@ -2425,6 +2425,15 @@ declare namespace $storage {
     function get<T = any>(key: string): T | undefined
 
     /**
+     * Gets a value from the storage without cloning.
+     * Use with caution. Do not mutate the returned object or its nested values.
+     * @param key - The key to get
+     * @returns The value associated with the key
+     * @throws Error if something goes wrong
+     */
+    function getUnsafe<T = any>(key: string): T | undefined
+
+    /**
      * Removes a value from the storage.
      * @param key - The key to remove
      * @throws Error if something goes wrong

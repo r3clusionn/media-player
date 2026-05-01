@@ -67,14 +67,21 @@ export function ExtensionList(props: ExtensionListProps) {
 
     function isExtensionInstalled(extensionID: string) {
         return !!allExtensions?.extensions?.find(n => n.id === extensionID) ||
+            !!allExtensions?.disabledExtensions?.find(n => n.id === extensionID) ||
             !!allExtensions?.invalidExtensions?.find(n => n.id === extensionID)
     }
+
+    const installedExtensions = [
+        ...(allExtensions?.extensions ?? []),
+        ...(allExtensions?.disabledExtensions ?? []),
+    ]
 
     const pluginExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "plugin")
     const animeTorrentExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "anime-torrent-provider")
     const mangaExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "manga-provider")
     const onlinestreamExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "onlinestream-provider")
     const customSourceExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "custom-source")
+    const disabledExtensions = orderExtensions(allExtensions?.disabledExtensions ?? [])
 
     const nonvalidExtensions = (allExtensions?.invalidExtensions ?? []).filter(n => n.code !== "plugin_permissions_not_granted")
         .sort((a, b) => a.id.localeCompare(b.id))
@@ -138,7 +145,7 @@ export function ExtensionList(props: ExtensionListProps) {
                     >
                         Check for updates
                     </Button>
-                    <AddExtensionModal extensions={allExtensions.extensions}>
+                    <AddExtensionModal extensions={installedExtensions}>
                         <Button
                             className="rounded-full"
                             intent="white-subtle"
@@ -197,6 +204,24 @@ export function ExtensionList(props: ExtensionListProps) {
                                 key={extension.id}
                                 extension={extension}
                                 isInstalled={isExtensionInstalled(extension.id)}
+                            />
+                        ))}
+                    </div>
+                </Card>
+            )}
+
+            {!!disabledExtensions?.length && (
+                <Card className="p-4 space-y-6">
+                    <h3 className="flex gap-3 items-center">Disabled</h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 2xl:grid-cols-4 gap-4">
+                        {disabledExtensions.map(extension => (
+                            <ExtensionCard
+                                key={extension.id}
+                                extension={extension}
+                                updateData={allExtensions?.hasUpdate?.find(n => n.extensionID === extension.id)}
+                                isInstalled={true}
+                                isUnsafe={allExtensions?.unsafeExtensions?.[extension.id] ?? false}
+                                isDisabled
                             />
                         ))}
                     </div>

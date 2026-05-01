@@ -328,6 +328,8 @@ func (r *Repository) UninstallExternalExtension(id string) error {
 		}
 	}()
 
+	r.removeExtensionFromStoredSettings(id)
+
 	r.reloadExtension(id)
 
 	return nil
@@ -529,6 +531,17 @@ func (r *Repository) unloadExternalExtensions() {
 		}
 	}
 
+	for _, key := range r.disabledExtensions.Keys() {
+		if disabledExt, ok := r.disabledExtensions.Get(key); ok {
+			if !r.shouldLoadType(disabledExt.Type) {
+				continue
+			}
+			if disabledExt.ManifestURI != "builtin" {
+				r.disabledExtensions.Delete(key)
+			}
+		}
+	}
+
 	//r.extensionBankRef.Get().RemoveExternalExtensions()
 	extensionBank := r.extensionBankRef.Get()
 	var ids []string
@@ -693,6 +706,12 @@ func (r *Repository) loadExternalExtension(filePath string) {
 		}
 	}
 
+	if r.isExtensionDisabled(ext.ID) {
+		r.disabledExtensions.Set(ext.ID, ext)
+		r.logger.Debug().Str("id", ext.ID).Msg("extensions: Skipped disabled extension")
+		return
+	}
+
 	var loadingErr error
 
 	// +
@@ -843,6 +862,7 @@ func (r *Repository) reloadExtension(id string) {
 	}
 	// Remove from invalid extensions
 	r.invalidExtensions.Delete(id)
+	r.disabledExtensions.Delete(id)
 
 	time.Sleep(200 * time.Millisecond)
 

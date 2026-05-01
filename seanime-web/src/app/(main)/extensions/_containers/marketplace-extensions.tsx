@@ -72,6 +72,7 @@ export function MarketplaceExtensions(props: MarketplaceExtensionsProps) {
 
     function isExtensionInstalled(extensionID: string) {
         return !!allExtensions?.extensions?.find(n => n.id === extensionID) ||
+            !!allExtensions?.disabledExtensions?.find(n => n.id === extensionID) ||
             !!allExtensions?.invalidExtensions?.find(n => n.id === extensionID)
     }
 

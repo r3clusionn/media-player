@@ -765,6 +765,11 @@ export const API_ENDPOINTS = {
             methods: ["POST"],
             endpoint: "/api/v1/extensions/external/reload",
         },
+        SetExternalExtensionDisabled: {
+            key: "EXTENSIONS-set-external-extension-disabled",
+            methods: ["POST"],
+            endpoint: "/api/v1/extensions/external/disabled",
+        },
         ListExtensionData: {
             key: "EXTENSIONS-list-extension-data",
             methods: ["GET"],

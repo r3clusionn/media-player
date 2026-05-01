@@ -2487,6 +2487,7 @@ export type RunPlaygroundCodeResponse = {
 export type ExtensionRepo_AllExtensions = {
     extensions?: Array<Extension_Extension>
     invalidExtensions?: Array<Extension_InvalidExtension>
+    disabledExtensions?: Array<Extension_Extension>
     invalidUserConfigExtensions?: Array<Extension_InvalidExtension>
     hasUpdate?: Array<ExtensionRepo_UpdateData>
     unsafeExtensions?: Record<string, boolean>
