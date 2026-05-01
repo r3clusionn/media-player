@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gqlgo/gqlgenc/clientv2"
 )
 
 const (
@@ -124,6 +126,9 @@ func (c *CacheLayer) queueMediaListUpdate(update queuedMediaListUpdate) (int, er
 		return 0, errors.New("anilist cache: cache layer is disabled, list update cannot be queued")
 	}
 
+	c.pendingUpdateSyncMutex.Lock()
+	defer c.pendingUpdateSyncMutex.Unlock()
+
 	queued, err := c.saveQueuedMediaListUpdate(update)
 	if err != nil {
 		return 0, err
@@ -139,6 +144,43 @@ func (c *CacheLayer) queueMediaListUpdate(update queuedMediaListUpdate) (int, er
 
 	c.logger.Info().Int("mediaId", queued.MediaID).Msg("anilist cache: Queued list update for retry")
 	return entryID, nil
+}
+
+func (c *CacheLayer) sendMediaListEntryUpdate(ctx context.Context, mediaID *int, status *anilist.MediaListStatus, scoreRaw *int, progress *int, startedAt *anilist.FuzzyDateInput, completedAt *anilist.FuzzyDateInput, interceptors ...clientv2.RequestInterceptor) (*anilist.UpdateMediaListEntry, error) {
+	if mediaID == nil {
+		return c.anilistClientRef.Get().UpdateMediaListEntry(ctx, mediaID, status, scoreRaw, progress, startedAt, completedAt, interceptors...)
+	}
+
+	c.pendingUpdateSyncMutex.Lock()
+	defer c.pendingUpdateSyncMutex.Unlock()
+
+	res, err := c.anilistClientRef.Get().UpdateMediaListEntry(ctx, mediaID, status, scoreRaw, progress, startedAt, completedAt, interceptors...)
+	if err == nil {
+		c.deleteQueuedUpdate(*mediaID)
+	}
+	return res, err
+}
+
+func (c *CacheLayer) sendMediaListEntryProgressUpdate(ctx context.Context, mediaID *int, progress *int, status *anilist.MediaListStatus, interceptors ...clientv2.RequestInterceptor) (*anilist.UpdateMediaListEntryProgress, error) {
+	if mediaID == nil {
+		return c.anilistClientRef.Get().UpdateMediaListEntryProgress(ctx, mediaID, progress, status, interceptors...)
+	}
+
+	c.pendingUpdateSyncMutex.Lock()
+	defer c.pendingUpdateSyncMutex.Unlock()
+
+	res, err := c.anilistClientRef.Get().UpdateMediaListEntryProgress(ctx, mediaID, progress, status, interceptors...)
+	if err == nil {
+		c.deleteQueuedUpdate(*mediaID)
+	}
+	return res, err
+}
+
+func (c *CacheLayer) deleteQueuedUpdate(mediaID int) {
+	bucket := c.buckets[PendingMediaListUpdatesBucket]
+	if err := c.fileCacher.DeletePerm(bucket, strconv.Itoa(mediaID)); err != nil {
+		c.logger.Warn().Err(err).Int("mediaId", mediaID).Msg("anilist cache: Failed to delete queued list update")
+	}
 }
 
 func (c *CacheLayer) saveQueuedMediaListUpdate(update queuedMediaListUpdate) (queuedMediaListUpdate, error) {
