@@ -1025,6 +1025,10 @@ export function VideoCore(props: VideoCoreProps) {
          */
         const nonLibassSubtitleTracks = state.playbackInfo?.subtitleTracks?.filter(t => !t.useLibassRenderer)
         if (nonLibassSubtitleTracks && nonLibassSubtitleTracks.length > 0) {
+            setSubtitleManager(p => {
+                if (p) p.destroy()
+                return null
+            })
             setMediaCaptionsManager(p => {
                 if (p) p.destroy()
                 return new MediaCaptionsManager({
@@ -1053,6 +1057,10 @@ export function VideoCore(props: VideoCoreProps) {
                 })
             })
         } else {
+            setMediaCaptionsManager(p => {
+                if (p) p.destroy()
+                return null
+            })
             setSubtitleManager(p => {
                 if (p) p.destroy()
                 return new VideoCoreSubtitleManager({

@@ -38,6 +38,7 @@ const (
 	DeleteMangaDownloadedChaptersEndpoint              = "MANGA-DOWNLOAD-delete-manga-downloaded-chapters"
 	DeleteMediaMetadataParentEndpoint                  = "METADATA-delete-media-metadata-parent"
 	DeletePlaylistEndpoint                             = "PLAYLIST-delete-playlist"
+	DeleteTorrentstreamBatchHistoryEndpoint            = "TORRENTSTREAM-delete-torrentstream-batch-history"
 	DirectorySelectorEndpoint                          = "DIRECTORY-SELECTOR-directory-selector"
 	DirectstreamConvertSubsEndpoint                    = "DIRECTSTREAM-directstream-convert-subs"
 	DirectstreamPlayLocalFileEndpoint                  = "DIRECTSTREAM-directstream-play-local-file"

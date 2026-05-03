@@ -1,6 +1,6 @@
 import { Anime_Entry, Anime_Episode } from "@/api/generated/types"
 import { useGetAnimeEpisodeCollection } from "@/api/hooks/anime.hooks"
-import { useGetTorrentstreamBatchHistory } from "@/api/hooks/torrentstream.hooks"
+import { useDeleteTorrentstreamBatchHistory, useGetTorrentstreamBatchHistory } from "@/api/hooks/torrentstream.hooks"
 import { useAutoPlaySelectedTorrent, useTorrentstreamAutoplay } from "@/app/(main)/_features/autoplay/autoplay"
 
 import { useSeaCommandInject } from "@/app/(main)/_features/sea-command/use-inject"
@@ -13,6 +13,7 @@ import {
 import { TorrentStreamEpisodeSection } from "@/app/(main)/entry/_containers/torrent-stream/_components/torrent-stream-episode-section"
 import { useHandleStartTorrentStream } from "@/app/(main)/entry/_containers/torrent-stream/_lib/handle-torrent-stream"
 import { ForcePlaybackMethod, useForcePlaybackMethod } from "@/app/(main)/entry/_lib/handle-play-media"
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/shared/confirmation-dialog"
 import { PageWrapper } from "@/components/shared/page-wrapper"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { IconButton } from "@/components/ui/button"
@@ -78,6 +79,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
      */
     const { handleAutoSelectStream, handleStreamSelection, isPending, isUsingNativePlayer } = useHandleStartTorrentStream()
     const { setTorrentstreamAutoplayInfo } = useTorrentstreamAutoplay()
+    const { mutate: deleteBatchHistory, isPending: isDeletingBatchHistory } = useDeleteTorrentstreamBatchHistory()
 
     const { setAutoPlayTorrent } = useAutoPlaySelectedTorrent()
 
@@ -90,6 +92,24 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
     React.useEffect(() => {
         setUsePreviousBatch(!!batchHistory?.torrent?.isBatch)
     }, [batchHistory])
+
+    function handleDisablePreviousBatch() {
+        setUsePreviousBatch(false)
+    }
+
+    function handleDeletePreviousBatch() {
+        handleDisablePreviousBatch()
+        deleteBatchHistory({ mediaId: entry.mediaId })
+    }
+
+    const confirmPreviousBatchAction = useConfirmationDialog({
+        title: "Disable previous torrent",
+        description: "Disable using the saved previous batch for now, or delete the saved history entirely.",
+        actionText: "Delete history",
+        cancelText: "Disable only",
+        onConfirm: handleDeletePreviousBatch,
+        onCancel: handleDisablePreviousBatch,
+    })
 
     // Function to set the torrent stream autoplay info
     // It checks if there is a next episode and if it has aniDBEpisode
@@ -331,7 +351,8 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                                                 intent="alert-glass"
                                                 icon={<BiX />}
                                                 size="xs"
-                                                onClick={() => setUsePreviousBatch(false)}
+                                                onClick={() => confirmPreviousBatchAction.open()}
+                                                disabled={isDeletingBatchHistory}
                                                 className="rounded-full"
                                             />
                                         </div>
@@ -377,6 +398,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                     />
                 </AppLayoutStack>
             </PageWrapper>
+            <ConfirmationDialog {...confirmPreviousBatchAction} />
         </>
     )
 }

@@ -11675,6 +11675,46 @@
     }
   },
   {
+    "name": "HandleDeleteTorrentstreamBatchHistory",
+    "trimmedName": "DeleteTorrentstreamBatchHistory",
+    "comments": [
+      "HandleDeleteTorrentstreamBatchHistory",
+      "",
+      "\t@summary deletes the saved batch selection.",
+      "\t@desc This clears the saved previous batch selection for a media entry.",
+      "\t@returns bool",
+      "\t@route /api/v1/torrentstream/batch-history/delete [POST]",
+      ""
+    ],
+    "filepath": "internal/handlers/torrentstream.go",
+    "filename": "torrentstream.go",
+    "api": {
+      "summary": "deletes the saved batch selection.",
+      "descriptions": [
+        "This clears the saved previous batch selection for a media entry."
+      ],
+      "endpoint": "/api/v1/torrentstream/batch-history/delete",
+      "methods": [
+        "POST"
+      ],
+      "params": [],
+      "bodyFields": [
+        {
+          "name": "MediaID",
+          "jsonName": "mediaId",
+          "goType": "int",
+          "usedStructType": "",
+          "typescriptType": "number",
+          "required": true,
+          "descriptions": []
+        }
+      ],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "HandleTorrentstreamServeStream",
     "trimmedName": "TorrentstreamServeStream",
     "comments": [

@@ -42348,6 +42348,17 @@
         "required": false,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
       }
     ],
     "comments": []

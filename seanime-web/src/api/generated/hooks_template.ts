@@ -2801,6 +2801,17 @@
 //     })
 // }
 
+// export function useDeleteTorrentstreamBatchHistory() {
+//     return useServerMutation<boolean, DeleteTorrentstreamBatchHistory_Variables>({
+//         endpoint: API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.endpoint,
+//         method: API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.methods[0],
+//         mutationKey: [API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.key],
+//         onSuccess: async () => {
+// 
+//         },
+//     })
+// }
+
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // videocore
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

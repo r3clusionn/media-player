@@ -2299,6 +2299,16 @@ export const API_ENDPOINTS = {
             methods: ["POST"],
             endpoint: "/api/v1/torrentstream/batch-history",
         },
+        /**
+         *  @description
+         *  Route deletes the saved batch selection.
+         *  This clears the saved previous batch selection for a media entry.
+         */
+        DeleteTorrentstreamBatchHistory: {
+            key: "TORRENTSTREAM-delete-torrentstream-batch-history",
+            methods: ["POST"],
+            endpoint: "/api/v1/torrentstream/batch-history/delete",
+        },
     },
     VIDEOCORE: {
         VideoCoreInSightGetCharacterDetails: {
