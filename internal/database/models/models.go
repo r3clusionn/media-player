@@ -198,6 +198,8 @@ type MediaPlayerSettings struct {
 	VcTranslateTargetLanguage string `gorm:"column:vc_translate_target_language" json:"vcTranslateTargetLanguage"`
 	VcTranslateProvider       string `gorm:"column:vc_translate_provider" json:"vcTranslateProvider"`
 	VcTranslateApiKey         string `gorm:"column:vc_translate_api_key" json:"vcTranslateApiKey"`
+	VcTranslateBaseUrl        string `gorm:"column:vc_translate_base_url" json:"vcTranslateBaseUrl"`
+	VcTranslateModel          string `gorm:"column:vc_translate_model" json:"vcTranslateModel"`
 }
 
 type TorrentSettings struct {

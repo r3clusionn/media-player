@@ -114,9 +114,16 @@ func (vc *VideoCore) SetSettings(settings *models.Settings) {
 		vc.translatorService.Shutdown()
 	}
 	vc.translatorService = nil
-	if settings.GetMediaPlayer().VcTranslate {
-		vc.logger.Trace().Msgf("videocore: Setting up translator service %s", settings.GetMediaPlayer().VcTranslateProvider)
-		vc.translatorService = NewTranslatorService(vc, settings.GetMediaPlayer().VcTranslateApiKey, settings.GetMediaPlayer().VcTranslateProvider, settings.GetMediaPlayer().VcTranslateTargetLanguage)
+	mediaPlayer := settings.GetMediaPlayer()
+	if mediaPlayer.VcTranslate {
+		vc.logger.Trace().Msgf("videocore: Setting up translator service %s", mediaPlayer.VcTranslateProvider)
+		vc.translatorService = newTranslatorService(vc, translationSettings{
+			apiKey:     mediaPlayer.VcTranslateApiKey,
+			provider:   mediaPlayer.VcTranslateProvider,
+			targetLang: mediaPlayer.VcTranslateTargetLanguage,
+			baseUrl:    mediaPlayer.VcTranslateBaseUrl,
+			model:      mediaPlayer.VcTranslateModel,
+		})
 	}
 }
 

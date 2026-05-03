@@ -385,6 +385,8 @@ export default function Page() {
                                         vcTranslateApiKey: data.vcTranslateApiKey || "",
                                         vcTranslateProvider: data.vcTranslateProvider || "",
                                         vcTranslateTargetLanguage: data.vcTranslateTargetLanguage || "",
+                                        vcTranslateBaseUrl: data.vcTranslateBaseUrl || "",
+                                        vcTranslateModel: data.vcTranslateModel || "",
                                     },
                                     torrent: {
                                         defaultTorrentClient: data.defaultTorrentClient,
@@ -523,6 +525,8 @@ export default function Page() {
                                 vcTranslateApiKey: status?.settings?.mediaPlayer?.vcTranslateApiKey ?? "",
                                 vcTranslateProvider: status?.settings?.mediaPlayer?.vcTranslateProvider ?? "",
                                 vcTranslateTargetLanguage: status?.settings?.mediaPlayer?.vcTranslateTargetLanguage ?? "",
+                                vcTranslateBaseUrl: status?.settings?.mediaPlayer?.vcTranslateBaseUrl ?? "",
+                                vcTranslateModel: status?.settings?.mediaPlayer?.vcTranslateModel ?? "",
                                 scannerUseLegacyMatching: status?.settings?.library?.scannerUseLegacyMatching ?? false,
                                 scannerConfig: status?.settings?.library?.scannerConfig ?? "",
                                 updateChannel: status?.settings?.library?.updateChannel || "github",

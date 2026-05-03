@@ -761,7 +761,8 @@ func privilegedSettingsChanged(prev *models.Settings, nextMedia *models.MediaPla
 			prevMedia.MpvPath != nextMedia.MpvPath ||
 			prevMedia.MpvArgs != nextMedia.MpvArgs ||
 			prevMedia.IinaPath != nextMedia.IinaPath ||
-			prevMedia.IinaArgs != nextMedia.IinaArgs {
+			prevMedia.IinaArgs != nextMedia.IinaArgs ||
+			translateEndpointChanged(prevMedia, nextMedia) {
 			return true
 		}
 	}
@@ -773,6 +774,24 @@ func privilegedSettingsChanged(prev *models.Settings, nextMedia *models.MediaPla
 			prevTorrent.TransmissionPath != nextTorrent.TransmissionPath {
 			return true
 		}
+	}
+
+	return false
+}
+
+func translateEndpointChanged(prevMedia *models.MediaPlayerSettings, nextMedia *models.MediaPlayerSettings) bool {
+	if prevMedia == nil || nextMedia == nil {
+		return false
+	}
+
+	prevCompatible := strings.EqualFold(prevMedia.VcTranslateProvider, "openai-compatible")
+	nextCompatible := strings.EqualFold(nextMedia.VcTranslateProvider, "openai-compatible")
+	if prevCompatible != nextCompatible {
+		return true
+	}
+	if prevCompatible || nextCompatible {
+		return prevMedia.VcTranslate != nextMedia.VcTranslate ||
+			prevMedia.VcTranslateBaseUrl != nextMedia.VcTranslateBaseUrl
 	}
 
 	return false

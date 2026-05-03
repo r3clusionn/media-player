@@ -35,6 +35,10 @@ func (m *recordingWSEventManager) SendEventTo(clientId string, eventType string,
 	m.sent = append(m.sent, recordedWSEvent{clientId: clientId, eventType: eventType, payload: payload})
 }
 
+func (m *recordingWSEventManager) GetClientIds() []string { return nil }
+
+func (m *recordingWSEventManager) GetClientPlatform(string) string { return "" }
+
 func (m *recordingWSEventManager) SubscribeToClientEvents(string) *events.ClientEventSubscriber {
 	return &events.ClientEventSubscriber{Channel: make(chan *events.WebsocketClientEvent, 1)}
 }

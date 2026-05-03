@@ -3907,6 +3907,8 @@ export type Models_MediaPlayerSettings = {
     vcTranslateTargetLanguage: string
     vcTranslateProvider: string
     vcTranslateApiKey: string
+    vcTranslateBaseUrl: string
+    vcTranslateModel: string
 }
 
 /**

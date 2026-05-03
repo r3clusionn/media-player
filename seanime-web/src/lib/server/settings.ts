@@ -116,6 +116,8 @@ export const settingsSchema = z.object({
     vcTranslateApiKey: z.string().optional().default(""),
     vcTranslateProvider: z.string().optional().default(""),
     vcTranslateTargetLanguage: z.string().optional().default(""),
+    vcTranslateBaseUrl: z.string().optional().default(""),
+    vcTranslateModel: z.string().optional().default(""),
     scannerUseLegacyMatching: z.boolean().optional().default(false),
     scannerConfig: z.string().optional().default(""),
     updateChannel: z.string().optional().default("github"),
@@ -188,6 +190,8 @@ export const getDefaultSettings = (data: z.infer<typeof gettingStartedSchema>): 
         vcTranslateApiKey: "",
         vcTranslateProvider: "",
         vcTranslateTargetLanguage: "",
+        vcTranslateBaseUrl: "",
+        vcTranslateModel: "",
     },
     discord: {
         enableRichPresence: data.enableRichPresence,

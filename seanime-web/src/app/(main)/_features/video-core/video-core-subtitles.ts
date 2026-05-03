@@ -514,6 +514,7 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         // If translation settings changed, we need to refresh the current track
         const translationChanged = this.shouldTranslate !== shouldTranslate
         this.shouldTranslate = shouldTranslate
+        this.translationTargetLang = shouldTranslate
 
         if (translationChanged && this.currentTrackNumber !== NO_TRACK_NUMBER) {
             subtitleLog.info("Translation settings changed, reloading current track")
