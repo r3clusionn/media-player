@@ -6,7 +6,7 @@ import (
 )
 
 const (
-	Version              = "3.7.1"
+	Version              = "3.7.2-alpha.1"
 	VersionName          = "Minamo"
 	GcTime               = time.Minute * 30
 	ConfigFileName       = "config.toml"

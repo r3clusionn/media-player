@@ -84,6 +84,42 @@ func getClientIdFromRequest(app *core.App, req *http.Request) string {
 	return ""
 }
 
+func getClaimedClientIdFromRequest(req *http.Request) string {
+	if req == nil {
+		return ""
+	}
+
+	if clientID := strings.TrimSpace(req.Header.Get(clientIdHeaderName)); clientID != "" {
+		return clientID
+	}
+
+	if req.URL != nil && req.URL.Path == "/events" {
+		return strings.TrimSpace(req.URL.Query().Get(clientIdQueryParam))
+	}
+
+	return ""
+}
+
+func canAcceptClaimedClientId(app *core.App, req *http.Request) bool {
+	if app == nil || app.Config == nil || req == nil {
+		return false
+	}
+
+	return isRequestPermitted(req, "", app.Config.Server.AccessAllowlist)
+}
+
+func resolveClientIdFromRequest(app *core.App, req *http.Request, cookieValue string) string {
+	if clientID := getClientIdFromRequest(app, req); clientID != "" {
+		return clientID
+	}
+
+	if clientID := getClaimedClientIdFromRequest(req); clientID != "" && canAcceptClaimedClientId(app, req) {
+		return clientID
+	}
+
+	return strings.TrimSpace(cookieValue)
+}
+
 func getClientPlatformFromRequest(req *http.Request) string {
 	if req == nil {
 		return ""

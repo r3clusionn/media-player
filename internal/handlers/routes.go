@@ -82,14 +82,11 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 		return func(c echo.Context) error {
 			req := c.Request()
 			cookie, err := c.Cookie(clientIdCookieName)
-			clientID := ""
+			cookieClientID := ""
 			if err == nil {
-				clientID = strings.TrimSpace(cookie.Value)
+				cookieClientID = strings.TrimSpace(cookie.Value)
 			}
-
-			if clientID == "" {
-				clientID = getClientIdFromRequest(app, req)
-			}
+			clientID := resolveClientIdFromRequest(app, req, cookieClientID)
 
 			if clientID == "" {
 				clientID = uuid.New().String()

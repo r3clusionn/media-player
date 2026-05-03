@@ -187,8 +187,10 @@ function WebsocketManagement() {
 
             try {
                 const queryParams = new URLSearchParams()
-                if (clientId && clientIdProof) {
+                if (clientId) {
                     queryParams.set("id", clientId)
+                }
+                if (clientIdProof) {
                     queryParams.set("proof", clientIdProof)
                 }
                 if (__clientPlatform__) {
