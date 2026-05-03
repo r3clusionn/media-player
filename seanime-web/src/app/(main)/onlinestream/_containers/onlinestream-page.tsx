@@ -68,6 +68,17 @@ function isValidVideoSourceType(type: string | null | undefined) {
     return ["unknown", "mp4", "m3u8"].includes(type)
 }
 
+function _normalizeLabel(value: string | null | undefined) {
+    return value?.trim().toLowerCase() ?? null
+}
+
+function getQualityResolution(value: string | null | undefined) {
+    const normalized = _normalizeLabel(value)
+    if (!normalized) return null
+
+    return normalized.match(/\b(\d{3,4}p|auto|default)\b/i)?.[1]?.toLowerCase() ?? null
+}
+
 export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton }: OnlinestreamPageProps) {
     const serverStatus = useAtomValue(serverStatusAtom)
     const router = useRouter()
@@ -211,27 +222,32 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
         if (!episodeSource || !videoSources) return undefined
 
         let filtered = [...videoSources]
-        let qualitySatinized = quality
-        qualitySatinized = qualitySatinized?.includes("p") ? qualitySatinized?.split("p")?.[0]?.toLowerCase() + "p" : qualitySatinized
+        console.log("Filtering video sources", { videoSources, server, quality })
+        const normalizedQuality = _normalizeLabel(quality) // e.g. '720P - Group' -> '720p - group'
+        const preferredResolution = getQualityResolution(quality) // e.g. '720p - group' -> '720p'
 
-        log.info("Selecting video source", { qualitySatinized, server })
+        log.info("Selecting video source", { normalizedQuality, preferredResolution, server })
         // If server is set, filter sources by server
         if (server && filtered.some(n => n.server === server)) {
             filtered = filtered.filter(s => s.server === server)
         }
 
-        const hasPreferredQuality = qualitySatinized && filtered.some(n => n.quality.toLowerCase().includes(qualitySatinized!))
+        const hasExactQuality = normalizedQuality && filtered.some(n => _normalizeLabel(n.quality) === normalizedQuality)
+        const hasPreferredResolution = preferredResolution && filtered.some(n => getQualityResolution(n.quality) === preferredResolution)
         const hasAuto = filtered.some(n => n.quality === "auto")
 
         log.info("Filtering video sources by quality", {
+            hasExactQuality,
             hasAuto,
-            hasPreferredQuality,
+            hasPreferredResolution,
         })
 
         // If quality is set, filter sources by quality
         // Only filter by quality if the quality is present in the sources
-        if (qualitySatinized && hasPreferredQuality) {
-            filtered = filtered.filter(n => n.quality.toLowerCase().includes(qualitySatinized!))
+        if (normalizedQuality && hasExactQuality) {
+            filtered = filtered.filter(n => _normalizeLabel(n.quality) === normalizedQuality)
+        } else if (preferredResolution && hasPreferredResolution) {
+            filtered = filtered.filter(n => getQualityResolution(n.quality) === preferredResolution)
         } else if (hasAuto) {
             filtered = filtered.filter(n => n.quality.toLowerCase() === "auto" || n.quality.toLowerCase().includes("default"))
         } else {
