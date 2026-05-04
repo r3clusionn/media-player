@@ -575,6 +575,10 @@ let mainWindowStartupReady = false
 let updateDownloaded = false
 let serverRestartPromise = null
 
+app.on("child-process-gone", (event, details) => {
+    log.warn("[Denshi] Child process gone:", JSON.stringify(details))
+})
+
 // Setup autoUpdater events with improved error handling
 autoUpdater.on("checking-for-update", () => {
     autoUpdater.logger.info("Checking for update...")
@@ -1068,8 +1072,13 @@ function createMainWindow() {
 
     mainWindow.on("render-process-gone", (event, details) => {
         console.log("[Main] Render process gone", details)
+        log.error("[Denshi] Main window render process gone:", JSON.stringify(details))
         if (crashScreen && !crashScreen.isDestroyed()) {
             crashScreen.show()
+            crashScreen.webContents.send(
+                "crash",
+                `The desktop window stopped unexpectedly (${details.reason || "unknown reason"}${typeof details.exitCode === "number" ? `, exit code ${details.exitCode}` : ""}). The background server may still be running.`
+            )
         }
     })
 

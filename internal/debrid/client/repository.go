@@ -198,7 +198,7 @@ func (r *Repository) AddAndQueueTorrent(opts debrid.AddTorrentOptions, destinati
 
 	// Add the torrent item to the database (so it can be downloaded automatically once it's ready)
 	// We ignore the error since it's non-critical
-	_ = r.db.InsertDebridTorrentItem(&models.DebridTorrentItem{
+	_ = r.db.UpsertDebridTorrentItem(&models.DebridTorrentItem{
 		TorrentItemID: torrentItemId,
 		Destination:   destination,
 		Provider:      provider.GetSettings().ID,
@@ -268,6 +268,14 @@ func (r *Repository) HasProvider() bool {
 
 func (r *Repository) GetSettings() *models.DebridSettings {
 	return r.settings
+}
+
+func (r *Repository) IsDownloadActive(itemID string) bool {
+	if r.ctxMap == nil {
+		return false
+	}
+
+	return r.ctxMap.Has(itemID)
 }
 
 // CancelDownload cancels the download for the given item ID

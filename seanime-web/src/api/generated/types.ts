@@ -2101,6 +2101,14 @@ export type Debrid_TorrentItem = {
      */
     isReady: boolean
     /**
+     * Whether Seanime has queued this torrent for local download
+     */
+    isQueuedForLocalDownload?: boolean
+    /**
+     * Whether Seanime is currently downloading this torrent locally
+     */
+    isDownloadingLocally?: boolean
+    /**
      * List of files in the torrent (optional)
      */
     files?: Array<Debrid_TorrentItemFile>
@@ -4053,6 +4061,7 @@ export type Models_Theme = {
     unpinnedMenuItems: Models_StringSlice
     homeItems?: Array<string>
     enableBlurringEffects: boolean
+    hideAnimeSpoilers: boolean
     id: number
     createdAt?: string
     updatedAt?: string

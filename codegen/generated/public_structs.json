@@ -32072,6 +32072,15 @@
         "required": true,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilers",
+        "jsonName": "hideAnimeSpoilers",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": [],
@@ -34841,6 +34850,28 @@
         "public": true,
         "comments": [
           " Whether the torrent is ready to be downloaded"
+        ]
+      },
+      {
+        "name": "IsQueuedForLocalDownload",
+        "jsonName": "isQueuedForLocalDownload",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": [
+          " Whether Seanime has queued this torrent for local download"
+        ]
+      },
+      {
+        "name": "IsDownloadingLocally",
+        "jsonName": "isDownloadingLocally",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": [
+          " Whether Seanime is currently downloading this torrent locally"
         ]
       },
       {
@@ -94018,6 +94049,24 @@
       {
         "name": "needsAuth",
         "jsonName": "needsAuth",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "maxBatchSize",
+        "jsonName": "maxBatchSize",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "jsonMode",
+        "jsonName": "jsonMode",
         "goType": "bool",
         "typescriptType": "boolean",
         "required": true,

@@ -383,6 +383,8 @@ type Theme struct {
 	HomeItems []byte `gorm:"column:home_items;type:text" json:"homeItems"`
 	// v3.5+
 	EnableBlurringEffects bool `gorm:"column:enable_blurring_effects" json:"enableBlurringEffects"`
+	// v3.7+
+	HideAnimeSpoilers bool `gorm:"column:hide_anime_spoilers" json:"hideAnimeSpoilers"`
 }
 
 type HomeItem struct {

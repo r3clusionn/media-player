@@ -1,7 +1,10 @@
 package db
 
 import (
+	"errors"
 	"seanime/internal/database/models"
+
+	"gorm.io/gorm"
 )
 
 func (db *Database) GetDebridTorrentItems() ([]*models.DebridTorrentItem, error) {
@@ -40,6 +43,21 @@ func (db *Database) InsertDebridTorrentItem(item *models.DebridTorrentItem) erro
 		return err
 	}
 	return nil
+}
+
+func (db *Database) UpsertDebridTorrentItem(item *models.DebridTorrentItem) error {
+	var existing models.DebridTorrentItem
+	err := db.gormdb.Where("torrent_item_id = ?", item.TorrentItemID).First(&existing).Error
+	if err == nil {
+		item.ID = existing.ID
+		item.CreatedAt = existing.CreatedAt
+		return db.gormdb.Save(item).Error
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
+	return db.gormdb.Create(item).Error
 }
 
 func (db *Database) DeleteDebridTorrentItemByDbId(dbId uint) error {

@@ -61,6 +61,16 @@ func (db *Database) DeleteDownloadedAutoDownloaderItems() error {
 	return db.gormdb.Where("downloaded = ?", true).Delete(&models.AutoDownloaderItem{}).Error
 }
 
+func (db *Database) MarkAutoDownloaderItemsDownloaded(mediaId int, hash string) error {
+	if hash == "" {
+		return nil
+	}
+
+	return db.gormdb.Model(&models.AutoDownloaderItem{}).
+		Where("media_id = ? AND lower(hash) = lower(?) AND is_delayed = ?", mediaId, hash, false).
+		Update("downloaded", true).Error
+}
+
 func (db *Database) UpdateAutoDownloaderItem(id uint, item *models.AutoDownloaderItem) error {
 	// Save the data
 	return db.gormdb.Save(item).Error

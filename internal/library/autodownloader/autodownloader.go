@@ -346,6 +346,8 @@ func (ad *AutoDownloader) checkForNewEpisodes(ctx context.Context, isSimulation 
 	// Download delayed items that can now be handled
 	result.merge(ad.downloadDelayedItems(isSimulation))
 
+	ad.retryQueuedDebridItems(isSimulation, data.existingDebridTorrents)
+
 	// Notify user
 	ad.notifyDownloadResults(result.handledCount())
 
@@ -354,11 +356,12 @@ func (ad *AutoDownloader) checkForNewEpisodes(ctx context.Context, isSimulation 
 
 // runData holds all data needed for checking new episodes
 type runData struct {
-	rules                 []*anime.AutoDownloaderRule
-	profiles              []*anime.AutoDownloaderProfile
-	localFileWrapper      *anime.LocalFileWrapper
-	torrents              []*NormalizedTorrent
-	existingTorrentHashes map[string]struct{}
+	rules                  []*anime.AutoDownloaderRule
+	profiles               []*anime.AutoDownloaderProfile
+	localFileWrapper       *anime.LocalFileWrapper
+	torrents               []*NormalizedTorrent
+	existingTorrentHashes  map[string]struct{}
+	existingDebridTorrents []*debrid.TorrentItem
 }
 
 type itemActionResult struct {
@@ -533,11 +536,12 @@ func (ad *AutoDownloader) fetchRunData(ctx context.Context, ruleIDs ...uint) (*r
 	}
 
 	return &runData{
-		rules:                 rules,
-		profiles:              profiles,
-		localFileWrapper:      lfWrapper,
-		torrents:              torrents,
-		existingTorrentHashes: buildExistingTorrentHashes(existingTorrents, existingDebridTorrents),
+		rules:                  rules,
+		profiles:               profiles,
+		localFileWrapper:       lfWrapper,
+		torrents:               torrents,
+		existingTorrentHashes:  buildExistingTorrentHashes(existingTorrents, existingDebridTorrents),
+		existingDebridTorrents: existingDebridTorrents,
 	}, nil
 }
 
@@ -998,6 +1002,77 @@ func (ad *AutoDownloader) downloadDelayedItems(isSimulation bool) runResult {
 	}
 
 	return result
+}
+
+func (ad *AutoDownloader) retryQueuedDebridItems(isSimulation bool, torrents []*debrid.TorrentItem) {
+	if isSimulation || !ad.settings.UseDebrid || !ad.settings.DownloadAutomatically || ad.debridClientRepository == nil || !ad.debridClientRepository.HasProvider() {
+		return
+	}
+
+	items, err := ad.database.GetAutoDownloaderItems()
+	if err != nil {
+		ad.logger.Error().Err(err).Msg("autodownloader: Failed to get queued items")
+		return
+	}
+
+	rules, err := db_bridge.GetAutoDownloaderRules(ad.database)
+	if err != nil {
+		ad.logger.Error().Err(err).Msg("autodownloader: Failed to get rules for queued items")
+		return
+	}
+	ruleById := lo.KeyBy(rules, func(rule *anime.AutoDownloaderRule) uint { return rule.DbID })
+
+	provider, err := ad.debridClientRepository.GetProvider()
+	if err != nil {
+		ad.logger.Error().Err(err).Msg("autodownloader: Failed to get debrid provider")
+		return
+	}
+
+	debridItems := make(map[string]*debrid.TorrentItem)
+	for _, torrent := range torrents {
+		debridItems[normalizeTorrentHash(torrent.Hash)] = torrent
+	}
+
+	retried := 0
+	for _, item := range items {
+		if item.Downloaded || item.IsDelayed || item.Hash == "" || item.Magnet == "" {
+			continue
+		}
+
+		rule, found := ruleById[item.RuleID]
+		if !found || !rule.Enabled || rule.Destination == "" {
+			continue
+		}
+
+		if torrent, found := debridItems[normalizeTorrentHash(item.Hash)]; found {
+			if _, err := ad.database.GetDebridTorrentItemByTorrentItemId(torrent.ID); err == nil {
+				continue
+			}
+
+			err = ad.database.UpsertDebridTorrentItem(&models.DebridTorrentItem{
+				TorrentItemID: torrent.ID,
+				Destination:   rule.Destination,
+				Provider:      provider.GetSettings().ID,
+				MediaId:       item.MediaID,
+			})
+		} else {
+			_, err = ad.debridClientRepository.AddAndQueueTorrent(debrid.AddTorrentOptions{
+				MagnetLink:   item.Magnet,
+				InfoHash:     item.Hash,
+				SelectFileId: "all",
+			}, rule.Destination, item.MediaID)
+		}
+		if err != nil {
+			ad.logger.Error().Err(err).Str("name", item.TorrentName).Msg("autodownloader: Failed to retry queued debrid item")
+			continue
+		}
+
+		retried++
+	}
+
+	if retried > 0 {
+		ad.logger.Info().Int("count", retried).Msg("autodownloader: Retried queued debrid items")
+	}
 }
 
 // queueTorrentForDelay inserts an item with IsDelayed=true
