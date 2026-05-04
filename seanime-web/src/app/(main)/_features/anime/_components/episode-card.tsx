@@ -11,6 +11,7 @@ import { cn } from "@/components/ui/core/styling"
 import { ProgressBar } from "@/components/ui/progress-bar"
 import { usePathname, useRouter } from "@/lib/navigation"
 import { getImageUrl } from "@/lib/server/assets"
+import { getSpoilerFreeAnimeImage, useEpisodeSpoilerState } from "@/lib/theme/anime-spoilers"
 import { useThemeSettings } from "@/lib/theme/theme-hooks"
 import React from "react"
 import { BiAddToQueue } from "react-icons/bi"
@@ -22,15 +23,20 @@ type EpisodeCardProps = {
     title: React.ReactNode
     actionIcon?: React.ReactElement | null
     image?: string
+    spoilerSafeImage?: string
     onClick?: () => void
     topTitle?: string
+    spoilerSafeTopTitle?: string
     meta?: string
     type?: "carousel" | "grid"
+    spoilerMode?: "blur" | "replace"
+    spoilerActive?: boolean
     contextType?: string // used for plugin context menu item filtering
     isInvalid?: boolean
     containerClass?: string
     episodeNumber?: number
     progressNumber?: number
+    watchedProgress?: number
     progressTotal?: number
     mRef?: React.RefObject<HTMLDivElement | null>
     hasDiscrepancy?: boolean
@@ -57,11 +63,15 @@ export function EpisodeCard(props: EpisodeCardProps) {
         children,
         actionIcon = props.actionIcon !== null ? <FaCirclePlay className="opacity-50" /> : undefined,
         image,
+        spoilerSafeImage,
         onClick,
         topTitle,
+        spoilerSafeTopTitle,
         meta,
         title,
         type = "carousel",
+        spoilerMode = "blur",
+        spoilerActive,
         isInvalid,
         className,
         containerClass,
@@ -69,6 +79,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
         episodeNumber,
         progressTotal,
         progressNumber,
+        watchedProgress,
         hasDiscrepancy,
         length,
         imageClass,
@@ -100,17 +111,31 @@ export function EpisodeCard(props: EpisodeCardProps) {
     const missingImage = false
 
     const isSingleContainer = ts.useLegacyEpisodeCard || forceSingleContainer
+    const spoiler = useEpisodeSpoilerState(ts, {
+        mediaId: anime?.id ?? episode?.baseAnime?.id,
+        episodeNumber,
+        watchedProgress,
+        spoilerMode,
+        spoilerActive,
+    })
+    const displayTopTitle = spoiler.replaceTitle
+        ? spoilerSafeTopTitle || topTitle
+        : topTitle
+    const displayImage = spoiler.replaceImage
+        ? spoilerSafeImage || getSpoilerFreeAnimeImage(episode?.baseAnime) || anime?.image || image
+        : image
 
     const Meta = () => (
         <div data-episode-card-info-container className="relative z-[3] w-full space-y-0">
-            {(topTitle !== title || showTotalEpisodes) && <p
+            {(displayTopTitle !== title || showTotalEpisodes) && <p
                 data-episode-card-title
                 className={cn(
                     "w-[80%] line-clamp-1 text-md md:text-lg transition-colors duration-200 text-[--foreground] font-semibold",
                     isSingleContainer && "text-sm max-w-[80%] text-white/60",
+                    spoiler.blurTitle && "blur-sm",
                 )}
             >
-                {topTitle?.replaceAll("`", "'")}
+                {displayTopTitle?.replaceAll("`", "'")}
             </p>}
             <div data-episode-card-info-content className="w-full justify-between flex flex-none items-center">
                 <p data-episode-card-subtitle className="line-clamp-1 flex items-center">
@@ -200,9 +225,9 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             // duration-200",
                         )}
                     >
-                        {!!image ? <SeaImage
+                        {!!displayImage ? <SeaImage
                             data-episode-card-image
-                            src={getImageUrl(image)}
+                            src={getImageUrl(displayImage)}
                             alt={""}
                             fill
                             quality={100}
@@ -210,6 +235,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             sizes="20rem"
                             className={cn(
                                 "object-cover rounded-xl object-center transition lg:group-hover/episode-card:scale-[1.02] duration-200",
+                                spoiler.blurImage && "blur-2xl scale-110 lg:group-hover/episode-card:scale-110",
                                 imageClass,
                             )}
                         /> : <div

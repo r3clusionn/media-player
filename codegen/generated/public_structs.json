@@ -32081,6 +32081,42 @@
         "required": true,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerThumbnails",
+        "jsonName": "hideAnimeSpoilerThumbnails",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerTitles",
+        "jsonName": "hideAnimeSpoilerTitles",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerDescriptions",
+        "jsonName": "hideAnimeSpoilerDescriptions",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerSkipNextEpisode",
+        "jsonName": "hideAnimeSpoilerSkipNextEpisode",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": [],

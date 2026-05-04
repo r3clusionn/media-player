@@ -66,10 +66,16 @@ const themeSchema = defineSchema(({ z }) => z.object({
     showMangaUnreadCount: z.boolean().default(THEME_DEFAULT_VALUES.showMangaUnreadCount),
     hideEpisodeCardDescription: z.boolean().default(THEME_DEFAULT_VALUES.hideEpisodeCardDescription),
     hideDownloadedEpisodeCardFilename: z.boolean().default(THEME_DEFAULT_VALUES.hideDownloadedEpisodeCardFilename),
+    hideAnimeSpoilers: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilers),
+    hideAnimeSpoilerThumbnails: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerThumbnails),
+    hideAnimeSpoilerTitles: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerTitles),
+    hideAnimeSpoilerDescriptions: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerDescriptions),
+    hideAnimeSpoilerSkipNextEpisode: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerSkipNextEpisode),
     customCSS: z.string().default(THEME_DEFAULT_VALUES.customCSS),
     mobileCustomCSS: z.string().default(THEME_DEFAULT_VALUES.mobileCustomCSS),
     unpinnedMenuItems: z.array(z.string()).default(THEME_DEFAULT_VALUES.unpinnedMenuItems),
     enableBlurringEffects: z.boolean().default(THEME_DEFAULT_VALUES.enableBlurringEffects),
+
 }))
 
 export const __ui_fixBorderRenderingArtifacts = atomWithStorage("sea-ui-settings-fix-border-rendering-artifacts", false)
@@ -270,6 +276,11 @@ export function UISettings() {
                 showMangaUnreadCount: themeSettings?.showMangaUnreadCount,
                 hideEpisodeCardDescription: themeSettings?.hideEpisodeCardDescription,
                 hideDownloadedEpisodeCardFilename: themeSettings?.hideDownloadedEpisodeCardFilename,
+                hideAnimeSpoilers: themeSettings?.hideAnimeSpoilers,
+                hideAnimeSpoilerThumbnails: themeSettings?.hideAnimeSpoilerThumbnails,
+                hideAnimeSpoilerTitles: themeSettings?.hideAnimeSpoilerTitles,
+                hideAnimeSpoilerDescriptions: themeSettings?.hideAnimeSpoilerDescriptions,
+                hideAnimeSpoilerSkipNextEpisode: themeSettings?.hideAnimeSpoilerSkipNextEpisode,
                 customCSS: themeSettings?.customCSS,
                 mobileCustomCSS: themeSettings?.mobileCustomCSS,
                 unpinnedMenuItems: themeSettings?.unpinnedMenuItems ?? [],
@@ -743,6 +754,42 @@ export function UISettings() {
                                     label="Hide downloaded episode filename"
                                     name="hideDownloadedEpisodeCardFilename"
                                 />
+
+                                <Field.Switch
+                                    side="right"
+                                    label="Hide anime spoilers"
+                                    help="Use spoiler-safe episode art and text across continue watching, entry episode lists, and missing episodes."
+                                    name="hideAnimeSpoilers"
+                                />
+
+                                {f.watch("hideAnimeSpoilers") && (
+                                    <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
+                                        <Field.Switch
+                                            side="right"
+                                            label="Hide thumbnails"
+                                            name="hideAnimeSpoilerThumbnails"
+                                        />
+
+                                        <Field.Switch
+                                            side="right"
+                                            label="Hide titles"
+                                            name="hideAnimeSpoilerTitles"
+                                        />
+
+                                        <Field.Switch
+                                            side="right"
+                                            label="Hide descriptions"
+                                            name="hideAnimeSpoilerDescriptions"
+                                        />
+
+                                        <Field.Switch
+                                            side="right"
+                                            label="Skip next episode"
+                                            help="Start hiding spoilers from the episode after the next one."
+                                            name="hideAnimeSpoilerSkipNextEpisode"
+                                        />
+                                    </div>
+                                )}
 
 
                             </SettingsCard>

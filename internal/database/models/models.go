@@ -384,7 +384,11 @@ type Theme struct {
 	// v3.5+
 	EnableBlurringEffects bool `gorm:"column:enable_blurring_effects" json:"enableBlurringEffects"`
 	// v3.7+
-	HideAnimeSpoilers bool `gorm:"column:hide_anime_spoilers" json:"hideAnimeSpoilers"`
+	HideAnimeSpoilers               bool `gorm:"column:hide_anime_spoilers" json:"hideAnimeSpoilers"`
+	HideAnimeSpoilerThumbnails      bool `gorm:"column:hide_anime_spoiler_thumbnails" json:"hideAnimeSpoilerThumbnails"`
+	HideAnimeSpoilerTitles          bool `gorm:"column:hide_anime_spoiler_titles" json:"hideAnimeSpoilerTitles"`
+	HideAnimeSpoilerDescriptions    bool `gorm:"column:hide_anime_spoiler_descriptions" json:"hideAnimeSpoilerDescriptions"`
+	HideAnimeSpoilerSkipNextEpisode bool `gorm:"column:hide_anime_spoiler_skip_next_episode" json:"hideAnimeSpoilerSkipNextEpisode"`
 }
 
 type HomeItem struct {

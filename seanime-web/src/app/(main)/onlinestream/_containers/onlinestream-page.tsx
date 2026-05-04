@@ -710,6 +710,7 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
                                             className="flex-none w-full"
                                             isFiller={episode.isFiller}
                                             episodeNumber={episode.number}
+                                            watchedProgress={progress}
                                             progressNumber={episode.number}
                                             action={<>
                                                 <MediaEpisodeInfoModal

@@ -5,6 +5,8 @@ import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { Carousel, CarouselContent, CarouselDotButtons, CarouselItem } from "@/components/ui/carousel"
 import { useRouter } from "@/lib/navigation"
+import { useMissingEpisodeSpoilers } from "@/lib/theme/anime-spoilers"
+import { useThemeSettings } from "@/lib/theme/theme-hooks"
 import { addSeconds, formatDistanceToNow } from "date-fns"
 import React from "react"
 
@@ -15,6 +17,8 @@ import React from "react"
 export function UpcomingEpisodes() {
     const serverStatus = useServerStatus()
     const router = useRouter()
+    const ts = useThemeSettings()
+    const spoilerActive = useMissingEpisodeSpoilers(ts)
 
     const { data: animeCollection } = useGetAnimeCollection()
 
@@ -50,7 +54,10 @@ export function UpcomingEpisodes() {
                                         <EpisodeCard
                                             key={item.mediaId}
                                             image={item.episodeMetadata?.image || item.baseAnime?.bannerImage || item.baseAnime?.coverImage?.large}
+                                            spoilerSafeImage={item.baseAnime?.bannerImage || item.baseAnime?.coverImage?.extraLarge || item.baseAnime?.coverImage?.large}
                                             topTitle={item?.baseAnime?.title?.userPreferred}
+                                            spoilerMode="replace"
+                                            spoilerActive={spoilerActive}
                                             title={`Episode ${item.episodeNumber}`}
                                             meta={formatDistanceToNow(addSeconds(new Date(), item.timeUntilAiring!),
                                                 { addSuffix: true })}
