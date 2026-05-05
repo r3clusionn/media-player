@@ -63,6 +63,7 @@ export function Content(props: ContentProps) {
             >
                 {__isElectronDesktop__ && <ElectronYoutubeEmbed trailerId={trailerId} />}
                 {!__isElectronDesktop__ && <iframe
+                    {...({ credentialless: "true" } as any)}
                     src={`https://www.youtube.com/embed/${trailerId}`}
                     title="YouTube Video"
                     className="w-full aspect-video rounded-xl"
