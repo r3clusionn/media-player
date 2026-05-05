@@ -454,6 +454,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1.GET("/mediastream/direct", h.HandleMediastreamDirectPlay)
 	v1.HEAD("/mediastream/direct", h.HandleMediastreamDirectPlay)
 	v1.GET("/mediastream/file", h.HandleMediastreamFile)
+	v1.GET("/mediastream/local-subtitles", h.HandleMediastreamLocalSubtitles)
 
 	//
 	// Direct Stream

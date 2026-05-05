@@ -42979,6 +42979,15 @@
         "comments": []
       },
       {
+        "name": "Expired",
+        "jsonName": "expired",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
         "name": "CreatedAt",
         "jsonName": "createdAt",
         "goType": "time.Time",
@@ -72474,6 +72483,17 @@
         ]
       },
       {
+        "name": "SubtitleTracks",
+        "jsonName": "subtitleTracks",
+        "goType": "[]videocore.VideoSubtitleTrack",
+        "typescriptType": "Array\u003cVideoCore_VideoSubtitleTrack\u003e",
+        "usedTypescriptType": "VideoCore_VideoSubtitleTrack",
+        "usedStructName": "videocore.VideoSubtitleTrack",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
         "name": "EntryListData",
         "jsonName": "entryListData",
         "goType": "anime.EntryListData",
@@ -93336,6 +93356,61 @@
         "usedStructName": "sync.Mutex",
         "required": false,
         "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/util/local_subtitles.go",
+    "filename": "local_subtitles.go",
+    "name": "LocalSubtitleFile",
+    "formattedName": "Util_LocalSubtitleFile",
+    "package": "util",
+    "fields": [
+      {
+        "name": "Path",
+        "jsonName": "path",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Filename",
+        "jsonName": "filename",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Label",
+        "jsonName": "label",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Language",
+        "jsonName": "language",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Type",
+        "jsonName": "type",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
         "comments": []
       }
     ],

@@ -243,6 +243,7 @@ export function NativePlayer() {
                 streamUrl: state.playbackInfo?.streamUrl!,
                 streamPath: state.playbackInfo?.streamPath,
                 mkvMetadata: state.playbackInfo?.mkvMetadata,
+                subtitleTracks: state.playbackInfo?.subtitleTracks,
                 media: state.playbackInfo?.media,
                 episode: state.playbackInfo?.episode,
                 localFile: state.playbackInfo?.localFile,

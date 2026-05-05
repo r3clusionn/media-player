@@ -7443,6 +7443,36 @@
     }
   },
   {
+    "name": "HandleMediastreamLocalSubtitles",
+    "trimmedName": "MediastreamLocalSubtitles",
+    "comments": [
+      "HandleMediastreamLocalSubtitles",
+      "",
+      "\t@summary get local subtitle files.",
+      "\t@desc This returns same-directory subtitle files for a local video file.",
+      "\t@returns []util.LocalSubtitleFile",
+      "\t@route /api/v1/mediastream/local-subtitles [GET]",
+      ""
+    ],
+    "filepath": "internal/handlers/mediastream.go",
+    "filename": "mediastream.go",
+    "api": {
+      "summary": "get local subtitle files.",
+      "descriptions": [
+        "This returns same-directory subtitle files for a local video file."
+      ],
+      "endpoint": "/api/v1/mediastream/local-subtitles",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "[]util.LocalSubtitleFile",
+      "returnGoType": "util.LocalSubtitleFile",
+      "returnTypescriptType": "Array\u003cUtil_LocalSubtitleFile\u003e"
+    }
+  },
+  {
     "name": "HandlePopulateFillerData",
     "trimmedName": "PopulateFillerData",
     "comments": [

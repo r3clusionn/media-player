@@ -1452,6 +1452,16 @@ export const API_ENDPOINTS = {
             methods: ["POST"],
             endpoint: "/api/v1/mediastream/shutdown-transcode",
         },
+        /**
+         *  @description
+         *  Route get local subtitle files.
+         *  This returns same-directory subtitle files for a local video file.
+         */
+        MediastreamLocalSubtitles: {
+            key: "MEDIASTREAM-mediastream-local-subtitles",
+            methods: ["GET"],
+            endpoint: "/api/v1/mediastream/local-subtitles",
+        },
     },
     METADATA: {
         /**

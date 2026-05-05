@@ -7,13 +7,13 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"seanime/internal/torrent_clients/qbittorrent/application"
-	"seanime/internal/torrent_clients/qbittorrent/log"
-	"seanime/internal/torrent_clients/qbittorrent/rss"
-	"seanime/internal/torrent_clients/qbittorrent/search"
-	"seanime/internal/torrent_clients/qbittorrent/sync"
-	"seanime/internal/torrent_clients/qbittorrent/torrent"
-	"seanime/internal/torrent_clients/qbittorrent/transfer"
+	qbittorrent_application "seanime/internal/torrent_clients/qbittorrent/application"
+	qbittorrent_log "seanime/internal/torrent_clients/qbittorrent/log"
+	qbittorrent_rss "seanime/internal/torrent_clients/qbittorrent/rss"
+	qbittorrent_search "seanime/internal/torrent_clients/qbittorrent/search"
+	qbittorrent_sync "seanime/internal/torrent_clients/qbittorrent/sync"
+	qbittorrent_torrent "seanime/internal/torrent_clients/qbittorrent/torrent"
+	qbittorrent_transfer "seanime/internal/torrent_clients/qbittorrent/transfer"
 	"strings"
 	std_sync "sync"
 
@@ -150,7 +150,7 @@ func (c *Client) Login() error {
 			c.logger.Err(err).Msg("failed to close login response body")
 		}
 	}()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	if len(resp.Cookies()) < 1 {
@@ -179,7 +179,7 @@ func (c *Client) Logout() error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	return nil

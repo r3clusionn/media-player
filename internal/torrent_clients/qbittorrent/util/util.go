@@ -8,7 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"seanime/internal/torrent_clients/qbittorrent/model"
+	qbittorrent_model "seanime/internal/torrent_clients/qbittorrent/model"
 	"strings"
 )
 
@@ -65,7 +65,7 @@ func Post(client *http.Client, url string, body interface{}) (err error) {
 			err = err2
 		}
 	}()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	return nil
@@ -118,7 +118,7 @@ func PostMultipartLinks(client *http.Client, url string, options *qbittorrent_mo
 			err = err2
 		}
 	}()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	return nil
@@ -170,7 +170,7 @@ func PostMultipartFiles(client *http.Client, url string, options *qbittorrent_mo
 			err = err2
 		}
 	}()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	return nil
@@ -191,7 +191,7 @@ func PostWithContentType(client *http.Client, url string, body io.Reader, conten
 			err = err2
 		}
 	}()
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("invalid status %s", resp.Status)
 	}
 	return nil

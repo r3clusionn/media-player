@@ -163,6 +163,7 @@ const (
 	MALLogoutEndpoint                                  = "MAL-mal-logout"
 	MangaManualMappingEndpoint                         = "MANGA-manga-manual-mapping"
 	MangaManualSearchEndpoint                          = "MANGA-manga-manual-search"
+	MediastreamLocalSubtitlesEndpoint                  = "MEDIASTREAM-mediastream-local-subtitles"
 	MediastreamShutdownTranscodeStreamEndpoint         = "MEDIASTREAM-mediastream-shutdown-transcode-stream"
 	NakamaCreateAndJoinRoomEndpoint                    = "NAKAMA-nakama-create-and-join-room"
 	NakamaCreateWatchPartyEndpoint                     = "NAKAMA-nakama-create-watch-party"

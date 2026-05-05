@@ -239,7 +239,7 @@ const TorrentItem = React.memo(function TorrentItem({ torrent, isPending, downlo
 
     const localDownloadStatus = getLocalDownloadStatus(torrent, downloadProgress)
     const isDownloadingLocally = !!downloadProgress || !!torrent.isDownloadingLocally
-    const canOpenDownloadModal = torrent.isReady && !isDownloadingLocally && !torrent.isQueuedForLocalDownload
+    const canOpenDownloadModal = torrent.isReady && !isDownloadingLocally
 
     const confirmDeleteTorrentProps = useConfirmationDialog({
         title: "Remove torrent",
