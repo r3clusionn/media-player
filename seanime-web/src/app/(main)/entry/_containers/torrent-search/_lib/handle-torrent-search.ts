@@ -7,6 +7,7 @@ import { __torrentSearch_selectionEpisodeAtom, TorrentSelectionType } from "@/ap
 import { useDebounceWithSet } from "@/hooks/use-debounce"
 import { logger } from "@/lib/helpers/debug"
 import { useAtom } from "jotai/react"
+import { atomWithStorage } from "jotai/utils"
 import React, { startTransition } from "react"
 
 type TorrentSearchHookProps = {
@@ -22,6 +23,12 @@ export const enum Torrent_SearchType {
     SMART = "smart",
     SIMPLE = "simple",
 }
+
+export const __torrentSearch_searchAcrossProvidersAtom = atomWithStorage("sea-torrent-search-across-providers", false, undefined, { getOnInit: true })
+export const __torrentSearch_extraProviderIdsAtom = atomWithStorage<string[]>("sea-torrent-search-extra-provider-ids",
+    [],
+    undefined,
+    { getOnInit: true })
 
 export function useHandleTorrentSearch(props: TorrentSearchHookProps) {
 
@@ -68,12 +75,27 @@ export function useHandleTorrentSearch(props: TorrentSearchHookProps) {
         ? ""
         : (entry?.media?.title?.romaji || ""), 500)
     const [selectedTorrents, setSelectedTorrents] = useAtom(__torrentSearch_selectedTorrentsAtom)
+    const [searchAcrossProviders, setSearchAcrossProviders] = useAtom(__torrentSearch_searchAcrossProvidersAtom)
+    const [extraProviderIds, setExtraProviderIds] = useAtom(__torrentSearch_extraProviderIdsAtom)
     const [smartSearchBatch, setSmartSearchBatch] = React.useState<boolean>(shouldLookForBatches || false)
     // const [smartSearchEpisode, setSmartSearchEpisode] = React.useState<number>(downloadInfo?.episodesToDownload?.[0]?.episode?.episodeNumber || 1)
     const [smartSearchResolution, setSmartSearchResolution] = React.useState("")
     const [smartSearchBest, setSmartSearchBest] = React.useState(false)
     const [smartSearchEpisode, debouncedSmartSearchEpisode, setSmartSearchEpisode] = useDebounceWithSet(downloadInfo?.episodesToDownload?.[0]?.episode?.episodeNumber ?? 1,
         500)
+
+    const activeExtraProviderIds = React.useMemo(() => {
+        const validProviderIds = new Set(providerExtensions?.map(ext => ext.id) ?? [])
+        return extraProviderIds.filter((id, idx) => {
+            return id !== selectedProviderExtensionId && validProviderIds.has(id) && extraProviderIds.indexOf(id) === idx
+        })
+    }, [extraProviderIds, providerExtensions, selectedProviderExtensionId])
+
+    const searchProvider = React.useMemo(() => {
+        if (!selectedProviderExtension?.id) return ""
+        if (!searchAcrossProviders) return selectedProviderExtension.id
+        return [selectedProviderExtension.id, ...activeExtraProviderIds].join(",")
+    }, [activeExtraProviderIds, searchAcrossProviders, selectedProviderExtension?.id])
 
     const warnings = {
         noProvider: !selectedProviderExtension,
@@ -128,9 +150,8 @@ export function useHandleTorrentSearch(props: TorrentSearchHookProps) {
             absoluteOffset: downloadInfo?.absoluteOffset || 0,
             resolution: smartSearchResolution,
             type: searchType,
-            provider: selectedProviderExtension?.id!,
+        provider: searchProvider,
             bestRelease: searchType === Torrent_SearchType.SMART && smartSearchBest,
-        includeSpecialProviders: true,
         },
         !(searchType === Torrent_SearchType.SIMPLE && debouncedGlobalFilter.length === 0) // If simple search, user input must not be empty
         && !warnings.noProvider
@@ -168,8 +189,11 @@ export function useHandleTorrentSearch(props: TorrentSearchHookProps) {
             smartSearchResolution,
             smartSearchBest,
             debouncedSmartSearchEpisode,
+            searchProvider,
         })
-    }, [globalFilter, searchType, smartSearchBatch, smartSearchEpisode, smartSearchResolution, smartSearchBest, debouncedSmartSearchEpisode])
+        },
+        [globalFilter, searchType, smartSearchBatch, smartSearchEpisode, smartSearchResolution, smartSearchBest, debouncedSmartSearchEpisode,
+            searchProvider])
 
     return {
         warnings,
@@ -182,6 +206,10 @@ export function useHandleTorrentSearch(props: TorrentSearchHookProps) {
         setGlobalFilter,
         selectedTorrents,
         setSelectedTorrents,
+        searchAcrossProviders,
+        setSearchAcrossProviders,
+        extraProviderIds,
+        setExtraProviderIds,
         searchType,
         setSearchType,
         smartSearchBatch,

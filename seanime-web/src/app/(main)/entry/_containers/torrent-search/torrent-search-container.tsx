@@ -23,6 +23,7 @@ import { SeaLink } from "@/components/shared/sea-link"
 import { Alert } from "@/components/ui/alert"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { Button } from "@/components/ui/button"
+import { Combobox } from "@/components/ui/combobox"
 import { cn } from "@/components/ui/core/styling"
 import { DataGridSearchInput } from "@/components/ui/datagrid"
 import { NumberInput } from "@/components/ui/number-input"
@@ -35,7 +36,7 @@ import { subDays, subMonths } from "date-fns"
 import { atom, useSetAtom } from "jotai"
 import React, { startTransition } from "react"
 import { FiSearch } from "react-icons/fi"
-import { LuCornerLeftDown, LuFileSearch, LuPlus } from "react-icons/lu"
+import { LuCornerLeftDown, LuFileSearch, LuPlus, LuSave } from "react-icons/lu"
 
 export const __torrentSearch_selectedTorrentsAtom = atom<HibikeTorrent_AnimeTorrent[]>([])
 
@@ -77,6 +78,10 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
         setGlobalFilter,
         selectedTorrents,
         setSelectedTorrents,
+        searchAcrossProviders,
+        setSearchAcrossProviders,
+        extraProviderIds,
+        setExtraProviderIds,
         searchType,
         setSearchType,
         smartSearchBatch,
@@ -157,6 +162,39 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
         { label: "None", value: TORRENT_PROVIDER.NONE },
     ], [providerExtensions])
 
+    const hasProviderSelected = selectedProviderExtensionId !== TORRENT_PROVIDER.NONE && selectedProviderExtensionId !== ""
+
+    const extraProviderOptions = React.useMemo(() => [
+        ...(providerExtensions?.filter(ext => ext.id !== selectedProviderExtensionId).map(ext => ({
+            label: ext.name,
+            textValue: ext.name,
+            value: ext.id,
+        })) ?? []).sort((a, b) => a?.textValue?.localeCompare(b?.textValue) ?? 0),
+    ], [providerExtensions, selectedProviderExtensionId])
+
+    const savedExtraProviderIds = React.useMemo(() => {
+        return extraProviderIds.filter((id, idx) => {
+            return extraProviderOptions.some(option => option.value === id) && extraProviderIds.indexOf(id) === idx
+        })
+    }, [extraProviderIds, extraProviderOptions])
+
+    const [extraProviderDraft, setExtraProviderDraft] = React.useState<string[]>(savedExtraProviderIds)
+
+    React.useEffect(() => {
+        setExtraProviderDraft(savedExtraProviderIds)
+    }, [savedExtraProviderIds])
+
+    const extraProvidersChanged = React.useMemo(() => {
+        return JSON.stringify(extraProviderDraft) !== JSON.stringify(savedExtraProviderIds)
+    }, [extraProviderDraft, savedExtraProviderIds])
+
+    const handleSaveExtraProviders = React.useCallback(() => {
+        const next = extraProviderDraft.filter((id, idx) => {
+            return extraProviderOptions.some(option => option.value === id) && extraProviderDraft.indexOf(id) === idx
+        })
+        setExtraProviderIds(next)
+    }, [extraProviderDraft, extraProviderOptions, setExtraProviderIds])
+
 
     return (
         <>
@@ -224,6 +262,20 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                             />
                         </div>
 
+                        <div
+                            className="h-10 rounded-[--radius] px-2 flex items-center"
+                            data-torrent-search-container-param-container-search-across-providers-switch-container
+                        >
+                            <Switch
+                                label="Search across providers"
+                                moreHelp="Runs the same search against saved additional providers."
+                                value={searchAcrossProviders}
+                                onValueChange={setSearchAcrossProviders}
+                                disabled={!extraProviderOptions.length}
+                                containerClass="flex-row-reverse gap-1"
+                            />
+                        </div>
+
                         {/*{<div*/}
                         {/*    className="h-10 rounded-[--radius] px-2 flex items-center"*/}
                         {/*    data-torrent-search-container-param-container-adult-switch-container*/}
@@ -239,7 +291,36 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                         {/*</div>}*/}
                     </div>
 
-                    {(selectedProviderExtensionId !== "none" && selectedProviderExtensionId !== "") && <>
+                    {hasProviderSelected && searchAcrossProviders && <div
+                        className="flex flex-col gap-2 md:flex-row md:items-end"
+                        data-torrent-search-container-extra-providers
+                    >
+                        <Combobox
+                            multiple
+                            value={extraProviderDraft}
+                            onValueChange={setExtraProviderDraft}
+                            options={extraProviderOptions}
+                            emptyMessage="No providers found"
+                            placeholder="Add providers"
+                            label="Additional providers"
+                            leftAddon={<LuPlus />}
+                            size="sm"
+                            fieldClass="w-full md:flex-1"
+                            inputValuesContainerClass="max-h-24 overflow-y-auto"
+                        />
+                        <Button
+                            size="sm"
+                            intent={extraProvidersChanged ? "primary" : "gray-subtle"}
+                            leftIcon={<LuSave />}
+                            disabled={!extraProvidersChanged}
+                            onClick={handleSaveExtraProviders}
+                            className="md:self-end"
+                        >
+                            Save
+                        </Button>
+                    </div>}
+
+                    {hasProviderSelected && <>
 
                         {(searchType === Torrent_SearchType.SMART) &&
                             <AppLayoutStack className="w-full" data-torrent-search-smart-search-container>
@@ -356,7 +437,7 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                         )}
                     </>}
 
-                    {(selectedProviderExtensionId !== "none" && selectedProviderExtensionId !== "") && Object.keys(warnings)?.map((key) => {
+                    {hasProviderSelected && Object.keys(warnings)?.map((key) => {
                         if ((warnings as any)[key]) {
                             return <Alert
                                 data-torrent-search-container-warning
@@ -375,7 +456,7 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                 </div>
 
 
-                {(selectedProviderExtensionId !== "none" && selectedProviderExtensionId !== "") ? (
+                {hasProviderSelected ? (
                     <>
 
                         <div className="space-y-3" data-torrent-search-container-torrents-container>
@@ -400,6 +481,7 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                                         type={type}
                                         torrentMetadata={data?.torrentMetadata}
                                         includedSpecialProviders={data?.includedSpecialProviders}
+                                        searchAcrossProviders={searchAcrossProviders}
                                         // animeMetadata={data?.animeMetadata}
                                     />
                                 </>
@@ -422,6 +504,8 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
                                         debridInstantAvailability={debridInstantAvailability}
                                         animeMetadata={data?.animeMetadata}
                                         torrentMetadata={data?.torrentMetadata}
+                                        includedSpecialProviders={data?.includedSpecialProviders}
+                                        searchAcrossProviders={searchAcrossProviders}
                                     />
                                 </>
                             )}
