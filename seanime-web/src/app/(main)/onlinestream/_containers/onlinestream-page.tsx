@@ -27,6 +27,7 @@ import {
     __onlinestream_selectedProviderAtom,
     __onlinestream_selectedServerAtom,
 } from "@/app/(main)/onlinestream/_lib/onlinestream.atoms"
+import { useOnlinestreamAutoProviderCycler } from "@/app/(main)/onlinestream/_lib/use-onlinestream-auto-provider-cycler"
 import { LuffyError } from "@/components/shared/luffy-error"
 import { Button, IconButton } from "@/components/ui/button"
 import { Modal, ModalProps } from "@/components/ui/modal"
@@ -47,7 +48,7 @@ import { BsFillGrid3X3GapFill } from "react-icons/bs"
 import { CgMediaPodcast } from "react-icons/cg"
 import { FaSearch } from "react-icons/fa"
 import { HiOutlineCog6Tooth } from "react-icons/hi2"
-import { LuSpeech } from "react-icons/lu"
+import { LuRefreshCw, LuSpeech } from "react-icons/lu"
 import { MdOutlineSubtitles } from "react-icons/md"
 import { toast } from "sonner"
 import { PluginEpisodeGridItemMenuItems } from "../../_features/plugin/actions/plugin-actions"
@@ -193,6 +194,33 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
         !!mediaId && currentEpisodeNumber !== null && isEpisodeListFetched,
     )
 
+    const episodeListLoading = isFetchingEpisodeList || isLoadingEpisodeList
+    const episodeLoading = isLoadingEpisodeSource || isFetchingEpisodeSource
+
+    const autoProviderCycler = useOnlinestreamAutoProviderCycler({
+        mediaId,
+        provider,
+        server,
+        url,
+        providerExtensions,
+        dubbed,
+        currentEpisodeNumber,
+        episodeListResponse,
+        episodeListLoading,
+        isEpisodeListFetched,
+        isEpisodeListError,
+        episodeSource,
+        episodeSourceLoading: episodeLoading,
+        isEpisodeSourceError: isErrorEpisodeSource,
+        playbackError,
+        setProvider,
+        setServer,
+        setQuality,
+        setSelectedEpisodeNumber,
+        setUrl,
+        setPlaybackError,
+    })
+
     // de-duplicate video sources
     const videoSources = React.useMemo(() => uniqBy(episodeSource?.videoSources?.filter(n => n.server === server),
         n => `${n.url}|${n.quality}|${n.server}`), [episodeSource?.number, server])
@@ -272,8 +300,6 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
         return filtered[0]
     }, [episodeSource, videoSources, server, quality])
 
-    // Refs
-    const currentProviderRef = React.useRef<string | null>(null)
     const [previousState, setPreviousState] = React.useState<{ currentTime: number, paused: boolean } | null>(null)
 
     React.useEffect(() => {
@@ -364,9 +390,6 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
         })
     }, [videoSource])
 
-    const episodeListLoading = isFetchingEpisodeList || isLoadingEpisodeList
-    const episodeLoading = isLoadingEpisodeSource || isFetchingEpisodeSource
-
     /*
      * Set episode number on mount
      */
@@ -396,6 +419,7 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
 
 
     function onCanPlay() {
+        autoProviderCycler.onLoadedMetadata()
         if (urlEpNumber) {
             router.replace(pathname + `?id=${mediaId}`)
         }
@@ -440,45 +464,26 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
 
     const useLibassRenderer = useAtomValue(vc_useLibassRendererAtom)
 
-    // Store the errored servers, so we can switch to the next server
-    const [erroredServers, setErroredServers] = React.useState<string[]>([])
-    // Clear errored servers when the episode details change
-    React.useEffect(() => {
-        setErroredServers([])
-    }, [currentEpisode])
-
     /*
      * Handle fatal errors
      * This function is called when the player encounters a fatal error
-     * - Change the server if the server is errored
-     * - Change the provider if all servers are errored
      */
     const onFatalError = (reason: string) => {
         log.error("onFatalError", {
-            sameProvider: provider == currentProviderRef.current,
             reason: reason,
         })
-        if (provider == currentProviderRef.current) {
-            setUrl(null)
-            log.error("Setting stream URL to undefined")
-            toast.warning("Playback error, trying another server...")
-            log.error("Player encountered a fatal error")
-            setTimeout(() => {
-                log.error("erroredServers", erroredServers)
-                if (videoSource?.server) {
-                    const otherServers = servers.filter((server) => server !== videoSource?.server && !erroredServers.includes(server))
-                    if (otherServers.length > 0) {
-                        setErroredServers((prev) => [...prev, videoSource?.server])
-                        setServer(otherServers[0])
-                    } else {
-                        setProvider((prev) => providerExtensionOptions.find((p) => p.value !== prev)?.value ?? null)
-                    }
-                }
-            }, 500)
-        } else {
-            setPlaybackError(reason)
-        }
+        autoProviderCycler.onPlaybackError(reason)
     }
+
+    const tryAllProvidersButton = autoProviderCycler.showButton ? <Button
+        size="sm"
+        rounded
+        intent="warning-subtle"
+        leftIcon={<LuRefreshCw className={autoProviderCycler.isTrying ? "text-xl animate-spin" : "text-xl"} />}
+        onClick={() => autoProviderCycler.isTrying ? autoProviderCycler.cancel() : autoProviderCycler.tryAllProviders()}
+    >
+        {autoProviderCycler.isTrying ? "Cancel trying" : "Try all available providers"}
+    </Button> : null
 
     const parameters = (
         <>
@@ -577,6 +582,7 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
                 loadingEpisodeList={episodeListLoading}
                 leftHeaderActions={<>
                     {parameters}
+                    {tryAllProvidersButton}
                     {(animeEntry && !!provider) && <OnlinestreamManualMappingModal entry={animeEntry}>
                         <Button
                             size="sm"
@@ -669,7 +675,9 @@ export function OnlinestreamPage({ animeEntry, animeEntryLoading, hideBackButton
                                     inline
                                     aniSkipData={aniSkipData}
                                     onLoadedMetadata={onCanPlay}
+                                    onTimeUpdate={autoProviderCycler.onTimeUpdate}
                                     onError={v => onFatalError(v)}
+                                    onStalled={v => autoProviderCycler.onPlaybackStalled(v)}
                                     onPlayEpisode={handlePlayEpisode}
                                     onVideoSourceChange={changeQuality}
                                     onHlsFatalError={(err) => onFatalError(`HLS error: ${err.error.message}`)}

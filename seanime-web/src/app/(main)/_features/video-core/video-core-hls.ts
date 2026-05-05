@@ -51,6 +51,7 @@ export function useVideoCoreHls({
     streamUrl,
     streamType,
     onFatalError,
+    onStalled,
     onMediaDetached,
 }: {
     videoElement: HTMLVideoElement | null
@@ -58,6 +59,7 @@ export function useVideoCoreHls({
     streamType?: string
     onMediaDetached?: () => void
     onFatalError?: (error: ErrorData) => void
+    onStalled?: (error: ErrorData) => void
 }) {
     const hlsRef = useRef<Hls | null>(null)
 
@@ -207,6 +209,9 @@ export function useVideoCoreHls({
 
             hls.on(Events.ERROR, (event, data: ErrorData) => {
                 hlsLog.error("HLS error", data)
+                if (data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR || data.details === Hls.ErrorDetails.BUFFER_NUDGE_ON_STALL) {
+                    onStalled?.(data)
+                }
                 if (data.fatal) {
                     hlsLog.error("Fatal error, cannot recover")
                     hls.destroy()

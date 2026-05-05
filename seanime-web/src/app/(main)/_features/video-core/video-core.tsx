@@ -602,6 +602,8 @@ const PlayerContent = React.memo<PlayerContentProps>(({
 
 PlayerContent.displayName = "PlayerContent"
 
+const PLAYBACK_STALL_TIMEOUT_MS = 12_000
+
 export interface VideoCoreProps {
     id: string
     state: VideoCoreLifecycleState
@@ -619,6 +621,7 @@ export interface VideoCoreProps {
     onSeeking?: () => void
     onSeeked?: (time: number) => void
     onError?: (error: string) => void
+    onStalled?: (reason: string) => void
     onPlaybackRateChange?: () => void
     // onFileUploaded: (data: { name: string, content: string }) => void
     onVideoSourceChange?: ((source: VideoCore_VideoSource) => void) | undefined
@@ -648,6 +651,7 @@ export function VideoCore(props: VideoCoreProps) {
         onSeeking,
         onSeeked,
         onError,
+        onStalled,
         onPlaybackRateChange,
         // onFileUploaded,
         inline = false,
@@ -703,6 +707,7 @@ export function VideoCore(props: VideoCoreProps) {
 
     const videoCompletedRef = useRef(false)
     const currentPlaybackRef = useRef<string | null>(null)
+    const stalledPlaybackRef = useRef<string | null>(null)
 
     const [, setContainerElement] = useAtom(vc_containerElement)
 
@@ -978,7 +983,28 @@ export function VideoCore(props: VideoCoreProps) {
         streamType: streamType,
         onMediaDetached: onHlsMediaDetached,
         onFatalError: onHlsFatalError,
+        onStalled: err => onStalled?.(`HLS stalled: ${err.error?.message || err.details}`),
     })
+
+    React.useEffect(() => {
+        if (!state.playbackInfo?.id || !streamUrl || !buffering) return
+        if (!videoRef.current || videoRef.current.paused) return
+
+        const playbackId = state.playbackInfo.id
+        const startedAt = videoRef.current.currentTime
+        const timeout = window.setTimeout(() => {
+            const video = videoRef.current
+            if (!video || video.paused || video.readyState >= 3) return
+            if (Math.abs(video.currentTime - startedAt) >= 0.5) return
+
+            const stallKey = `${playbackId}:${startedAt.toFixed(1)}`
+            if (stalledPlaybackRef.current === stallKey) return
+            stalledPlaybackRef.current = stallKey
+            onStalled?.("Playback stalled while buffering")
+        }, PLAYBACK_STALL_TIMEOUT_MS)
+
+        return () => window.clearTimeout(timeout)
+    }, [state.playbackInfo?.id, streamUrl, buffering, onStalled])
 
     const [anime4kOption, setAnime4kOption] = useAtom(vc_anime4kOption)
 
