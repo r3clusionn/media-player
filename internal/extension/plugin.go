@@ -23,6 +23,9 @@ var (
 	PluginPermissionNotification  PluginPermissionScope = "notification"   // Allows the plugin to use the notification manager
 	PluginPermissionDiscord       PluginPermissionScope = "discord"        // Allows the plugin to use the discord rpc
 	PluginPermissionTorrentClient PluginPermissionScope = "torrent-client" // Allows the plugin to use the torrent client
+	PluginPermissionAuth          PluginPermissionScope = "auth"           // Allows the plugin to perform auth actions after prompting
+	PluginPermissionExtensions    PluginPermissionScope = "extensions"     // Allows the plugin to enable or disable extensions after prompting
+	PluginPermissionSettings      PluginPermissionScope = "settings"       // Allows the plugin to view and edit settings after prompting
 )
 
 type PluginManifest struct {
@@ -289,6 +292,12 @@ func (p *PluginPermissions) GetDescription() string {
 				desc.WriteString("Discord: Set Discord Rich Presence\n")
 			case PluginPermissionTorrentClient:
 				desc.WriteString("Torrent Client: Control torrent clients\n")
+			case PluginPermissionAuth:
+				desc.WriteString("Auth: Log in or log out after approval\n")
+			case PluginPermissionExtensions:
+				desc.WriteString("Extensions: Enable or disable extensions after approval\n")
+			case PluginPermissionSettings:
+				desc.WriteString("Settings: View or edit app settings after approval\n")
 			default:
 				desc.WriteString(string(scope) + "\n")
 			}

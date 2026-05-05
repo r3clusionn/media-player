@@ -267,6 +267,18 @@ func (c *Context) createAndBindContextObject(vm *goja.Runtime) {
 				if !security.IsStrict() {
 					plugin.GlobalAppContext.BindTorrentClientToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
 				}
+			case extension.PluginPermissionAuth:
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindAuthToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
+			case extension.PluginPermissionSettings:
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindAppSettingsToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
+			case extension.PluginPermissionExtensions:
+				if !security.IsStrict() {
+					plugin.GlobalAppContext.BindExtensionsToContextObj(vm, obj, c.logger, c.ext, c.scheduler)
+				}
 			}
 		}
 

@@ -123,6 +123,21 @@ declare namespace $ui {
         cron: Cron
 
         /**
+         * Auth actions. Requires the auth permission and user approval.
+         */
+        auth: Auth
+
+        /**
+         * App settings. Requires the settings permission and user approval.
+         */
+        appSettings: AppSettings
+
+        /**
+         * Extension management. Requires the extensions permission and user approval.
+         */
+        extensions: Extensions
+
+        /**
          * Creates a new state object with an initial value.
          * @param initialValue - The initial value for the state
          * @returns A state object that can be used to get and set values
@@ -288,6 +303,32 @@ declare namespace $ui {
 
     interface Settings {
         define<T extends Record<string, any>>(name: string, defaults: T): DefinedSettings<T>
+    }
+
+    interface Auth {
+        login(token: string): Promise<boolean>
+
+        logout(): Promise<boolean>
+    }
+
+    interface AppSettings {
+        get<T = Record<string, any>>(): Promise<T>
+
+        get<T = any>(path: string, fallback?: T): Promise<T>
+
+        set<T extends Record<string, any> = Record<string, any>>(settings: T): Promise<T>
+
+        set<T = any>(path: string, value: T): Promise<Record<string, any>>
+
+        patch<T extends Record<string, any> = Record<string, any>>(settings: T): Promise<Record<string, any>>
+    }
+
+    interface Extensions {
+        enable(id: string): Promise<boolean>
+
+        disable(id: string): Promise<boolean>
+
+        setDisabled(id: string, disabled: boolean): Promise<boolean>
     }
 
     interface PollOptions {

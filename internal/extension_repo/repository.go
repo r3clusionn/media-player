@@ -10,6 +10,7 @@ import (
 	hibikecustomsource "seanime/internal/extension/hibike/customsource"
 	hibikemanga "seanime/internal/extension/hibike/manga"
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
+	"seanime/internal/extension_repo/prompt"
 	"seanime/internal/goja/goja_runtime"
 	"seanime/internal/hook"
 	"seanime/internal/util"
@@ -45,7 +46,8 @@ type (
 
 		hookManager hook.Manager
 
-		client *http.Client
+		client        *http.Client
+		promptManager *prompt.Manager
 
 		// Cache the of all built-in extensions when they're first loaded
 		// This is used to quickly determine if an extension is built-in or not and to reload them
@@ -142,6 +144,7 @@ func NewRepository(opts *NewRepositoryOptions) *Repository {
 		fileCacher:         opts.FileCacher,
 		hookManager:        opts.HookManager,
 		client:             http.DefaultClient,
+		promptManager:      prompt.NewManager(&prompt.NewManagerOptions{Logger: opts.Logger, WSEventManager: opts.WSEventManager}),
 		builtinExtensions:  result.NewMap[string, *builtinExtension](),
 		updateData:         make([]UpdateData, 0),
 	}
@@ -176,6 +179,10 @@ func NewRepository(opts *NewRepositoryOptions) *Repository {
 	}(firstExtensionLoadedCtx)
 
 	return ret
+}
+
+func (r *Repository) PromptManager() *prompt.Manager {
+	return r.promptManager
 }
 
 func (r *Repository) LoadOnlyWrapper(only []extension.Type, loadFunc func()) {
@@ -342,6 +349,26 @@ func (r *Repository) GetExtensionPayload(id string) (ret string) {
 	ret, _ = r.downloadPayload(ext.GetPayloadURI())
 
 	return
+}
+
+func (r *Repository) GetExtensionName(id string) string {
+	if ext, found := r.extensionBankRef.Get().Get(id); found {
+		return ext.GetName()
+	}
+	if ext, found := r.disabledExtensions.Get(id); found {
+		return ext.Name
+	}
+	if ext, found := r.invalidExtensions.Get(id); found {
+		return ext.Extension.Name
+	}
+	if !isValidExtensionIDString(id) {
+		return id
+	}
+	extFromFile, err := extractExtensionFromFile(filepath.Join(r.extensionDir, id+".json"))
+	if err != nil || extFromFile == nil || extFromFile.Name == "" {
+		return id
+	}
+	return extFromFile.Name
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

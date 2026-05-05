@@ -349,7 +349,9 @@ func (ad *AutoDownloader) checkForNewEpisodes(ctx context.Context, isSimulation 
 	ad.retryQueuedDebridItems(isSimulation, data.existingDebridTorrents)
 
 	// Notify user
-	ad.notifyDownloadResults(result.handledCount())
+	if !isSimulation {
+		ad.notifyDownloadResults(result.handledCount())
+	}
 
 	ad.triggerRunCompleted(data.rules, data.profiles, isSimulation, result)
 }

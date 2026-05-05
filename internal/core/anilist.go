@@ -2,13 +2,18 @@ package core
 
 import (
 	"context"
+	"errors"
 	"seanime/internal/api/anilist"
 	"seanime/internal/database/models"
 	"seanime/internal/events"
+	"seanime/internal/platforms/anilist_platform"
 	"seanime/internal/platforms/platform"
 	"seanime/internal/platforms/simulated_platform"
 	"seanime/internal/user"
+	"seanime/internal/util"
 	"time"
+
+	"github.com/goccy/go-json"
 )
 
 // GetUser returns the currently logged-in user or a simulated one.
@@ -56,6 +61,59 @@ func (a *App) UpdatePlatform(platform platform.Platform) {
 func (a *App) UpdateAnilistClientToken(token string) {
 	ac := anilist.NewAnilistClient(token, a.AnilistCacheDir)
 	a.AnilistClientRef.Set(ac)
+}
+
+func (a *App) LoginToAnilist(token string) error {
+	if token == "" {
+		return errors.New("token is empty")
+	}
+
+	a.UpdateAnilistClientToken(token)
+
+	getViewer, err := a.AnilistClientRef.Get().GetViewer(context.Background())
+	if err != nil {
+		a.Logger.Error().Msg("Could not authenticate to AniList")
+		return err
+	}
+
+	if len(getViewer.Viewer.Name) == 0 {
+		return errors.New("could not find user")
+	}
+
+	bytes, err := json.Marshal(getViewer.Viewer)
+	if err != nil {
+		a.Logger.Err(err).Msg("scan: could not save local files")
+	}
+
+	_, err = a.Database.UpsertAccount(&models.Account{
+		BaseModel: models.BaseModel{
+			ID:        1,
+			UpdatedAt: time.Now(),
+		},
+		Username: getViewer.Viewer.Name,
+		Token:    token,
+		Viewer:   bytes,
+	})
+	if err != nil {
+		return err
+	}
+
+	a.Logger.Info().Msg("app: Authenticated to AniList")
+
+	anilistPlatform := anilist_platform.NewAnilistPlatform(a.AnilistClientRef, a.ExtensionBankRef, a.Logger, a.Database, a.LogoutFromAnilist)
+	a.UpdatePlatform(anilistPlatform)
+
+	a.InitOrRefreshAnilistData()
+	a.InitOrRefreshModules()
+
+	go func() {
+		defer util.HandlePanicThen(func() {})
+		a.InitOrRefreshTorrentstreamSettings()
+		a.InitOrRefreshMediastreamSettings()
+		a.InitOrRefreshDebridSettings()
+	}()
+
+	return nil
 }
 
 // LogoutFromAnilist clears the AniList token and switches to the simulated platform.

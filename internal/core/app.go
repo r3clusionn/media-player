@@ -446,6 +446,27 @@ func NewApp(configOpts *ConfigOptions, selfupdater *updater.SelfUpdater) *App {
 		ClientIdentitySecret:            util.GenerateCryptoID(),
 	}
 
+	plugin.GlobalAppContext.SetModulesPartial(plugin.AppContextModules{
+		PromptManager: extensionRepository.PromptManager(),
+		Auth: plugin.AuthActions{
+			Login: app.LoginToAnilist,
+			Logout: func() error {
+				app.LogoutFromAnilist()
+				return nil
+			},
+		},
+		Settings: plugin.SettingsActions{
+			OnSaved: func(settings *models.Settings) {
+				app.WSEventManager.SendEvent("settings", settings)
+				app.InitOrRefreshModules()
+			},
+		},
+		Extensions: plugin.ExtensionActions{
+			SetDisabled: app.ExtensionRepository.SetExternalExtensionDisabled,
+			GetName:     app.ExtensionRepository.GetExtensionName,
+		},
+	})
+
 	app.SyncSecurityConfig()
 
 	if cfg.Server.SecureMode != "" {
