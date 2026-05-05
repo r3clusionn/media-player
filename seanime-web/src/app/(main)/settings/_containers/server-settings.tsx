@@ -15,7 +15,9 @@ import { useAtom } from "jotai/react"
 import React from "react"
 import { useFormContext } from "react-hook-form"
 import { FaRedo } from "react-icons/fa"
-import { LuCircleAlert, LuCloudUpload } from "react-icons/lu"
+import { LuCircleAlert, LuCloudUpload, LuDatabaseBackup, LuEyeClosed, LuImageOff, LuImages, LuShield, LuStarOff, LuUserPen } from "react-icons/lu"
+import { MdDownloading } from "react-icons/md"
+import { TbAlertSquareRoundedOff, TbBrowserShare, TbChecklist, TbClockPlay, TbDownloadOff, TbProgressCheck, TbRating18Plus } from "react-icons/tb"
 import { useServerStatus } from "../../_hooks/use-server-status"
 
 type ServerSettingsProps = {
@@ -75,6 +77,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     label="Automatically update progress"
                     help="If enabled, your progress will be automatically updated when you watch 80% of an episode."
                     moreHelp="Only applies to desktop and integrated players."
+                    icon={<TbProgressCheck className="" />}
                 />
                 {/*<Separator />*/}
                 <Field.Switch
@@ -83,6 +86,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     label="Enable watch history"
                     help="If enabled, Seanime will remember your watch progress and resume from where you left off."
                     moreHelp="Only applies to desktop and integrated players."
+                    icon={<TbClockPlay className="" />}
                 />
 
                 <Field.Switch
@@ -90,6 +94,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     name="disableAnimeCardTrailers"
                     label="Disable anime card trailers"
                     help=""
+                    icon={<LuImageOff className="" />}
                 />
 
                 <Separator />
@@ -99,6 +104,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     name="hideAudienceScore"
                     label="Hide audience score"
                     help="If enabled, the audience score will be hidden until you decide to view it."
+                    icon={<LuStarOff className="" />}
                 />
 
                 <Field.Switch
@@ -106,6 +112,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     name="enableAdultContent"
                     label="Enable adult content"
                     help="If disabled, adult content will be hidden from search results and your library."
+                    icon={<TbRating18Plus className="" />}
                 />
                 <Field.Switch
                     side="right"
@@ -115,6 +122,17 @@ export function ServerSettings(props: ServerSettingsProps) {
                     fieldClass={cn(
                         !f.watch("enableAdultContent") && "opacity-50",
                     )}
+                    icon={<LuEyeClosed className="" />}
+                />
+
+                <Separator />
+
+                <Field.Switch
+                    side="right"
+                    name="enableExtensionSecureMode"
+                    label="Enable Extension Secure Mode"
+                    help="If enabled, Seanime will prompt you for confirmation whenever an extension tries to perform a sensitive action, even if permissions have been granted."
+                    icon={<LuShield className="" />}
                 />
 
             </SettingsCard>
@@ -128,7 +146,8 @@ export function ServerSettings(props: ServerSettingsProps) {
                         side="right"
                         name="autoSyncToLocalAccount"
                         label="Auto backup lists from AniList"
-                        help="If enabled, your local lists will be periodically updated by using your AniList data."
+                        help="If enabled, your local lists will be periodically updated by using your AniList data. This will override any local changes you've made since the last sync."
+                        icon={<LuUserPen className="" />}
                     />
                 </div>
                 <Separator />
@@ -153,16 +172,18 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="autoSyncOfflineLocalData"
-                    label="Download metadata automatically for offline use"
+                    label="Auto-sync saved media"
                     help="If disabled, you will need to manually refresh your local metadata by clicking 'Sync now' in the offline mode page."
                     moreHelp="Will be paused if you have made changes offline and have not synced them to AniList yet."
+                    icon={<MdDownloading className="" />}
                 />
 
                 <Field.Switch
                     side="right"
                     name="autoSaveCurrentMediaOffline"
-                    label="Save all currently watched/read media for offline use"
+                    label="Save all currently watched/read media"
                     help="If enabled, Seanime will automatically save all media you're currently watching/reading for offline use."
+                    icon={<TbChecklist className="" />}
                 />
 
             </SettingsCard>
@@ -259,21 +280,11 @@ export function ServerSettings(props: ServerSettingsProps) {
                 {/*<Separator />*/}
                 <Field.Switch
                     side="right"
-                    name="openWebURLOnStart"
-                    label="Open localhost web URL on startup"
-                />
-                <Field.Switch
-                    side="right"
-                    name="disableNotifications"
-                    label="Disable system notifications"
-                    moreHelp="Notifications shown by the OS when Seanime runs the auto-downloader or auto-scanner."
-                />
-                <Field.Switch
-                    side="right"
                     name="disableCacheLayer"
                     label="Disable AniList caching"
                     help="If enabled, Seanime will stop caching AniList requests to disk."
                     moreHelp="By default, all requests made to AniList are cached. This allows Seanime to keep being usable when AniList goes down. The cache directory is modifiable in the config file."
+                    icon={<LuDatabaseBackup className="" />}
                 />
                 {!f.watch("disableCacheLayer") && (
                     <div>
@@ -286,11 +297,13 @@ export function ServerSettings(props: ServerSettingsProps) {
                         />
                     </div>
                 )}
+                <Separator />
                 <Field.Switch
                     side="right"
                     name="useFallbackMetadataProvider"
-                    label="Use fallback metadata provider"
+                    label="Use Fallback Metadata Provider"
                     help="If enabled, Seanime will use an alternative source to fetch episode metadata."
+                    icon={<LuImages className="" />}
                 />
                 {/*<Separator />*/}
                 {/*<Field.Switch*/}
@@ -308,12 +321,13 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="disableUpdateCheck"
-                    label={__isElectronDesktop__ ? "Do not fetch update notes" : "Do not check for updates"}
+                    label={__isElectronDesktop__ ? "Do not fetch updates" : "Do not check for updates"}
                     help={__isElectronDesktop__ ? (<span className="flex gap-2 items-center">
                         <LuCircleAlert className="size-4 text-[--blue]" />
                         <span>If enabled, new releases won't be displayed. Seanime Denshi may still auto-update in the background.</span>
                     </span>) : "If enabled, Seanime will not check for new releases."}
                     moreHelp={__isElectronDesktop__ ? "You cannot disable auto-updates for Seanime Denshi." : undefined}
+                    icon={<TbDownloadOff className="" />}
                 />
                 <Field.Select
                     label="Update Channel (Experimental)"
@@ -334,6 +348,20 @@ export function ServerSettings(props: ServerSettingsProps) {
                         description="You are currently using the canary release channel hosted on Seanime. This channel may receive unstable updates without much testing."
                     />
                 )}
+                <Separator />
+                <Field.Switch
+                    side="right"
+                    name="openWebURLOnStart"
+                    label="Open Web UI on Startup"
+                    icon={<TbBrowserShare className="" />}
+                />
+                <Field.Switch
+                    side="right"
+                    name="disableNotifications"
+                    label="Disable system notifications"
+                    moreHelp="Notifications shown by the OS"
+                    icon={<TbAlertSquareRoundedOff className="" />}
+                />
             </SettingsCard>
 
             {/*<Accordion*/}

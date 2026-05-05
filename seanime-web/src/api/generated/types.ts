@@ -3851,6 +3851,7 @@ export type Models_LibrarySettings = {
      * "github", "seanime", "seanime_nightly"
      */
     updateChannel: string
+    enableExtensionSecureMode: boolean
 }
 
 /**

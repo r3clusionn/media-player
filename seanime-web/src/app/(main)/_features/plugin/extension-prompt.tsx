@@ -6,7 +6,7 @@ import { Modal } from "@/components/ui/modal"
 import { WSEvents } from "@/lib/server/ws-events"
 import { useAtomValue } from "jotai"
 import * as React from "react"
-import { LuKeyRound, LuPackage, LuSettings, LuShieldCheck } from "react-icons/lu"
+import { LuDownload, LuKeyRound, LuPackage, LuSettings, LuShieldCheck, LuTerminal } from "react-icons/lu"
 
 type ExtensionPromptRequest = {
     id: string
@@ -22,6 +22,7 @@ type ExtensionPromptRequest = {
     details?: string[]
     allowLabel?: string
     denyLabel?: string
+    expired?: boolean
 }
 
 export function ExtensionPrompt() {
@@ -61,7 +62,12 @@ export function ExtensionPrompt() {
     useWebsocketMessageListener<ExtensionPromptRequest>({
         type: WSEvents.EXTENSION_PROMPT,
         onMessage: payload => {
-            if (!isMainTab || !payload?.id) return
+            if (!payload?.id) return
+            if (payload.expired) {
+                setQueue(prev => prev.filter(item => item.id !== payload.id))
+                return
+            }
+            if (!isMainTab) return
             setQueue(prev => prev.some(item => item.id === payload.id) ? prev : [...prev, payload])
         },
         deps: [isMainTab],
@@ -123,13 +129,18 @@ export function ExtensionPrompt() {
                         )}
                     </div>
 
-                    <p className="text-sm text-[--muted] mb-2 text-pretty">
+                    <p className="text-sm text-[--muted] mb-2 text-pretty break-all">
                         {prompt.extension?.name || "An extension"} would like to perform the following action{!!prompt.resource
                         ? ` on "${prompt.resource}"`
                         : ""}:
                     </p>
 
-                    <p className="text-pretty text-2xl font-semibold leading-[1.15] tracking-normal">
+                    <p
+                        className={cn(
+                            "text-pretty text-2xl font-semibold leading-[1.15] tracking-normal break-all",
+                            title.length > 60 ? "text-lg leading-snug" : "text-2xl",
+                        )}
+                    >
                         {title}
                     </p>
 
@@ -140,9 +151,9 @@ export function ExtensionPrompt() {
                      )} */}
 
                     {!!prompt.details?.length && (
-                        <div className="mt-5 max-h-32 overflow-y-auto rounded-xl border bg-[--paper] p-3 text-sm">
+                        <div className="mt-5 max-h-32 overflow-y-auto rounded-xl border bg-[--paper] p-3 text-sm max-w-full space-y-1.5">
                             {prompt.details.map(detail => (
-                                <div key={detail} className="truncate py-0.5">
+                                <div key={detail} className="line-clamp-3 break-all">
                                     {detail}
                                 </div>
                             ))}
@@ -181,6 +192,10 @@ function getIcon(kind: string) {
             return LuSettings
         case "extensions":
             return LuPackage
+        case "system":
+            return LuTerminal
+        case "download":
+            return LuDownload
         default:
             return LuShieldCheck
     }

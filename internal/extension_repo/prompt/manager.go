@@ -63,6 +63,7 @@ type Request struct {
 	Details    []string  `json:"details,omitempty"`
 	AllowLabel string    `json:"allowLabel,omitempty"`
 	DenyLabel  string    `json:"denyLabel,omitempty"`
+	Expired    bool      `json:"expired,omitempty"`
 	CreatedAt  time.Time `json:"createdAt"`
 }
 
@@ -170,6 +171,7 @@ func (m *Manager) Ask(ctx context.Context, ext *extension.Extension, opts Option
 		}
 		return nil
 	case <-waitCtx.Done():
+		m.dismiss(id)
 		return fmt.Errorf("prompt: %w", waitCtx.Err())
 	}
 }
@@ -239,6 +241,14 @@ func (m *Manager) sendRequest(clientID string, request Request) {
 	}
 
 	m.ws.SendEventTo(clientID, EventRequest, request, true)
+}
+
+func (m *Manager) dismiss(id string) {
+	if id == "" {
+		return
+	}
+
+	m.sendRequest("", Request{ID: id, Expired: true, CreatedAt: time.Now()})
 }
 
 func (m *Manager) resolve(response *Response) {

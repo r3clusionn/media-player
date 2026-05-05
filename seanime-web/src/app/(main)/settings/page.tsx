@@ -348,6 +348,7 @@ export default function Page() {
                                         scannerUseLegacyMatching: data.scannerUseLegacyMatching ?? false,
                                         scannerConfig: data.scannerConfig ?? "",
                                         updateChannel: data.updateChannel || "github",
+                                        enableExtensionSecureMode: data.enableExtensionSecureMode ?? false,
                                     },
                                     nakama: {
                                         enabled: data.nakamaEnabled ?? false,
@@ -530,6 +531,7 @@ export default function Page() {
                                 scannerUseLegacyMatching: status?.settings?.library?.scannerUseLegacyMatching ?? false,
                                 scannerConfig: status?.settings?.library?.scannerConfig ?? "",
                                 updateChannel: status?.settings?.library?.updateChannel || "github",
+                                enableExtensionSecureMode: status?.settings?.library?.enableExtensionSecureMode ?? false,
                             }}
                             stackClass="space-y-0 relative"
                         >

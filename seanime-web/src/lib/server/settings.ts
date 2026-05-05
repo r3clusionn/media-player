@@ -121,6 +121,7 @@ export const settingsSchema = z.object({
     scannerUseLegacyMatching: z.boolean().optional().default(false),
     scannerConfig: z.string().optional().default(""),
     updateChannel: z.string().optional().default("github"),
+    enableExtensionSecureMode: z.boolean().optional().default(false),
 })
 
 export const gettingStartedSchema = _gettingStartedSchema.extend(settingsSchema.shape)
@@ -153,6 +154,7 @@ export const getDefaultSettings = (data: z.infer<typeof gettingStartedSchema>): 
         scannerUseLegacyMatching: false,
         scannerConfig: "",
         updateChannel: "github",
+        enableExtensionSecureMode: false,
     },
     nakama: {
         enabled: false,

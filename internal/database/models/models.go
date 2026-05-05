@@ -100,7 +100,8 @@ type LibrarySettings struct {
 	ScannerUseLegacyMatching bool   `gorm:"column:scanner_use_legacy_matching" json:"scannerUseLegacyMatching"`
 	ScannerConfig            string `gorm:"column:scanner_config" json:"scannerConfig"`
 	UpdateChannel            string `gorm:"column:update_channel" json:"updateChannel"` // "github", "seanime", "seanime_nightly"
-	// v3.6.0+
+	// v3.7.0+
+	EnableExtensionSecureMode bool `gorm:"column:enable_extension_secure_mode" json:"enableExtensionSecureMode"`
 }
 
 func (o *LibrarySettings) GetLibraryPaths() (ret []string) {

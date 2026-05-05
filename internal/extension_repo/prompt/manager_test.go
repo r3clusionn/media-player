@@ -179,3 +179,24 @@ func TestAskResendsPendingPromptOnSync(t *testing.T) {
 	sendResponse(ws, request.ID, true)
 	assert.NoError(t, <-done)
 }
+
+func TestAskDismissesExpiredPrompt(t *testing.T) {
+	ws := newTestWS()
+	manager := NewManager(&NewManagerOptions{WSEventManager: ws})
+	done := make(chan error, 1)
+
+	go func() {
+		done <- manager.Ask(context.Background(), &extension.Extension{ID: "plugin-a", Name: "Plugin A"}, Options{
+			Kind:   "settings",
+			Action: "view settings",
+			TTL:    20 * time.Millisecond,
+		})
+	}()
+
+	request := waitForRequest(t, ws, 0)
+	dismissed := waitForRequest(t, ws, 1)
+
+	assert.Equal(t, request.ID, dismissed.ID)
+	assert.True(t, dismissed.Expired)
+	assert.Error(t, <-done)
+}
