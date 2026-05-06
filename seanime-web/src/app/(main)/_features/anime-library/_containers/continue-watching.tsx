@@ -233,6 +233,7 @@ const _EpisodeCard = React.memo(({ episode, mRef, overrideLink, spoilerActive, w
             image={episode.episodeMetadata?.image || episode.baseAnime?.bannerImage || episode.baseAnime?.coverImage?.extraLarge}
             topTitle={episode.episodeTitle || episode?.baseAnime?.title?.userPreferred}
             spoilerSafeTopTitle={episode?.baseAnime?.title?.userPreferred}
+            disableAnimation={true}
             spoilerMode="replace"
             spoilerActive={spoilerActive}
             title={episode.displayTitle}

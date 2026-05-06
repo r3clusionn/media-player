@@ -1,4 +1,5 @@
 import { Anime_Episode } from "@/api/generated/types"
+import { EpisodeCardImage } from "@/app/(main)/_features/anime/_components/episode-card-image"
 import { SeaContextMenu } from "@/app/(main)/_features/context-menu/sea-context-menu"
 import { EpisodeItemBottomGradient } from "@/app/(main)/_features/custom-ui/item-bottom-gradients"
 import { useMediaPreviewModal } from "@/app/(main)/_features/media/_containers/media-preview-modal"
@@ -55,6 +56,7 @@ type EpisodeCardProps = {
         title?: string
     }
     episode?: Anime_Episode // Optional, used for plugin actions
+    disableAnimation?: boolean
 } & Omit<React.ComponentPropsWithoutRef<"div">, "title">
 
 export function EpisodeCard(props: EpisodeCardProps) {
@@ -93,6 +95,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
         contextType,
         additionalContextMenuItems,
         fallbackImage,
+        disableAnimation,
         ...rest
     } = props
 
@@ -225,7 +228,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             // duration-200",
                         )}
                     >
-                        {!!displayImage ? <SeaImage
+                        {!!displayImage ? <EpisodeCardImage
                             data-episode-card-image
                             src={getImageUrl(displayImage)}
                             alt={""}
@@ -233,8 +236,10 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             quality={100}
                             placeholder={imageShimmer(700, 475)}
                             sizes="20rem"
-                            className={cn(
-                                "object-cover rounded-xl object-center transition lg:group-hover/episode-card:scale-[1.02] duration-200",
+                            disabled={disableAnimation}
+                            className="object-cover rounded-xl object-center"
+                            loadedClassName={cn(
+                                "opacity-100 scale-100 lg:group-hover/episode-card:scale-[1.02]",
                                 spoiler.blurImage && "blur-2xl scale-110 lg:group-hover/episode-card:scale-110",
                                 imageClass,
                             )}
