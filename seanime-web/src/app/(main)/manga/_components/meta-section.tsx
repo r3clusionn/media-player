@@ -70,6 +70,34 @@ export function MetaSection(props: { entry: Manga_Entry | undefined, details: AL
                     listData={entry.listData}
                     media={entry.media}
                     type="manga"
+                    after={<div className="w-full flex flex-wrap gap-4 items-center" data-manga-meta-section-buttons-container>
+
+                        {isCustomSource(entry.mediaId) && (
+                            <Tooltip
+                                trigger={<div>
+                                    <SeaLink href={`/custom-sources?provider=${getCustomSourceExtensionId(entry.media)}`}>
+                                        <IconButton size="sm" intent="gray-link" className="px-0" icon={<BiExtension className="text-lg" />} />
+                                    </SeaLink>
+                                </div>}
+                            >
+                                Custom source
+                            </Tooltip>
+                        )}
+
+                        {!isCustomSource(entry.mediaId) && <SeaLink href={`https://anilist.co/manga/${entry.mediaId}`} target="_blank">
+                            <IconButton size="sm" intent="gray-link" className="px-0" icon={<SiAnilist className="text-lg" />} />
+                        </SeaLink>}
+
+                        {isCustomSource(entry.mediaId) && !!getCustomSourceMediaSiteUrl(entry.media) && <Tooltip
+                            trigger={<div>
+                                <SeaLink href={getCustomSourceMediaSiteUrl(entry.media)!} target="_blank">
+                                    <IconButton size="sm" intent="gray-link" className="px-0" icon={<LuExternalLink className="text-lg" />} />
+                                </SeaLink>
+                            </div>}
+                        >
+                            Open in website
+                        </Tooltip>}
+                    </div>}
                 >
                     {ts.mediaPageBannerInfoBoxSize === ThemeMediaPageInfoBoxSize.Fluid && <Details />}
                 </MediaPageHeaderEntryDetails>
@@ -79,33 +107,7 @@ export function MetaSection(props: { entry: Manga_Entry | undefined, details: AL
                 {ts.mediaPageBannerInfoBoxSize !== ThemeMediaPageInfoBoxSize.Fluid && <Details />}
 
 
-                <div className="w-full flex flex-wrap gap-4 items-center" data-manga-meta-section-buttons-container>
-
-                    {isCustomSource(entry.mediaId) && (
-                        <Tooltip
-                            trigger={<div>
-                                <SeaLink href={`/custom-sources?provider=${getCustomSourceExtensionId(entry.media)}`}>
-                                    <IconButton size="sm" intent="gray-link" className="px-0" icon={<BiExtension className="text-lg" />} />
-                                </SeaLink>
-                            </div>}
-                        >
-                            Custom source
-                        </Tooltip>
-                    )}
-
-                    {!isCustomSource(entry.mediaId) && <SeaLink href={`https://anilist.co/manga/${entry.mediaId}`} target="_blank">
-                        <IconButton size="sm" intent="gray-link" className="px-0" icon={<SiAnilist className="text-lg" />} />
-                    </SeaLink>}
-
-                    {isCustomSource(entry.mediaId) && !!getCustomSourceMediaSiteUrl(entry.media) && <Tooltip
-                        trigger={<div>
-                            <SeaLink href={getCustomSourceMediaSiteUrl(entry.media)!} target="_blank">
-                                <IconButton size="sm" intent="gray-link" className="px-0" icon={<LuExternalLink className="text-lg" />} />
-                            </SeaLink>
-                        </div>}
-                    >
-                        Open in website
-                    </Tooltip>}
+                <div className="w-full flex flex-wrap gap-4 items-center" data-manga-meta-section-buttons-row>
 
                     {ts.mediaPageBannerInfoBoxSize !== ThemeMediaPageInfoBoxSize.Fluid && <div className="flex-1 hidden lg:flex"></div>}
 

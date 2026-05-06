@@ -6,19 +6,20 @@ import ReactDOM from "react-dom/client"
 import { ErrorBoundary, FallbackProps } from "react-error-boundary"
 import { LuffyError } from "./components/shared/luffy-error"
 import { Button } from "./components/ui/button"
+import { getDenshiViewTransition } from "./lib/router/view-transitions"
 import { routeTree } from "./routeTree.gen"
 import "@fontsource-variable/inter/index.css"
 
 const router = createRouter({
     routeTree,
-    // defaultPreload: import.meta.env.PROD ? "intent" : false,
-    defaultPreload: false, // anilist rate limits
+    defaultPreload: false,
     context: {
         queryClient,
         store,
     },
     scrollRestoration: true,
-    defaultPreloadStaleTime: 0,
+    defaultViewTransition: getDenshiViewTransition(),
+    defaultPreloadStaleTime: 30 * 1000,
 })
 
 declare module "@tanstack/react-router" {

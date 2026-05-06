@@ -92,6 +92,49 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                     listData={entry.listData}
                     media={entry.media}
                     type="anime"
+                    after={<div>
+                        <div
+                            data-anime-meta-section-buttons-container
+                            className={cn(
+                                "flex flex-row w-full gap-3 items-center justify-center lg:justify-start lg:max-w-[65vw]",
+                                "flex-wrap",
+                            )}
+                        >
+
+                            {isCustomSource(entry.mediaId) && (
+                                <Tooltip
+                                    trigger={<div>
+                                        <SeaLink href={`/custom-sources?provider=${getCustomSourceExtensionId(entry.media)}`}>
+                                            <IconButton size="sm" intent="gray-link" className="px-0" icon={<BiExtension className="text-lg" />} />
+                                        </SeaLink>
+                                    </div>}
+                                >
+                                    Custom source
+                                </Tooltip>
+                            )}
+
+                            {!isCustomSource(entry.mediaId) && <SeaLink href={`https://anilist.co/anime/${entry.mediaId}`} target="_blank">
+                                <IconButton size="sm" intent="gray-link" className="px-0" icon={<SiAnilist className="text-lg" />} />
+                            </SeaLink>}
+
+                            {isCustomSource(entry.mediaId) && !!getCustomSourceMediaSiteUrl(entry.media) && <Tooltip
+                                trigger={<div>
+                                    <SeaLink href={getCustomSourceMediaSiteUrl(entry.media)!} target="_blank">
+                                        <IconButton size="sm" intent="gray-link" className="px-0" icon={<LuExternalLink className="text-lg" />} />
+                                    </SeaLink>
+                                </div>}
+                            >
+                                Open in website
+                            </Tooltip>}
+
+                            {!!entry?.media?.trailer?.id && <TrailerModal
+                                trailerId={entry?.media?.trailer?.id} trigger={
+                                <Button size="sm" intent="gray-link" className="px-0">
+                                    Trailer
+                                </Button>}
+                            />}
+                        </div>
+                    </div>}
                 >
                     <div
                         data-anime-meta-section-details
@@ -101,7 +144,7 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                         )}
                     >
 
-                        <MediaEntryAudienceScore meanScore={entry.media?.meanScore} badgeClass="bg-transparent" />
+                        <MediaEntryAudienceScore meanScore={entry.media?.meanScore} badgeClass="bg-transparent border-transparent px-0" />
 
 
                         {!isCustomSource(entry.mediaId) ? <AnimeEntryStudio studios={details?.studios} /> : (
@@ -132,87 +175,62 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                 <PluginWebviewSlot slot="after-media-entry-details" />
 
                 <div
-                    data-anime-meta-section-buttons-container
+                    data-anime-meta-section-after-header
                     className={cn(
-                        "flex flex-row w-full gap-3 items-center justify-center lg:justify-start lg:max-w-[65vw]",
+                        "2xl:flex 2xl:flex-row w-full 2xl:justify-between 2xl:gap-4 space-y-4 2xl:space-y-0",
                         "flex-wrap",
                     )}
                 >
-
-                    {isCustomSource(entry.mediaId) && (
-                        <Tooltip
-                            trigger={<div>
-                                <SeaLink href={`/custom-sources?provider=${getCustomSourceExtensionId(entry.media)}`}>
-                                    <IconButton size="sm" intent="gray-link" className="px-0" icon={<BiExtension className="text-lg" />} />
-                                </SeaLink>
-                            </div>}
-                        >
-                            Custom source
-                        </Tooltip>
-                    )}
-
-                    {!isCustomSource(entry.mediaId) && <SeaLink href={`https://anilist.co/anime/${entry.mediaId}`} target="_blank">
-                        <IconButton size="sm" intent="gray-link" className="px-0" icon={<SiAnilist className="text-lg" />} />
-                    </SeaLink>}
-
-                    {isCustomSource(entry.mediaId) && !!getCustomSourceMediaSiteUrl(entry.media) && <Tooltip
-                        trigger={<div>
-                            <SeaLink href={getCustomSourceMediaSiteUrl(entry.media)!} target="_blank">
-                                <IconButton size="sm" intent="gray-link" className="px-0" icon={<LuExternalLink className="text-lg" />} />
-                            </SeaLink>
-                        </div>}
+                    <div
+                        data-anime-meta-section-buttons-row
+                        className={cn(
+                            "flex 2xl:w-fit flex-row gap-3 items-center justify-center lg:justify-start lg:max-w-[65vw]",
+                            "flex-wrap 2xl:flex-nowrap",
+                        )}
                     >
-                        Open in website
-                    </Tooltip>}
 
-                    {!!entry?.media?.trailer?.id && <TrailerModal
-                        trailerId={entry?.media?.trailer?.id} trigger={
-                        <Button size="sm" intent="gray-link" className="px-0">
-                            Trailer
-                        </Button>}
-                    />}
+                        <AnimeEntryDropdownMenu entry={entry} details={details} />
 
-                    <AnimeAutoDownloaderButton entry={entry} size="md" />
+                        <AnimeAutoDownloaderButton entry={entry} size="md" />
 
-                    {isLibraryView && !entry._isNakamaEntry && !!entry.libraryData && <>
-                        <MediaSyncTrackButton mediaId={entry.mediaId} type="anime" size="md" />
-                        <AnimeEntrySilenceToggle mediaId={entry.mediaId} size="md" />
-                        <ToggleLockFilesButton
-                            allFilesLocked={entry.libraryData.allFilesLocked}
-                            mediaId={entry.mediaId}
-                            size="md"
-                        />
-                    </>}
-                    <AnimeEntryDropdownMenu entry={entry} details={details} />
+                        {isLibraryView && !entry._isNakamaEntry && !!entry.libraryData && <>
+                            <MediaSyncTrackButton mediaId={entry.mediaId} type="anime" size="md" />
+                            <AnimeEntrySilenceToggle mediaId={entry.mediaId} size="md" />
+                            <ToggleLockFilesButton
+                                allFilesLocked={entry.libraryData.allFilesLocked}
+                                mediaId={entry.mediaId}
+                                size="md"
+                            />
+                        </>}
 
+                        {(
+                            entry.media.status !== "NOT_YET_RELEASED"
+                            && (
+                                serverStatus?.settings?.torrent?.defaultTorrentClient !== TORRENT_CLIENT.NONE
+                                || hasDebridService
+                            )
+                            && !entry._isNakamaEntry
+                        ) && (
+                            <TorrentSearchButton
+                                entry={entry}
+                                onClick={() => {
+                                    if (currentView !== "library") setView("library")
+                                }}
+                            />
+                        )}
 
-                    {(
-                        entry.media.status !== "NOT_YET_RELEASED"
-                        && (
-                            serverStatus?.settings?.torrent?.defaultTorrentClient !== TORRENT_CLIENT.NONE
-                            || hasDebridService
-                        )
-                        && !entry._isNakamaEntry
-                    ) && (
-                        <TorrentSearchButton
-                            entry={entry}
-                            onClick={() => {
-                                if (currentView !== "library") setView("library")
-                            }}
-                        />
-                    )}
+                        {entry._isNakamaEntry && currentView === "library" &&
+                            <div className="flex items-center gap-2 h-10 px-4 border rounded-md flex-none">
+                                <MdOutlineConnectWithoutContact className="size-6 animate-pulse text-[--blue]" />
+                                <span className="text-sm tracking-wide">Shared by {nakamaStatus?.hostConnectionStatus?.username}</span>
+                            </div>}
 
-                    {entry._isNakamaEntry && currentView === "library" &&
-                        <div className="flex items-center gap-2 h-10 px-4 border rounded-md flex-none">
-                            <MdOutlineConnectWithoutContact className="size-6 animate-pulse text-[--blue]" />
-                            <span className="text-sm tracking-wide">Shared by {nakamaStatus?.hostConnectionStatus?.username}</span>
-                        </div>}
+                        <PluginAnimePageButtons media={entry.media!} />
 
-                    <PluginAnimePageButtons media={entry.media!} />
+                    </div>
 
+                    <EntrySectionTabs entry={entry} pluginTabs={pluginEpisodeTabs.tabs} />
                 </div>
-
-                <EntrySectionTabs entry={entry} pluginTabs={pluginEpisodeTabs.tabs} />
 
                 <NextAiringEpisode media={entry.media} />
 

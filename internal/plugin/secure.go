@@ -37,12 +37,16 @@ func (a *AppContextImpl) securePath(ext *extension.Extension, cache *result.Cach
 	} else if len(details) > 1 {
 		resource = "these paths"
 	}
+	messageResource := "this path"
+	if len(details) > 1 {
+		messageResource = "these paths"
+	}
 
 	return a.ask(ext, prompt.Options{
 		Kind:     kind,
 		Action:   action + " \"" + resource + "\"",
 		Resource: resource,
-		Message:  fmt.Sprintf("Allow \"%s\" to %s \"%s\"?", extName(ext), action, resource),
+		Message:  fmt.Sprintf("Allow \"%s\" to %s %s?", extName(ext), action, messageResource),
 		Details:  details,
 		Cache:    cache,
 		CacheKey: promptKey(append([]string{kind, action}, details...)...),
@@ -59,7 +63,7 @@ func (a *AppContextImpl) secureCmd(ext *extension.Extension, cache *result.Cache
 		Kind:     "system",
 		Action:   "run \"" + command + "\"",
 		Resource: command,
-		Message:  fmt.Sprintf("Allow \"%s\" to run \"%s\"?", extName(ext), command),
+		Message:  fmt.Sprintf("Allow \"%s\" to run this command?", extName(ext)),
 		Details:  []string{command},
 		Cache:    cache,
 		CacheKey: promptKey("system", "run", command),
@@ -76,7 +80,7 @@ func (a *AppContextImpl) secureDownload(ext *extension.Extension, cache *result.
 		Kind:     "download",
 		Action:   "download a file to \"" + destination + "\"",
 		Resource: destination,
-		Message:  fmt.Sprintf("Allow \"%s\" to download a file to \"%s\"?", extName(ext), destination),
+		Message:  fmt.Sprintf("Allow \"%s\" to download a file here?", extName(ext)),
 		Details:  details,
 		Cache:    cache,
 		CacheKey: promptKey("download", destination, url),

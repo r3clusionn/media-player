@@ -17,6 +17,7 @@ export default function Page() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const mediaId = searchParams.get("id")
+    const scrollResetMediaIdRef = React.useRef(mediaId)
     const { data: mangaEntry, isLoading: mangaEntryLoading } = useGetMangaEntry(mediaId)
     const { data: mangaDetails, isLoading: mangaDetailsLoading } = useGetMangaEntryDetails(mediaId)
 
@@ -24,6 +25,12 @@ export default function Page() {
      * Fetch manga download data
      */
     const { downloadData, downloadDataLoading } = useHandleMangaDownloadData(mediaId)
+
+    React.useLayoutEffect(() => {
+        if (!mediaId || scrollResetMediaIdRef.current === mediaId) return
+        scrollResetMediaIdRef.current = mediaId
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior })
+    }, [mediaId])
 
     React.useEffect(() => {
         if (!pathname.startsWith("/manga/entry")) return
@@ -66,9 +73,8 @@ export default function Page() {
                         exit: { opacity: 0, y: 15 },
                         transition: {
                             type: "spring",
-                            damping: 10,
-                            stiffness: 80,
-                            delay: 0.5,
+                            damping: 24,
+                            stiffness: 180,
                         },
                     }}
                 >

@@ -5,6 +5,7 @@ import { useAutoPlaySelectedTorrent, useTorrentstreamAutoplay } from "@/app/(mai
 
 import { useSeaCommandInject } from "@/app/(main)/_features/sea-command/use-inject"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
+import { ENTRY_VIEW_TRANSITION } from "@/app/(main)/entry/_containers/entry-view-transition"
 import { useTorrentSearchSelectedStreamEpisode } from "@/app/(main)/entry/_containers/torrent-search/_lib/handle-torrent-selection"
 import {
     __torrentSearch_selectionAtom,
@@ -17,7 +18,6 @@ import { ConfirmationDialog, useConfirmationDialog } from "@/components/shared/c
 import { PageWrapper } from "@/components/shared/page-wrapper"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { IconButton } from "@/components/ui/button"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Popover } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { logger } from "@/lib/helpers/debug"
@@ -27,6 +27,7 @@ import { atomWithStorage } from "jotai/utils"
 import React from "react"
 import { AiOutlineExclamationCircle } from "react-icons/ai"
 import { BiX } from "react-icons/bi"
+import { StreamPageSkeleton } from "../../_components/stream-page-skeleton"
 
 type TorrentStreamPageProps = {
     children?: React.ReactNode
@@ -290,7 +291,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
     }, [episodeCollection?.episodes])
 
     if (!entry.media) return null
-    if (isLoading) return <LoadingSpinner />
+    if (isLoading) return <StreamPageSkeleton />
 
     return (
         <>
@@ -300,14 +301,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                 data-anime-entry-page-torrent-stream-view
                 key="torrent-streaming-episodes"
                 className="relative 2xl:order-first pb-10 lg:pt-0"
-                {...{
-                    initial: { opacity: 0, y: 60 },
-                    animate: { opacity: 1, y: 0 },
-                    exit: { opacity: 0, scale: 0.99 },
-                    transition: {
-                        duration: 0.35,
-                    },
-                }}
+                {...ENTRY_VIEW_TRANSITION}
             >
                 <div className="h-10 lg:h-0" />
                 <AppLayoutStack data-torrent-stream-page>

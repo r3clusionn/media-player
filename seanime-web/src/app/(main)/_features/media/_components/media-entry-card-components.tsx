@@ -21,6 +21,93 @@ import { BiCalendarAlt } from "react-icons/bi"
 import { IoLibrarySharp } from "react-icons/io5"
 import { RiSignalTowerLine } from "react-icons/ri"
 
+type MediaEntryCardImageProps = React.ComponentProps<typeof SeaImage> & {
+    loadedClassName?: string
+    faster?: boolean
+}
+
+function MediaEntryCardImage(props: MediaEntryCardImageProps) {
+    const {
+        className,
+        loadedClassName = "opacity-100 scale-100",
+        src,
+        onLoad,
+        faster,
+        ...rest
+    } = props
+
+    const [loaded, setLoaded] = React.useState(false)
+    const imageRef = React.useRef<HTMLImageElement | null>(null)
+
+    React.useEffect(() => {
+        setLoaded(false)
+    }, [src])
+
+    React.useEffect(() => {
+        const image = imageRef.current
+        if (!image) return
+
+        if (image.complete && image.naturalWidth > 0) {
+            setLoaded(true)
+        }
+    }, [src])
+
+    return (
+        <>
+            <span
+                aria-hidden="true"
+                className={cn(
+                    "absolute inset-0 z-0 bg-gradient-to-br from-gray-900/80 via-gray-800/70 to-gray-950/80",
+                    loaded ? "opacity-0" : "opacity-100",
+                )}
+            />
+            <SeaImage
+                ref={imageRef}
+                {...rest}
+                src={src}
+                onLoad={(event) => {
+                    setLoaded(true)
+                    onLoad?.(event)
+                }}
+                className={cn(
+                    className,
+                    "transition-[opacity,transform] ease-out motion-reduce:transition-none",
+                    faster ? "duration-200" : "duration-400",
+                    loaded ? loadedClassName : (
+                        faster ? "opacity-10" : "opacity-0 scale-[0.95]"
+                    ),
+                )}
+            />
+        </>
+    )
+}
+
+function MediaEntryCardAdultVeil(props: React.HTMLAttributes<HTMLDivElement>) {
+    const { className, ...rest } = props
+
+    return (
+        <div
+            aria-hidden="true"
+            className={cn("absolute inset-0 z-[4] overflow-hidden rounded-[--radius] bg-gray-950 opacity-[0.97]", className)}
+            {...rest}
+        >
+            <div
+                className="absolute inset-0 opacity-90"
+                style={{
+                    backgroundImage: "radial-gradient(circle at 22% 18%, rgba(90, 63, 244, 0.32), transparent 28%), radial-gradient(circle at 74% 72%, rgba(59, 130, 246, 0.24), transparent 34%), linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 42%)",
+                }}
+            />
+            <div
+                className="absolute inset-0 opacity-50"
+                style={{
+                    backgroundImage: "repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.10) 0 1px, transparent 1px 12px), repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.06) 0 1px, transparent 1px 10px)",
+                }}
+            />
+            <div className="absolute inset-0 bg-black/45" />
+        </div>
+    )
+}
+
 type MediaEntryCardContainerProps = {
     children?: React.ReactNode
 } & React.HTMLAttributes<HTMLDivElement>
@@ -413,7 +500,7 @@ export function MediaEntryCardBody(props: MediaEntryCardBodyProps) {
 
                     {children}
 
-                    <SeaImage
+                    <MediaEntryCardImage
                         data-media-entry-card-body-image
                         src={getImageUrl(bannerImage || "")}
                         alt={""}
@@ -422,16 +509,13 @@ export function MediaEntryCardBody(props: MediaEntryCardBodyProps) {
                         quality={100}
                         sizes="20rem"
                         className={cn(
-                            "object-cover object-center transition-transform",
+                            "object-cover object-center",
                             "group-hover/media-entry-card:scale-110",
-                            (blurAdultContent && isAdult) && "opacity-80",
                         )}
+                        loadedClassName={cn("scale-100", (blurAdultContent && isAdult) ? "opacity-80" : "opacity-100")}
                     />
 
-                    {(blurAdultContent && isAdult) && <div
-                        data-media-entry-card-body-blur-adult-content-overlay
-                        className="absolute top-0 w-[125%] h-[125%] -translate-x-[10%] -translate-y-[10%] backdrop-blur-xl z-[3] rounded-[--radius]"
-                    ></div>}
+                    {(blurAdultContent && isAdult) && <MediaEntryCardAdultVeil data-media-entry-card-body-blur-adult-content-overlay />}
                 </div>
             </SeaLink>
         </>
@@ -521,7 +605,12 @@ export const MediaEntryCardHoverPopupBanner = memo(({
         setTrailerEnabled(!!trailerId && !disableAnimeCardTrailers && showTrailer)
     }, [!!trailerId, !disableAnimeCardTrailers, showTrailer])
 
-    return <SeaLink tabIndex={-1} href={!onClick ? link : undefined} onClick={onClick} data-media-entry-card-hover-popup-banner-link>
+    return <SeaLink
+        tabIndex={-1}
+        href={!onClick ? link : undefined}
+        onClick={onClick}
+        data-media-entry-card-hover-popup-banner-link
+    >
         <div
             data-media-entry-card-hover-popup-banner-container
             className="aspect-[4/2] relative rounded-[--radius] mb-2 cursor-pointer overflow-hidden isolate"
@@ -550,28 +639,28 @@ export const MediaEntryCardHoverPopupBanner = memo(({
                     </Tooltip>
                 </div>}
 
-            {(!!bannerImage) ? <div className="absolute object-cover top-0 object-center w-full h-full overflow-hidden"><SeaImage
-                data-media-entry-card-hover-popup-banner-image
-                src={getImageUrl(bannerImage || "")}
-                alt={"banner"}
-                fill
-                placeholder={imageShimmer(700, 475)}
-                quality={100}
-                sizes="20rem"
-                className={cn(
-                    "object-cover top-0 object-center transition-transform duration-200",
-                    // "scale-[1.04] group-hover/media-entry-card-popup:scale-100 delay-500",
-                    trailerLoaded && "hidden",
-                )}
-            /></div> : <div
+            {(!!bannerImage) ? <div className="absolute object-cover top-0 object-center w-full h-full overflow-hidden">
+                <MediaEntryCardImage
+                    data-media-entry-card-hover-popup-banner-image
+                    src={getImageUrl(bannerImage || "")}
+                    alt={"banner"}
+                    fill
+                    placeholder={imageShimmer(700, 475)}
+                    quality={100}
+                    sizes="20rem"
+                    faster
+                    className={cn(
+                        "object-cover top-0 object-center transition-transform duration-200",
+                        // "scale-[1.04] group-hover/media-entry-card-popup:scale-100 delay-500",
+                        trailerLoaded && "hidden",
+                    )}
+                />
+            </div> : <div
                 data-media-entry-card-hover-popup-banner-image-gradient
                 className="h-full block absolute w-full bg-gradient-to-t from-gray-800 to-transparent"
             ></div>}
 
-            {(blurAdultContent && isAdult) && <div
-                data-media-entry-card-hover-popup-banner-blur-adult-content-overlay
-                className="absolute top-0 w-full h-full backdrop-blur-xl z-[3]"
-            ></div>}
+            {(blurAdultContent && isAdult) && <MediaEntryCardAdultVeil data-media-entry-card-hover-popup-banner-blur-adult-content-overlay />}
 
             <div data-media-entry-card-hover-popup-banner-progress-badge-container className="absolute z-[4] left-0 bottom-0">
                 <MediaEntryProgressBadge

@@ -1,4 +1,4 @@
-import { Extension_Extension } from "@/api/generated/types"
+import { Extension_Extension, Extension_InvalidExtension } from "@/api/generated/types"
 import { useGetAllExtensions, useInstallExternalExtension } from "@/api/hooks/extensions.hooks"
 import { AddExtensionModal } from "@/app/(main)/extensions/_containers/add-extension-modal"
 import { ExtensionCard } from "@/app/(main)/extensions/_containers/extension-card"
@@ -10,10 +10,12 @@ import { Button, IconButton } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
+import { TextInput } from "@/components/ui/text-input"
 import { useRouter } from "@/lib/navigation"
 import { atom, useSetAtom } from "jotai"
 import orderBy from "lodash/orderBy"
 import React from "react"
+import { BiSearch } from "react-icons/bi"
 import { BiDotsVerticalRounded } from "react-icons/bi"
 import { CgMediaPodcast } from "react-icons/cg"
 import { GrInstallOption } from "react-icons/gr"
@@ -48,6 +50,7 @@ export function ExtensionList(props: ExtensionListProps) {
     const router = useRouter()
 
     const [checkForUpdates, setCheckForUpdates] = React.useState(false)
+    const [searchTerm, setSearchTerm] = React.useState("")
 
     const { data: allExtensions, isPending: isLoading, refetch } = useGetAllExtensions(checkForUpdates)
 
@@ -71,22 +74,49 @@ export function ExtensionList(props: ExtensionListProps) {
             !!allExtensions?.invalidExtensions?.find(n => n.id === extensionID)
     }
 
+    const normalizedSearchTerm = searchTerm.trim().toLowerCase()
+
+    function matchesSearchTerm(extension: Extension_Extension) {
+        if (!normalizedSearchTerm) return true
+
+        return [extension.name, extension.description, extension.id]
+            .some(value => value?.toLowerCase().includes(normalizedSearchTerm))
+    }
+
+    function matchesInvalidExtensionSearchTerm(extension: Extension_InvalidExtension) {
+        return matchesSearchTerm(extension.extension)
+    }
+
     const installedExtensions = [
         ...(allExtensions?.extensions ?? []),
         ...(allExtensions?.disabledExtensions ?? []),
     ]
 
-    const pluginExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "plugin")
-    const animeTorrentExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "anime-torrent-provider")
-    const mangaExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "manga-provider")
-    const onlinestreamExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "onlinestream-provider")
-    const customSourceExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(n => n.type === "custom-source")
-    const disabledExtensions = orderExtensions(allExtensions?.disabledExtensions ?? [])
+    const enabledExtensions = orderExtensions(allExtensions?.extensions ?? []).filter(matchesSearchTerm)
+    const disabledExtensions = orderExtensions(allExtensions?.disabledExtensions ?? []).filter(matchesSearchTerm)
+
+    const pluginExtensions = enabledExtensions.filter(n => n.type === "plugin")
+    const animeTorrentExtensions = enabledExtensions.filter(n => n.type === "anime-torrent-provider")
+    const mangaExtensions = enabledExtensions.filter(n => n.type === "manga-provider")
+    const onlinestreamExtensions = enabledExtensions.filter(n => n.type === "onlinestream-provider")
+    const customSourceExtensions = enabledExtensions.filter(n => n.type === "custom-source")
 
     const nonvalidExtensions = (allExtensions?.invalidExtensions ?? []).filter(n => n.code !== "plugin_permissions_not_granted")
+        .filter(matchesInvalidExtensionSearchTerm)
         .sort((a, b) => a.id.localeCompare(b.id))
     const pluginPermissionsNotGrantedExtensions = (allExtensions?.invalidExtensions ?? []).filter(n => n.code === "plugin_permissions_not_granted")
+        .filter(matchesInvalidExtensionSearchTerm)
         .sort((a, b) => a.id.localeCompare(b.id))
+
+    const hasVisibleResults =
+        pluginPermissionsNotGrantedExtensions.length > 0 ||
+        nonvalidExtensions.length > 0 ||
+        disabledExtensions.length > 0 ||
+        pluginExtensions.length > 0 ||
+        customSourceExtensions.length > 0 ||
+        animeTorrentExtensions.length > 0 ||
+        mangaExtensions.length > 0 ||
+        onlinestreamExtensions.length > 0
 
     if (isLoading) return <LoadingSpinner />
 
@@ -175,6 +205,20 @@ export function ExtensionList(props: ExtensionListProps) {
                     </DropdownMenu>
                 </div>
             </div>
+
+            <TextInput
+                placeholder="Search installed extensions..."
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+                className="pl-10"
+                leftIcon={<BiSearch />}
+            />
+
+            {!!searchTerm && !hasVisibleResults && (
+                <Card className="p-8 text-center">
+                    <p className="text-[--muted]">No extensions found matching your search.</p>
+                </Card>
+            )}
 
 
             {!!pluginPermissionsNotGrantedExtensions?.length && (

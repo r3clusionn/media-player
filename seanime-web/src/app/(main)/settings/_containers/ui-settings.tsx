@@ -7,6 +7,7 @@ import { defineSchema, Field, Form } from "@/components/ui/form"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ANIME_COLLECTION_SORTING_OPTIONS, CONTINUE_WATCHING_SORTING_OPTIONS, MANGA_COLLECTION_SORTING_OPTIONS } from "@/lib/helpers/filtering"
+import { __navigationPreloadingDisabledAtom } from "@/lib/navigation-preload-settings"
 import { THEME_COLOR_BANK } from "@/lib/theme/theme-bank"
 import {
     THEME_DEFAULT_VALUES,
@@ -248,6 +249,7 @@ export function UISettings() {
 
     const { mutate, isPending } = useUpdateTheme()
     const [fixBorderRenderingArtifacts, setFixBorerRenderingArtifacts] = useAtom(__ui_fixBorderRenderingArtifacts)
+    const [disableNavigationPreloading, setDisableNavigationPreloading] = useAtom(__navigationPreloadingDisabledAtom)
     const [enableLivePreview, setEnableLivePreview] = useState(false)
 
     const [tab, setTab] = useAtom(selectUISettingTabAtom)
@@ -720,6 +722,25 @@ export function UISettings() {
 
 
                             <SettingsCard title="Tweaks">
+
+                                <Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute left-1 top-1 right-1 h-1 rounded-full bg-gray-700/70" />
+                                            <div className="absolute left-1 top-3 right-3 h-1 rounded-full bg-gray-700/50" />
+                                            <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full border border-brand-400/60 bg-brand-500/30" />
+                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Disable navigation preloading",
+                                    )}
+                                    value={disableNavigationPreloading}
+                                    onValueChange={setDisableNavigationPreloading}
+                                    help="Stops page and entry warmups on this client."
+                                />
 
                                 <Field.Switch
                                     side="right"

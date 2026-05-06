@@ -16,6 +16,7 @@ import {
     AL_StudioDetails,
     Nullish,
 } from "@/api/generated/types"
+import { getEntryPreloadStaleTime } from "@/lib/entry-preloader"
 import { useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 
@@ -102,6 +103,7 @@ export function useGetAnilistAnimeDetails(id: Nullish<number | string>) {
         method: API_ENDPOINTS.ANILIST.GetAnilistAnimeDetails.methods[0],
         queryKey: [API_ENDPOINTS.ANILIST.GetAnilistAnimeDetails.key, String(id)],
         enabled: !!id,
+        staleTime: getEntryPreloadStaleTime("anime", id),
     })
 }
 

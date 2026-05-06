@@ -1,5 +1,8 @@
 import { cn } from "@/components/ui/core/styling"
+import { preloadMediaEntry } from "@/lib/entry-preloader"
+import { __navigationPreloadingDisabledAtom } from "@/lib/navigation-preload-settings"
 import { Link } from "@tanstack/react-router"
+import { useAtomValue } from "jotai/react"
 import React from "react"
 
 type SeaLinkProps = React.ComponentPropsWithRef<"a"> & { href: string | undefined, resetScroll?: boolean }
@@ -10,6 +13,11 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
         children,
         className,
         onClick,
+        onFocus,
+        onMouseDown,
+        onMouseEnter,
+        onMouseLeave,
+        onTouchStart,
         resetScroll = true,
         ...rest
     } = props
@@ -17,6 +25,52 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
     // const navigate = useNavigate()
 
     const isExternal = href?.startsWith("http") || href?.startsWith("mailto")
+    const disableNavigationPreloading = useAtomValue(__navigationPreloadingDisabledAtom)
+
+    const hoverPreloadTimer = React.useRef<number | undefined>(undefined)
+
+    const warmEntry = React.useCallback(() => {
+        if (disableNavigationPreloading) return
+        preloadMediaEntry(href)
+    }, [disableNavigationPreloading, href])
+
+    const clearHoverPreload = React.useCallback(() => {
+        if (!hoverPreloadTimer.current) return
+        window.clearTimeout(hoverPreloadTimer.current)
+        hoverPreloadTimer.current = undefined
+    }, [])
+
+    React.useEffect(() => clearHoverPreload, [clearHoverPreload])
+
+    const handleMouseEnter = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+        clearHoverPreload()
+        hoverPreloadTimer.current = window.setTimeout(() => {
+            hoverPreloadTimer.current = undefined
+            warmEntry()
+        }, 350)
+        onMouseEnter?.(event)
+    }, [clearHoverPreload, warmEntry, onMouseEnter])
+
+    const handleMouseLeave = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+        clearHoverPreload()
+        onMouseLeave?.(event)
+    }, [clearHoverPreload, onMouseLeave])
+
+    const handleFocus = React.useCallback((event: React.FocusEvent<HTMLAnchorElement>) => {
+        warmEntry()
+        onFocus?.(event)
+    }, [warmEntry, onFocus])
+
+    const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLAnchorElement>) => {
+        warmEntry()
+        onTouchStart?.(event)
+    }, [warmEntry, onTouchStart])
+
+    const handleMouseDown = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+        clearHoverPreload()
+        warmEntry()
+        onMouseDown?.(event)
+    }, [clearHoverPreload, warmEntry, onMouseDown])
 
     if (!href || isExternal) {
         return (
@@ -25,6 +79,11 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
                 href={href}
                 className={cn("cursor-pointer", className)}
                 onClick={onClick}
+                onFocus={onFocus}
+                onMouseDown={onMouseDown}
+                onMouseEnter={onMouseEnter}
+                onMouseLeave={onMouseLeave}
+                onTouchStart={onTouchStart}
                 {...rest}
             >
                 {children}
@@ -48,9 +107,15 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
         <Link
             to={pathname}
             search={Object.keys(searchParams).length > 0 ? () => searchParams : undefined}
+            preload={disableNavigationPreloading ? false : "intent"}
             className={cn("cursor-pointer", className)}
             resetScroll={resetScroll}
             onClick={onClick}
+            onFocus={handleFocus}
+            onMouseDown={handleMouseDown}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+            onTouchStart={handleTouchStart}
             {...rest}
         >
             {children}

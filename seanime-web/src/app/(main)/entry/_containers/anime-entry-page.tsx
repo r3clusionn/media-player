@@ -17,6 +17,7 @@ import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { MetaSection } from "@/app/(main)/entry/_components/meta-section"
 import { RelationsRecommendationsSection } from "@/app/(main)/entry/_components/relations-recommendations-section"
 import { DebridStreamPage } from "@/app/(main)/entry/_containers/debrid-stream/debrid-stream-page"
+import { ENTRY_VIEW_SHELL_TRANSITION, ENTRY_VIEW_TRANSITION } from "@/app/(main)/entry/_containers/entry-view-transition"
 import { EpisodeSection } from "@/app/(main)/entry/_containers/episode-list/episode-section"
 import { __torrentSearch_selectionAtom, TorrentSearchDrawer } from "@/app/(main)/entry/_containers/torrent-search/torrent-search-drawer"
 import { TorrentStreamPage } from "@/app/(main)/entry/_containers/torrent-stream/torrent-stream-page"
@@ -88,6 +89,7 @@ export function AnimeEntryPage() {
 
     const { currentView, isLibraryView, setView } = useAnimeEntryPageView()
     const switchedView = React.useRef(false)
+    const scrollResetMediaIdRef = React.useRef(mediaId)
 
     const pluginEpisodeTabs = usePluginAnimeEntryEpisodeTabs({
         mediaId: Number(mediaId),
@@ -106,6 +108,12 @@ export function AnimeEntryPage() {
         catch {
         }
     }, [animeEntry])
+
+    React.useLayoutEffect(() => {
+        if (!mediaId || scrollResetMediaIdRef.current === mediaId) return
+        scrollResetMediaIdRef.current = mediaId
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior })
+    }, [mediaId])
 
     const mediaIdRef = React.useRef(mediaId)
 
@@ -279,17 +287,7 @@ export function AnimeEntryPage() {
                         "relative 2xl:order-first pb-10 lg:min-h-[calc(100vh-10rem)]",
                         (currentView === "onlinestream" && vc_fullscreen) && "z-[100]",
                     )}
-                    {...{
-                        initial: { opacity: 0, y: 20 },
-                        animate: { opacity: 1, y: 0 },
-                        exit: { opacity: 0, y: 20 },
-                        transition: {
-                            type: "spring",
-                            damping: 12,
-                            stiffness: 80,
-                            delay: 0.5,
-                        },
-                    }}
+                    {...ENTRY_VIEW_SHELL_TRANSITION}
                 >
                     <PluginWebviewSlot slot="before-anime-entry-episode-list" />
 
@@ -299,14 +297,7 @@ export function AnimeEntryPage() {
                             data-anime-entry-page-episode-list-view
                             key="episode-list"
                             className="relative 2xl:order-first pb-10"
-                            {...{
-                                initial: { opacity: 0, y: 60 },
-                                animate: { opacity: 1, y: 0 },
-                                exit: { opacity: 0, scale: 0.99 },
-                                transition: {
-                                    duration: 0.35,
-                                },
-                            }}
+                            {...ENTRY_VIEW_TRANSITION}
                         >
                             <div className="h-10" />
                             <EpisodeSection
@@ -318,12 +309,14 @@ export function AnimeEntryPage() {
 
                         {currentView === "torrentstream" &&
                             <TorrentStreamPage
+                                key="torrent-streaming-episodes"
                                 entry={animeEntry}
                                 bottomSection={bottomSection}
                             />}
 
                         {currentView === "debridstream" &&
                             <DebridStreamPage
+                                key="debrid-streaming-episodes"
                                 entry={animeEntry}
                                 bottomSection={bottomSection}
                             />}
@@ -332,14 +325,7 @@ export function AnimeEntryPage() {
                             data-anime-entry-page-plugin-episode-tab-view
                             key={pluginEpisodeTabs.selectedTab.viewId}
                             className="relative 2xl:order-first pb-10"
-                            {...{
-                                initial: { opacity: 0, y: 60 },
-                                animate: { opacity: 1, y: 0 },
-                                exit: { opacity: 0, scale: 0.99 },
-                                transition: {
-                                    duration: 0.35,
-                                },
-                            }}
+                            {...ENTRY_VIEW_TRANSITION}
                         >
                             <PluginAnimeEntryEpisodeTabContent
                                 entry={animeEntry}
@@ -357,14 +343,7 @@ export function AnimeEntryPage() {
                                 "relative 2xl:order-first pb-10 lg:pt-0",
                                 (currentView === "onlinestream" && vc_fullscreen) && "z-[100]",
                             )}
-                            {...{
-                                initial: { opacity: 0, y: 60 },
-                                animate: { opacity: 1, y: 0 },
-                                exit: { opacity: 0, scale: 0.99 },
-                                transition: {
-                                    duration: 0.35,
-                                },
-                            }}
+                            {...ENTRY_VIEW_TRANSITION}
                         >
                             <div className="h-10 lg:h-0" />
                             <div className="space-y-4" data-anime-entry-page-online-streaming-view-content>
@@ -437,12 +416,12 @@ export function EntrySectionTabs(props: EntrySectionTabs) {
     return (
         <>
             <div
-                className="w-full max-w-fit rounded-md lg:rounded-full border border-transparent mx-auto lg:mx-0 overflow-hidden"
+                className="mx-auto lg:mx-0 overflow-hidden"
                 data-anime-entry-page-tabs-container
             >
                 <StaticTabs
-                    className="lg:h-10 flex-wrap lg:flex-nowrap overflow-hidden justify-center lg:justify-start"
-                    triggerClass="px-4 py-1 text-[1.1rem] border border-transparent opacity-80 data-[current=true]:border-[--subtle] data-[current=true]:opacity-100 rounded-full data-[current=false]:scale-95 lg:scale-100 "
+                    className="lg:h-10 w-fit flex-wrap lg:flex-nowrap overflow-hidden justify-center lg:justify-start"
+                    triggerClass="px-4 py-1 text-[1.1rem] data-[current=true]:text-[1.19rem] border border-transparent data-[current=true]:text-white opacity-80 data-[current=true]:border-transparent data-[current=true]:opacity-100 data-[current=true]:bg-gray-300 data-[current=true]:bg-opacity-10 rounded-xl data-[current=false]:scale-95 lg:scale-100 "
                     iconClass="size-5 hidden data-[current=true]:block"
                     items={[
                         { name: "Local library", iconType: IoLibraryOutline, isCurrent: isLibraryView, onClick: () => setView("library") },

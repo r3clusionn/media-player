@@ -218,7 +218,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
                     {isBuiltin && <Badge className="rounded-md tracking-wide border-transparent px-0 italic opacity-50" intent="unstyled">
                         Built-in
                     </Badge>}
-                    {isDisabled && <Badge className="rounded-md tracking-wide border-transparent" intent="warning">
+                    {isDisabled && <Badge className="rounded-md tracking-wide border-transparent bg-transparent opacity-50 px-0" intent="warning">
                         Disabled
                     </Badge>}
                     {!!extension.version && !updateData && <Badge className="rounded-md tracking-wide" intent={!!updateData ? "success" : "unstyled"}>

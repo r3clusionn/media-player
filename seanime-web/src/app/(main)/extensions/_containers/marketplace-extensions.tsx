@@ -10,6 +10,7 @@ import { DEFAULT_MARKETPLACE_URL, marketplaceUrlAtom } from "@/app/(main)/extens
 import { LANGUAGES_LIST } from "@/app/(main)/manga/_lib/language-map"
 import { LuffyError } from "@/components/shared/luffy-error"
 import { SeaImage } from "@/components/shared/sea-image"
+import { Alert } from "@/components/ui/alert"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { Badge } from "@/components/ui/badge"
 import { Button, IconButton } from "@/components/ui/button"
@@ -52,6 +53,7 @@ export function MarketplaceExtensions(props: MarketplaceExtensionsProps) {
     const [tempUrl, setTempUrl] = React.useState(marketplaceUrl)
     const [urlError, setUrlError] = React.useState("")
     const [isUpdatingUrl, setIsUpdatingUrl] = React.useState(false)
+    const isDefaultMarketplace = marketplaceUrl === DEFAULT_MARKETPLACE_URL
 
     const { data: marketplaceExtensions, isPending: isLoadingMarketplace, refetch } = useGetMarketplaceExtensions(marketplaceUrl)
     const { data: allExtensions, isPending: isLoadingAllExtensions } = useGetAllExtensions(false)
@@ -68,6 +70,13 @@ export function MarketplaceExtensions(props: MarketplaceExtensionsProps) {
         return extensions ?
             orderBy(extensions, ["name", "manifestUri"])
             : []
+    }
+
+    function formatMissingTypes(types: string[]) {
+        if (types.length <= 1) return types[0] ?? ""
+        if (types.length === 2) return `${types[0]} and ${types[1]}`
+
+        return `${types.slice(0, -1).join(", ")}, and ${types.at(-1)}`
     }
 
     function isExtensionInstalled(extensionID: string) {
@@ -140,6 +149,17 @@ export function MarketplaceExtensions(props: MarketplaceExtensionsProps) {
 
         return options
     }, [availableLanguages])
+
+    const missingDefaultTypes = useMemo(() => {
+        if (!isDefaultMarketplace || !marketplaceExtensions) return []
+
+        return [
+            { type: "onlinestream-provider", label: "online streaming" },
+            { type: "anime-torrent-provider", label: "torrent streaming" },
+            { type: "manga-provider", label: "manga" },
+        ].filter(item => !marketplaceExtensions.some(ext => ext.type === item.type))
+            .map(item => item.label)
+    }, [isDefaultMarketplace, marketplaceExtensions])
 
     // Group extensions by type
     const pluginExtensions = filteredExtensions.filter(n => n.type === "plugin")
@@ -315,6 +335,29 @@ export function MarketplaceExtensions(props: MarketplaceExtensionsProps) {
             </div>
 
             <div className="flex flex-wrap gap-4">
+                {!!missingDefaultTypes.length && (
+                    <Alert
+                        intent="warning"
+                        title="Update the repository!"
+                        description={<div>
+                            <p>To protect Seanime, some extensions have been removed. Find a new repository URL online and add it.</p>
+                            <Button
+                                intent="primary"
+                                size="sm"
+                                className="mt-2"
+                                onClick={() => {
+                                    setTempUrl("")
+                                    setUrlError("")
+                                    setIsUrlModalOpen(true)
+                                }}
+                            >
+                                Add new repository
+                            </Button>
+                        </div>}
+                        className="w-full"
+                    />
+                )}
+
                 <StaticTabs
                     className="h-10 w-fit border rounded-full"
                     triggerClass="px-4 py-1 text-sm"
