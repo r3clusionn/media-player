@@ -15,7 +15,7 @@ import { useAtom } from "jotai/react"
 import React from "react"
 import { useFormContext } from "react-hook-form"
 import { FaRedo } from "react-icons/fa"
-import { LuCircleAlert, LuCloudUpload, LuDatabaseBackup, LuEyeClosed, LuImageOff, LuImages, LuShield, LuStarOff, LuUserPen } from "react-icons/lu"
+import { LuCircleAlert, LuCloudUpload, LuDatabaseBackup, LuEyeOff, LuImageOff, LuImages, LuShield, LuStarOff, LuUserPen } from "react-icons/lu"
 import { MdDownloading } from "react-icons/md"
 import { TbAlertSquareRoundedOff, TbBrowserShare, TbChecklist, TbClockPlay, TbDownloadOff, TbProgressCheck, TbRating18Plus } from "react-icons/tb"
 import { useServerStatus } from "../../_hooks/use-server-status"
@@ -89,6 +89,72 @@ export function ServerSettings(props: ServerSettingsProps) {
                     icon={<TbClockPlay className="" />}
                 />
 
+                <Separator />
+
+                <Field.Switch
+                    side="right"
+                    label="Hide anime spoilers"
+                    help="Use spoiler-safe episode art and text across continue watching, entry episode lists, and missing episodes."
+                    name="hideAnimeSpoilers"
+                    icon={<LuEyeOff className="" />}
+                />
+
+                {f.watch("hideAnimeSpoilers") && (
+                    <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
+                        <Field.Switch
+                            side="right"
+                            label="Hide thumbnails"
+                            name="hideAnimeSpoilerThumbnails"
+                        />
+
+                        <Field.Switch
+                            side="right"
+                            label="Hide titles"
+                            name="hideAnimeSpoilerTitles"
+                        />
+
+                        <Field.Switch
+                            side="right"
+                            label="Hide descriptions"
+                            name="hideAnimeSpoilerDescriptions"
+                        />
+
+                        <Field.Switch
+                            side="right"
+                            label="Skip next episode"
+                            help="Start hiding spoilers from the episode after the next one."
+                            name="hideAnimeSpoilerSkipNextEpisode"
+                        />
+                    </div>
+                )}
+
+                <Field.Switch
+                    side="right"
+                    name="hideAudienceScore"
+                    label="Hide audience score"
+                    help="If enabled, the audience score will be hidden until you decide to view it."
+                    icon={<LuStarOff className="" />}
+                />
+
+
+                <Field.Switch
+                    side="right"
+                    name="enableAdultContent"
+                    label="Enable adult content"
+                    help="If disabled, adult content will be hidden from search results and your library."
+                    icon={<TbRating18Plus className="" />}
+                />
+                {f.watch("enableAdultContent") && <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
+                    <Field.Switch
+                        side="right"
+                        name="blurAdultContent"
+                        label="Blur adult content"
+                        fieldClass={cn(
+                            !f.watch("enableAdultContent") && "opacity-50",
+                        )}
+                    />
+                </div>}
+
                 <Field.Switch
                     side="right"
                     name="disableAnimeCardTrailers"
@@ -101,51 +167,24 @@ export function ServerSettings(props: ServerSettingsProps) {
 
                 <Field.Switch
                     side="right"
-                    name="hideAudienceScore"
-                    label="Hide audience score"
-                    help="If enabled, the audience score will be hidden until you decide to view it."
-                    icon={<LuStarOff className="" />}
-                />
-
-                <Field.Switch
-                    side="right"
-                    name="enableAdultContent"
-                    label="Enable adult content"
-                    help="If disabled, adult content will be hidden from search results and your library."
-                    icon={<TbRating18Plus className="" />}
-                />
-                <Field.Switch
-                    side="right"
-                    name="blurAdultContent"
-                    label="Blur adult content"
-                    help="If enabled, adult content will be blurred."
-                    fieldClass={cn(
-                        !f.watch("enableAdultContent") && "opacity-50",
-                    )}
-                    icon={<LuEyeClosed className="" />}
-                />
-
-                <Separator />
-
-                <Field.Switch
-                    side="right"
                     name="enableExtensionSecureMode"
                     label="Enable Extension Secure Mode"
                     help="If enabled, Seanime will prompt you for confirmation whenever an extension tries to perform a sensitive action, even if permissions have been granted."
                     icon={<LuShield className="" />}
                 />
 
+
             </SettingsCard>
 
             <SettingsCard
-                title="Local Data"
-                description="Local data is used when you're not using an AniList account."
+                title="Local Account"
+                description="Local account is used when you're not using an AniList account."
             >
                 <div className={cn(serverStatus?.user?.isSimulated && "opacity-50 pointer-events-none")}>
                     <Field.Switch
                         side="right"
                         name="autoSyncToLocalAccount"
-                        label="Auto backup lists from AniList"
+                        label="Automatically back up AniList lists"
                         help="If enabled, your local lists will be periodically updated by using your AniList data. This will override any local changes you've made since the last sync."
                         icon={<LuUserPen className="" />}
                     />
@@ -172,7 +211,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="autoSyncOfflineLocalData"
-                    label="Auto-sync saved media"
+                    label="Auto-refresh offline media"
                     help="If disabled, you will need to manually refresh your local metadata by clicking 'Sync now' in the offline mode page."
                     moreHelp="Will be paused if you have made changes offline and have not synced them to AniList yet."
                     icon={<MdDownloading className="" />}
@@ -181,7 +220,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="autoSaveCurrentMediaOffline"
-                    label="Save all currently watched/read media"
+                    label="Auto-save currently watched/read media"
                     help="If enabled, Seanime will automatically save all media you're currently watching/reading for offline use."
                     icon={<TbChecklist className="" />}
                 />
@@ -287,12 +326,12 @@ export function ServerSettings(props: ServerSettingsProps) {
                     icon={<LuDatabaseBackup className="" />}
                 />
                 {!f.watch("disableCacheLayer") && (
-                    <div>
+                    <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
                         <Switch
                             value={!isApiWorking}
                             onValueChange={v => toggleCacheLayer()}
                             disabled={isTogglingCacheLayer}
-                            label="Use cache-only mode"
+                            label="Enable cache-only mode"
                             moreHelp="Seanime will use cached data instead of making API requests."
                         />
                     </div>
@@ -301,7 +340,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="useFallbackMetadataProvider"
-                    label="Use Fallback Metadata Provider"
+                    label="Use fallback metadata provider"
                     help="If enabled, Seanime will use an alternative source to fetch episode metadata."
                     icon={<LuImages className="" />}
                 />
@@ -330,7 +369,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                     icon={<TbDownloadOff className="" />}
                 />
                 <Field.Select
-                    label="Update Channel (Experimental)"
+                    label="Update Channel"
                     name="updateChannel"
                     help={__isElectronDesktop__ ? "Also applies to Seanime Denshi auto-updates." : ""}
                     options={[
@@ -352,7 +391,7 @@ export function ServerSettings(props: ServerSettingsProps) {
                 <Field.Switch
                     side="right"
                     name="openWebURLOnStart"
-                    label="Open Web UI on Startup"
+                    label="Open web UI on startup"
                     icon={<TbBrowserShare className="" />}
                 />
                 <Field.Switch

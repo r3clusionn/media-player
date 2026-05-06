@@ -1,6 +1,5 @@
 import { useUpdateTheme } from "@/api/hooks/theme.hooks"
 import { useCustomCSS } from "@/components/shared/custom-css-provider"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion/accordion"
 import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
@@ -24,6 +23,7 @@ import { useAtom } from "jotai/react"
 import { atomWithStorage } from "jotai/utils"
 import React, { useState } from "react"
 import { useFormContext, UseFormReturn, useWatch } from "react-hook-form"
+import { LuChevronRight } from "react-icons/lu"
 import { toast } from "sonner"
 import { z } from "zod"
 import { useServerStatus } from "../../_hooks/use-server-status"
@@ -66,11 +66,6 @@ const themeSchema = defineSchema(({ z }) => z.object({
     showMangaUnreadCount: z.boolean().default(THEME_DEFAULT_VALUES.showMangaUnreadCount),
     hideEpisodeCardDescription: z.boolean().default(THEME_DEFAULT_VALUES.hideEpisodeCardDescription),
     hideDownloadedEpisodeCardFilename: z.boolean().default(THEME_DEFAULT_VALUES.hideDownloadedEpisodeCardFilename),
-    hideAnimeSpoilers: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilers),
-    hideAnimeSpoilerThumbnails: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerThumbnails),
-    hideAnimeSpoilerTitles: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerTitles),
-    hideAnimeSpoilerDescriptions: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerDescriptions),
-    hideAnimeSpoilerSkipNextEpisode: z.boolean().default(THEME_DEFAULT_VALUES.hideAnimeSpoilerSkipNextEpisode),
     customCSS: z.string().default(THEME_DEFAULT_VALUES.customCSS),
     mobileCustomCSS: z.string().default(THEME_DEFAULT_VALUES.mobileCustomCSS),
     unpinnedMenuItems: z.array(z.string()).default(THEME_DEFAULT_VALUES.unpinnedMenuItems),
@@ -96,6 +91,155 @@ const tabsListClass = cn(
 const tabContentClass = cn(
     "space-y-4 animate-in fade-in-0 duration-300",
 )
+
+// compact thumbnail for radio card option labels
+function SelThumb({ children }: { children?: React.ReactNode }) {
+    return (
+        <div className="relative w-11 h-8 shrink-0 rounded overflow-hidden border border-white/[0.07] bg-gray-950">
+            {children}
+        </div>
+    )
+}
+
+// banner behavior thumbnail, shows a mini abstract visual of what each banner setting does
+function BannerBehaviorThumb({ type }: { type: string }) {
+    const isConditional = type.endsWith("-when-unavailable")
+    const baseType = isConditional ? type.replace("-when-unavailable", "") : type
+
+    const fullBand = (
+        <div className="absolute top-0 left-0 right-0 h-1/2">
+            {baseType === "blur" && (
+                <div className="absolute inset-0 bg-gradient-to-b from-gray-600/80 to-transparent [filter:blur(2px)] scale-105 origin-top" />
+            )}
+            {baseType === "dim" && (
+                <div className="absolute inset-0 bg-gradient-to-b from-gray-600/25 to-transparent" />
+            )}
+            {baseType === "hide" && (
+                <div className="absolute inset-0 bg-gray-950" />
+            )}
+            {baseType === "default" && (
+                <div className="absolute inset-0 bg-gradient-to-b from-gray-600/80 to-transparent" />
+            )}
+        </div>
+    )
+
+    if (!isConditional) {
+        return <SelThumb>{fullBand}</SelThumb>
+    }
+
+    // conditional: left half is always clear, right half shows the effect
+    const rightHalf =
+        baseType === "blur" ? <div className="flex-1 bg-gradient-to-b from-gray-600/80 to-transparent [filter:blur(2px)] scale-110 origin-top" />
+            : baseType === "dim" ? <div className="flex-1 bg-gradient-to-b from-gray-600/25 to-transparent" />
+                : <div className="flex-1 bg-gray-950" />
+
+    return (
+        <SelThumb>
+            <div className="absolute top-0 left-0 right-0 h-1/2 flex overflow-hidden">
+                <div className="flex-1 bg-gradient-to-b from-gray-600/80 to-transparent" />
+                <div className="w-px bg-white/[0.07]" />
+                {rightHalf}
+            </div>
+        </SelThumb>
+    )
+}
+
+// shared classes for thumbnail-bearing radio cards
+const thumbLabelClass = cn(
+    "font-medium flex flex-row items-center data-[state=unchecked]:hover:text-[--foreground] data-[state=checked]:text-[--brand] text-[--muted] cursor-pointer")
+const thumbContainerClass = "sea-selector-card"
+
+const libraryBannerTypeOptions = [
+    {
+        value: "dynamic",
+        label: (
+            <span className="flex items-center gap-3">
+                <SelThumb>
+                    <div className="absolute inset-x-0 top-0 h-3/5 bg-gradient-to-b from-gray-600/80 to-transparent" />
+                    <div className="absolute bottom-3 left-1 flex flex-col gap-0.5">
+                        <div className="h-px w-7 rounded-full bg-white/30" />
+                        <div className="h-px w-5 rounded-full bg-white/20" />
+                    </div>
+                </SelThumb>
+                <span>Dynamic</span>
+            </span>
+        ),
+    },
+    {
+        value: "custom",
+        label: (
+            <span className="flex items-center gap-3">
+                <SelThumb>
+                    <div className="absolute inset-1 rounded-sm border border-dashed border-white/20 flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white/25" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1">
+                            <rect x="0.5" y="0.5" width="11" height="11" rx="1.5" />
+                            <path d="M1 9l3-3 2 2 3-4 2 5" strokeLinejoin="round" strokeLinecap="round" />
+                        </svg>
+                    </div>
+                </SelThumb>
+                <span>Custom</span>
+            </span>
+        ),
+    },
+    {
+        value: "none",
+        label: (
+            <span className="flex items-center gap-3">
+                <SelThumb>
+                    <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="h-px w-7 bg-white/20 rotate-12" />
+                    </div>
+                </SelThumb>
+                <span>None</span>
+            </span>
+        ),
+    },
+]
+
+const bannerBehaviorOptions = ThemeMediaPageBannerTypeOptions.map(n => ({
+    value: n.value,
+    label: (
+        <span className="flex items-center gap-3">
+            <BannerBehaviorThumb type={n.value} />
+            <span>{n.label}</span>
+        </span>
+    ),
+}))
+
+const bannerSizeOptions = ThemeMediaPageBannerSizeOptions.map(n => ({
+    value: n.value,
+    label: (
+        <span className="flex items-center gap-3">
+            <SelThumb>
+                <div
+                    className="absolute inset-x-0 top-0 bg-gradient-to-b from-gray-600/80 to-transparent"
+                    style={{ height: n.value === "default" ? "65%" : "35%" }}
+                />
+            </SelThumb>
+            <span>{n.label}</span>
+        </span>
+    ),
+}))
+
+
+// smaller thumbnail for Field.Switch label prop
+function SwThumb({ children }: { children?: React.ReactNode }) {
+    return (
+        <div className="relative w-9 h-6 shrink-0 rounded overflow-hidden border border-white/[0.06] bg-gray-950">
+            {children}
+        </div>
+    )
+}
+
+// wraps a thumbnail + label text for Field.Switch
+function swLabel(thumb: React.ReactNode, text: React.ReactNode) {
+    return (
+        <span className="flex items-center gap-2.5">
+            {thumb}
+            <span>{text}</span>
+        </span>
+    )
+}
 
 
 export function UISettings() {
@@ -276,11 +420,6 @@ export function UISettings() {
                 showMangaUnreadCount: themeSettings?.showMangaUnreadCount,
                 hideEpisodeCardDescription: themeSettings?.hideEpisodeCardDescription,
                 hideDownloadedEpisodeCardFilename: themeSettings?.hideDownloadedEpisodeCardFilename,
-                hideAnimeSpoilers: themeSettings?.hideAnimeSpoilers,
-                hideAnimeSpoilerThumbnails: themeSettings?.hideAnimeSpoilerThumbnails,
-                hideAnimeSpoilerTitles: themeSettings?.hideAnimeSpoilerTitles,
-                hideAnimeSpoilerDescriptions: themeSettings?.hideAnimeSpoilerDescriptions,
-                hideAnimeSpoilerSkipNextEpisode: themeSettings?.hideAnimeSpoilerSkipNextEpisode,
                 customCSS: themeSettings?.customCSS,
                 mobileCustomCSS: themeSettings?.mobileCustomCSS,
                 unpinnedMenuItems: themeSettings?.unpinnedMenuItems ?? [],
@@ -301,18 +440,113 @@ export function UISettings() {
                         listClass={tabsListClass}
                     >
                         <TabsList className="flex-wrap max-w-full bg-[--paper] p-2 border rounded-xl">
-                            <TabsTrigger value="main">Theme</TabsTrigger>
-                            <TabsTrigger value="media">Media</TabsTrigger>
-                            <TabsTrigger value="navigation">Navigation</TabsTrigger>
-                            {/*<TabsTrigger value="browser-client">Rendering</TabsTrigger>*/}
+                            <TabsTrigger value="main">General</TabsTrigger>
+                            <TabsTrigger value="css">CSS</TabsTrigger>
                         </TabsList>
+
+                        <TabsContent value="css" className={tabContentClass}>
+
+                            <SettingsCard>
+
+                                {serverStatus?.themeSettings?.customCSS !== customCSS.customCSS || serverStatus?.themeSettings?.mobileCustomCSS !== customCSS.mobileCustomCSS && (
+                                    <Button
+                                        intent="white"
+                                        disabled={serverStatus?.themeSettings?.customCSS === customCSS.customCSS && serverStatus?.themeSettings?.mobileCustomCSS === customCSS.mobileCustomCSS}
+                                        onClick={() => {
+                                            setCustomCSS({
+                                                customCSS: serverStatus?.themeSettings?.customCSS || "",
+                                                mobileCustomCSS: serverStatus?.themeSettings?.mobileCustomCSS || "",
+                                            })
+                                        }}
+                                    >
+                                        Apply to this client
+                                    </Button>
+                                )}
+
+                                <p className="text-[--muted] text-sm">
+                                    The custom CSS will be saved on the server and needs to be applied manually to each client.
+                                    <br />
+                                    In case of an error rendering the UI unusable, you can always remove it from the local storage using the
+                                    devtools.
+                                </p>
+
+                                <div className="flex flex-col md:flex-row gap-3">
+
+                                    <Field.Textarea
+                                        label="Custom CSS"
+                                        name="customCSS"
+                                        placeholder="Custom CSS"
+                                        help="Applied above 1024px screen size."
+                                        className="min-h-[500px]"
+                                    />
+
+                                    <Field.Textarea
+                                        label="Mobile custom CSS"
+                                        name="mobileCustomCSS"
+                                        placeholder="Custom CSS"
+                                        help="Applied below 1024px screen size."
+                                        className="min-h-[500px]"
+                                    />
+
+                                </div>
+
+                            </SettingsCard>
+
+
+                        </TabsContent>
 
                         <TabsContent value="main" className={tabContentClass}>
 
-                            <SettingsCard title="Color scheme">
+                            <SettingsCard title="Sorting">
+
+                                {!serverStatus?.settings?.library?.enableWatchContinuity && (
+                                    f.watch("continueWatchingDefaultSorting").includes("LAST_WATCHED") ||
+                                    f.watch("animeLibraryCollectionDefaultSorting").includes("LAST_WATCHED")
+                                ) && (
+                                    <Alert
+                                        intent="alert"
+                                        description="Watch continuity needs to be enabled to use the last watched sorting options."
+                                    />
+                                )}
+
+
+                                <Field.Select
+                                    label="Continue watching sorting"
+                                    name="continueWatchingDefaultSorting"
+                                    options={CONTINUE_WATCHING_SORTING_OPTIONS.map(n => ({ value: n.value, label: n.label }))}
+                                />
+
+                                <Field.Select
+                                    label="Anime library sorting"
+                                    name="animeLibraryCollectionDefaultSorting"
+                                    options={ANIME_COLLECTION_SORTING_OPTIONS.filter(n => !n.value.includes("END"))
+                                        .map(n => ({ value: n.value, label: n.label }))}
+                                />
+
+                                <Field.Select
+                                    label="Manga library sorting"
+                                    name="mangaLibraryCollectionDefaultSorting"
+                                    options={MANGA_COLLECTION_SORTING_OPTIONS.filter(n => !n.value.includes("END"))
+                                        .map(n => ({ value: n.value, label: n.label }))}
+                                />
+
+
+                            </SettingsCard>
+
+                            <SettingsCard>
                                 <Field.Switch
                                     side="right"
-                                    label="Enable color settings"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div
+                                                className="absolute inset-0"
+                                                style={{ background: "conic-gradient(from 0deg, #ef4444, #f97316, #eab308, #22c55e, #3b82f6, #a855f7, #ef4444)" }}
+                                            />
+                                            <div className="absolute inset-0 bg-black/40" />
+                                            <div className="absolute inset-1 rounded-full border border-white/20 bg-gray-950/80" />
+                                        </SwThumb>,
+                                        "Enable color settings",
+                                    )}
                                     name="enableColorSettings"
                                 />
                                 {f.watch("enableColorSettings") && (
@@ -398,27 +632,20 @@ export function UISettings() {
                                     </div>
                                 )}
 
-                                <Field.Switch
-                                    side="right"
-                                    label="Enable blurring effects"
-                                    help="May impact performance on some devices."
-                                    name="enableBlurringEffects"
-                                />
 
                             </SettingsCard>
 
-                            <SettingsCard title="Background image">
-
+                            <SettingsCard title="Banners & Background">
                                 <div className="flex flex-col md:flex-row gap-3">
                                     <Field.Text
-                                        label="Image path"
+                                        label="Background image path"
                                         name="libraryScreenCustomBackgroundImage"
                                         placeholder="e.g. image.png"
                                         help="Background image for all pages. Dimmed on non-library screens."
                                     />
 
                                     <Field.Number
-                                        label="Opacity"
+                                        label="Background image opacity"
                                         name="libraryScreenCustomBackgroundOpacity"
                                         placeholder="Default: 10"
                                         min={1}
@@ -437,25 +664,20 @@ export function UISettings() {
                                     {/*    ]}*/}
                                     {/*/>*/}
                                 </div>
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Banner image">
-
                                 <div className="flex flex-col md:flex-row gap-3">
                                     <Field.Text
-                                        label="Image path"
+                                        label="Banner image path"
                                         name="libraryScreenCustomBannerImage"
                                         placeholder="e.g. image.gif"
                                         help="Banner image for all pages."
                                     />
                                     <Field.Text
-                                        label="Position"
+                                        label="Banner position"
                                         name="libraryScreenCustomBannerPosition"
                                         placeholder="Default: 50% 50%"
                                     />
                                     <Field.Number
-                                        label="Opacity"
+                                        label="Banner opacity"
                                         name="libraryScreenCustomBannerOpacity"
                                         placeholder="Default: 10"
                                         min={1}
@@ -463,81 +685,293 @@ export function UISettings() {
                                     />
                                 </div>
 
+                                <Field.RadioCards
+                                    label="Home screen banner type"
+                                    name="libraryScreenBannerType"
+                                    options={libraryBannerTypeOptions}
+                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
+                                    itemLabelClass={thumbLabelClass}
+                                    itemContainerClass={thumbContainerClass}
+                                    help={f.watch("libraryScreenBannerType") === ThemeLibraryScreenBannerType.Custom && "Use the banner image on all library screens."}
+                                />
+
+                                <Field.RadioCards
+                                    label="Media screen banner image"
+                                    name="mediaPageBannerType"
+                                    options={bannerBehaviorOptions}
+                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
+                                    itemLabelClass={thumbLabelClass}
+                                    itemContainerClass={thumbContainerClass}
+                                    radioGroupStackClass="flex-wrap"
+                                    help={ThemeMediaPageBannerTypeOptions.find(n => n.value === f.watch("mediaPageBannerType"))?.description}
+                                />
+
+                                <Field.RadioCards
+                                    label="Media screen banner size"
+                                    name="mediaPageBannerSize"
+                                    options={bannerSizeOptions}
+                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
+                                    itemLabelClass={thumbLabelClass}
+                                    itemContainerClass={thumbContainerClass}
+                                    radioGroupStackClass="flex-wrap"
+                                    help={ThemeMediaPageBannerSizeOptions.find(n => n.value === f.watch("mediaPageBannerSize"))?.description}
+                                />
                             </SettingsCard>
 
-                            <Accordion
-                                type="single"
-                                collapsible
-                                className="border rounded-[--radius-md]"
-                                triggerClass="dark:bg-[--paper]"
-                                contentClass="!pt-2 dark:bg-[--paper]"
-                            >
-                                <AccordionItem value="more">
-                                    <AccordionTrigger className="bg-gray-900 rounded-[--radius-md]">
-                                        Advanced
-                                    </AccordionTrigger>
-                                    <AccordionContent className="space-y-4">
 
-                                        {serverStatus?.themeSettings?.customCSS !== customCSS.customCSS || serverStatus?.themeSettings?.mobileCustomCSS !== customCSS.mobileCustomCSS && (
-                                            <Button
-                                                intent="white"
-                                                disabled={serverStatus?.themeSettings?.customCSS === customCSS.customCSS && serverStatus?.themeSettings?.mobileCustomCSS === customCSS.mobileCustomCSS}
-                                                onClick={() => {
-                                                    setCustomCSS({
-                                                        customCSS: serverStatus?.themeSettings?.customCSS || "",
-                                                        mobileCustomCSS: serverStatus?.themeSettings?.mobileCustomCSS || "",
-                                                    })
-                                                }}
-                                            >
-                                                Apply to this client
-                                            </Button>
-                                        )}
-
-                                        <p className="text-[--muted] text-sm">
-                                            The custom CSS will be saved on the server and needs to be applied manually to each client.
-                                            <br />
-                                            In case of an error rendering the UI unusable, you can always remove it from the local storage using the
-                                            devtools.
-                                        </p>
-
-                                        <div className="flex flex-col md:flex-row gap-3">
-
-                                            <Field.Textarea
-                                                label="Custom CSS"
-                                                name="customCSS"
-                                                placeholder="Custom CSS"
-                                                help="Applied above 1024px screen size."
-                                            />
-
-                                            <Field.Textarea
-                                                label="Mobile custom CSS"
-                                                name="mobileCustomCSS"
-                                                placeholder="Custom CSS"
-                                                help="Applied below 1024px screen size."
-                                            />
-
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            </Accordion>
-
-                        </TabsContent>
-
-                        <TabsContent value="navigation" className={tabContentClass}>
-
-                            <SettingsCard title="Sidebar">
+                            <SettingsCard title="Tweaks">
 
                                 <Field.Switch
                                     side="right"
-                                    label="Expand sidebar on hover"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute h-full items-center left-1 flex gap-0.5">
+                                                <div className="h-2 w-5 rounded-full bg-gray-700/60 border border-white/[0.07]" />
+                                                <div className="h-2 w-4 rounded-full bg-gray-700/60 border border-white/[0.07]" />
+                                            </div>
+                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Remove genre selector",
+                                    )}
+                                    name="disableLibraryScreenGenreSelector"
+                                />
+
+
+                                {/*<Field.RadioCards*/}
+                                {/*    label="Banner info layout"*/}
+                                {/*    name="mediaPageBannerInfoBoxSize"*/}
+                                {/*    options={ThemeMediaPageInfoBoxSizeOptions.map(n => ({ value: n.value, label: n.label }))}*/}
+                                {/*    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"*/}
+                                {/*/>*/}
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-600/60 to-gray-900/60" />
+                                            <div className="absolute inset-1 rounded-sm bg-white/[0.08] border border-white/10" />
+                                        </SwThumb>,
+                                        "Enable blurring effects",
+                                    )}
+                                    help="May impact performance on some devices."
+                                    name="enableBlurringEffects"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute inset-x-0 top-0 h-[90%] bg-gradient-to-b from-gray-600/60 to-transparent [filter:blur(3px)] scale-105 origin-top" />
+                                            <div className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-gray-600/20 to-transparent" />
+                                        </SwThumb>,
+                                        "Media screen blurred background",
+                                    )}
+                                    name="enableMediaPageBlurredBackground"
+                                    help="Can cause performance issues."
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-800/80 to-gray-950" />
+                                            <div className="absolute inset-1 rounded-sm bg-gray-900/60 border border-white/[0.06]" />
+                                            <div className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-gray-600 flex items-center justify-center">
+                                                <span className="text-[5px] text-white leading-none font-bold">3</span>
+                                            </div>
+                                        </SwThumb>,
+                                        "Anime card unwatched count",
+                                    )}
+                                    name="showAnimeUnwatchedCount"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-800/80 to-gray-950" />
+                                            <div className="absolute inset-1 rounded-sm bg-gray-900/60 border border-white/[0.06]" />
+                                            <div className="absolute top-0.5 right-0.5 w-3 h-3 rounded-full bg-gray-700 flex items-center justify-center">
+                                                <span className="text-[5px] text-white leading-none font-bold">5</span>
+                                            </div>
+                                        </SwThumb>,
+                                        "Manga card unread count",
+                                    )}
+                                    name="showMangaUnreadCount"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-600/40 to-gray-950" />
+                                            <div className="absolute inset-1 rounded-sm bg-white/[0.07] border border-white/10" />
+                                        </SwThumb>,
+                                        "Media card glassy background",
+                                    )}
+                                    name="enableMediaCardBlurredBackground"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute inset-0.5 rounded-sm border border-white/10 flex flex-col overflow-hidden">
+                                                {/* <div className="w-5 bg-gray-800/60 shrink-0" /> */}
+                                                <div className="flex-1 p-0.5 flex flex-col gap-0.5">
+                                                    <div className="h-full"></div>
+                                                    <div className="h-px w-full bg-white/20 rounded" />
+                                                    {/* <div className="h-px w-2/3 bg-white/12 rounded" /> */}
+                                                </div>
+                                            </div>
+                                        </SwThumb>,
+                                        "Episode cards: Legacy layout",
+                                    )}
+                                    name="useLegacyEpisodeCard"
+                                />
+
+                                {/*<Field.Switch*/}
+                                {/*    side="right"*/}
+                                {/*    label="Show anime info"*/}
+                                {/*    name="showEpisodeCardAnimeInfo"*/}
+                                {/*/>*/}
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute inset-0.5 rounded-sm border border-white/10 flex overflow-hidden">
+                                                <div className="flex-1 p-0.5 flex flex-col gap-0.5">
+                                                    <div className="h-px w-full bg-white/20 rounded" />
+                                                    <div className="h-px w-full bg-white/20 rounded" />
+                                                    <div className="h-px w-full bg-white/20 rounded" />
+                                                    <div className="h-px w-3/4 bg-white/[0.05] rounded" />
+                                                    <div className="h-px w-1/2 bg-white/[0.05] rounded" />
+                                                </div>
+
+                                            </div>
+                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Episode items: Hide summary",
+                                    )}
+                                    name="hideEpisodeCardDescription"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute inset-0.5 rounded-sm border border-white/10 flex overflow-hidden">
+                                                <div className="flex-1 p-0.5 flex flex-col justify-between">
+                                                    <div className="h-px w-full bg-white/20 rounded" />
+                                                    <div className="h-px w-full bg-white/[0.04] rounded" />
+                                                </div>
+                                            </div>
+                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Episode items: Hide filename",
+                                    )}
+                                    name="hideDownloadedEpisodeCardFilename"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute top-1 left-0.5 right-0.5 bottom-1 flex gap-0.5 overflow-hidden">
+                                                <div className="w-5 bg-gray-800/70 rounded-sm shrink-0" />
+                                                <div className="w-5 bg-gray-800/50 rounded-sm shrink-0" />
+                                                <div className="w-5 bg-gray-800/30 rounded-sm shrink-0" />
+                                                <LuChevronRight className="absolute -right-1 top-0 text-gray-500" />
+                                            </div>
+                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Disable carousel auto-scroll",
+                                    )}
+                                    name="disableCarouselAutoScroll"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute top-1.5 left-0.5 right-0.5 bottom-1.5 flex gap-0.5 overflow-hidden">
+                                                <div className="w-4 bg-gray-800/70 rounded-sm shrink-0" />
+                                                <div className="w-4 bg-gray-800/60 rounded-sm shrink-0" />
+                                                <div className="w-4 bg-gray-800/50 rounded-sm shrink-0" />
+                                                <div className="w-4 bg-gray-800/40 rounded-sm shrink-0" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Smaller carousel episode cards",
+                                    )}
+                                    name="smallerEpisodeCarouselSize"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gray-800" />
+                                            <div className="absolute left-0 top-0 bottom-0 w-5 bg-gray-700/30 border-r border-brand-500/20" />
+                                            <div className="absolute left-6 top-1 right-0.5 bottom-1 flex flex-col gap-0.5">
+                                                <div className="h-px bg-white/15 rounded" />
+                                                <div className="h-px w-2/3 bg-white/10 rounded" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Expand sidebar on hover",
+                                    )}
                                     name="expandSidebarOnHover"
                                     help="Causes visual glitches with plugin tray."
                                 />
 
                                 <Field.Switch
                                     side="right"
-                                    label="Disable transparency"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-600/30 to-gray-950" />
+                                            <div className="absolute left-0 top-0 bottom-0 w-3.5 bg-gray-900" />
+                                            <div className="absolute left-1 top-1.5 flex flex-col gap-0.5">
+                                                <div className="h-0.5 w-1.5 bg-white/30 rounded" />
+                                                <div className="h-0.5 w-1.5 bg-white/20 rounded" />
+                                                <div className="h-0.5 w-1.5 bg-white/20 rounded" />
+                                            </div>
+                                        </SwThumb>,
+                                        "Disable sidebar transparency",
+                                    )}
                                     name="disableSidebarTransparency"
+                                />
+
+                                <Field.Switch
+                                    side="right"
+                                    label={swLabel(
+                                        <SwThumb>
+                                            <div className="absolute inset-0 bg-gray-950" />
+                                            <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gray-800" />
+                                            <div className="absolute left-3 top-0.5 right-0.5 bottom-0.5 bg-gray-900/50 rounded-sm" />
+                                            <div className="absolute left-4 top-1.5 flex flex-col gap-0.5">
+                                                <div className="h-px w-10 bg-white/15 rounded" />
+                                                <div className="h-px w-7 bg-white/10 rounded" />
+                                            </div>
+                                        </SwThumb>,
+                                        __isDesktop__ ? "Hide top navbar (web interface)" : "Hide top navbar",
+                                    )}
+                                    name="hideTopNavbar"
+                                    help="Switches to sidebar-only mode."
                                 />
 
                                 <Field.Combobox
@@ -592,220 +1026,6 @@ export function UISettings() {
                                             value: "search",
                                         },
                                     ]}
-                                />
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Navbar">
-
-                                <Field.Switch
-                                    side="right"
-                                    label={__isDesktop__ ? "Hide top navbar (Web interface)" : "Hide top navbar"}
-                                    name="hideTopNavbar"
-                                    help="Switches to sidebar-only mode."
-                                />
-
-                            </SettingsCard>
-
-                        </TabsContent>
-
-                        <TabsContent value="media" className={tabContentClass}>
-
-                            <SettingsCard title="Screens">
-
-                                {!serverStatus?.settings?.library?.enableWatchContinuity && (
-                                    f.watch("continueWatchingDefaultSorting").includes("LAST_WATCHED") ||
-                                    f.watch("animeLibraryCollectionDefaultSorting").includes("LAST_WATCHED")
-                                ) && (
-                                    <Alert
-                                        intent="alert"
-                                        description="Watch continuity needs to be enabled to use the last watched sorting options."
-                                    />
-                                )}
-
-                                <Field.RadioCards
-                                    label="Banner type"
-                                    name="libraryScreenBannerType"
-                                    options={[
-                                        {
-                                            label: "Dynamic Banner",
-                                            value: "dynamic",
-                                        },
-                                        {
-                                            label: "Custom Banner",
-                                            value: "custom",
-                                        },
-                                        {
-                                            label: "None",
-                                            value: "none",
-                                        },
-                                    ]}
-                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
-                                    help={f.watch("libraryScreenBannerType") === ThemeLibraryScreenBannerType.Custom && "Use the banner image on all library screens."}
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Remove genre selector"
-                                    name="disableLibraryScreenGenreSelector"
-                                />
-
-                                <Field.Select
-                                    label="Continue watching sorting"
-                                    name="continueWatchingDefaultSorting"
-                                    options={CONTINUE_WATCHING_SORTING_OPTIONS.map(n => ({ value: n.value, label: n.label }))}
-                                />
-
-                                <Field.Select
-                                    label="Anime library sorting"
-                                    name="animeLibraryCollectionDefaultSorting"
-                                    options={ANIME_COLLECTION_SORTING_OPTIONS.filter(n => !n.value.includes("END"))
-                                        .map(n => ({ value: n.value, label: n.label }))}
-                                />
-
-                                <Field.Select
-                                    label="Manga library sorting"
-                                    name="mangaLibraryCollectionDefaultSorting"
-                                    options={MANGA_COLLECTION_SORTING_OPTIONS.filter(n => !n.value.includes("END"))
-                                        .map(n => ({ value: n.value, label: n.label }))}
-                                />
-
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Media page">
-
-                                <Field.RadioCards
-                                    label="AniList banner image"
-                                    name="mediaPageBannerType"
-                                    options={ThemeMediaPageBannerTypeOptions.map(n => ({ value: n.value, label: n.label }))}
-                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
-                                    help={ThemeMediaPageBannerTypeOptions.find(n => n.value === f.watch("mediaPageBannerType"))?.description}
-                                />
-
-                                <Field.RadioCards
-                                    label="Banner size"
-                                    name="mediaPageBannerSize"
-                                    options={ThemeMediaPageBannerSizeOptions.map(n => ({ value: n.value, label: n.label }))}
-                                    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
-                                    help={ThemeMediaPageBannerSizeOptions.find(n => n.value === f.watch("mediaPageBannerSize"))?.description}
-                                />
-
-                                {/*<Field.RadioCards*/}
-                                {/*    label="Banner info layout"*/}
-                                {/*    name="mediaPageBannerInfoBoxSize"*/}
-                                {/*    options={ThemeMediaPageInfoBoxSizeOptions.map(n => ({ value: n.value, label: n.label }))}*/}
-                                {/*    stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"*/}
-                                {/*/>*/}
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Blurred gradient background"
-                                    name="enableMediaPageBlurredBackground"
-                                    help="Can cause performance issues."
-                                />
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Media card">
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Show anime unwatched count"
-                                    name="showAnimeUnwatchedCount"
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Show manga unread count"
-                                    name="showMangaUnreadCount"
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Glassy background"
-                                    name="enableMediaCardBlurredBackground"
-                                />
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Episode card">
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Legacy episode cards"
-                                    name="useLegacyEpisodeCard"
-                                />
-
-                                {/*<Field.Switch*/}
-                                {/*    side="right"*/}
-                                {/*    label="Show anime info"*/}
-                                {/*    name="showEpisodeCardAnimeInfo"*/}
-                                {/*/>*/}
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Hide episode summary"
-                                    name="hideEpisodeCardDescription"
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Hide downloaded episode filename"
-                                    name="hideDownloadedEpisodeCardFilename"
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Hide anime spoilers"
-                                    help="Use spoiler-safe episode art and text across continue watching, entry episode lists, and missing episodes."
-                                    name="hideAnimeSpoilers"
-                                />
-
-                                {f.watch("hideAnimeSpoilers") && (
-                                    <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
-                                        <Field.Switch
-                                            side="right"
-                                            label="Hide thumbnails"
-                                            name="hideAnimeSpoilerThumbnails"
-                                        />
-
-                                        <Field.Switch
-                                            side="right"
-                                            label="Hide titles"
-                                            name="hideAnimeSpoilerTitles"
-                                        />
-
-                                        <Field.Switch
-                                            side="right"
-                                            label="Hide descriptions"
-                                            name="hideAnimeSpoilerDescriptions"
-                                        />
-
-                                        <Field.Switch
-                                            side="right"
-                                            label="Skip next episode"
-                                            help="Start hiding spoilers from the episode after the next one."
-                                            name="hideAnimeSpoilerSkipNextEpisode"
-                                        />
-                                    </div>
-                                )}
-
-
-                            </SettingsCard>
-
-                            <SettingsCard title="Carousel">
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Disable auto-scroll"
-                                    name="disableCarouselAutoScroll"
-                                />
-
-                                <Field.Switch
-                                    side="right"
-                                    label="Smaller episode cards"
-                                    name="smallerEpisodeCarouselSize"
                                 />
 
                             </SettingsCard>

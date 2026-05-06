@@ -122,6 +122,11 @@ export const settingsSchema = z.object({
     scannerConfig: z.string().optional().default(""),
     updateChannel: z.string().optional().default("github"),
     enableExtensionSecureMode: z.boolean().optional().default(false),
+    hideAnimeSpoilers: z.boolean().optional().default(false),
+    hideAnimeSpoilerThumbnails: z.boolean().optional().default(true),
+    hideAnimeSpoilerTitles: z.boolean().optional().default(true),
+    hideAnimeSpoilerDescriptions: z.boolean().optional().default(true),
+    hideAnimeSpoilerSkipNextEpisode: z.boolean().optional().default(false),
 })
 
 export const gettingStartedSchema = _gettingStartedSchema.extend(settingsSchema.shape)

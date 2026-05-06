@@ -40,15 +40,19 @@ export function ChapterPage(props: ChapterPageProps) {
     } = props
 
     const ref = React.useRef<HTMLImageElement>(null)
-    const { isLoaded, isLoading, hasError, retry } = useImageLoadStatus(ref)
+    const { getChapterPageUrl, isReady } = useMangaReaderUtils()
+    const pageUrl = React.useMemo(() => {
+        if (!page || !isReady) return undefined
+        return HIDE_IMAGES ? "/no-cover.png" : getChapterPageUrl(page.url, pageContainer?.isDownloaded, page.headers)
+    }, [getChapterPageUrl, isReady, page, pageContainer?.isDownloaded])
+
+    const { isLoaded, isLoading, hasError, retry } = useImageLoadStatus(ref, isReady, pageUrl)
 
     useUpdateEffect(() => {
         if (isLoaded && onFinishedLoading) {
             onFinishedLoading()
         }
     }, [isLoaded])
-
-    const { getChapterPageUrl, isReady } = useMangaReaderUtils()
 
     if (!page) return null
 
@@ -57,7 +61,7 @@ export function ChapterPage(props: ChapterPageProps) {
             <div
                 data-chapter-page-container
                 className={containerClass}
-                style={{ maxWidth: containerMaxWidth }}
+                style={{ maxWidth: containerMaxWidth, minHeight: isLoaded ? "20px" : undefined }}
                 id={`page-${index}`}
                 tabIndex={-1}
             >
@@ -75,7 +79,7 @@ export function ChapterPage(props: ChapterPageProps) {
                 {isReady && <img
                     data-chapter-page-image
                     data-page-index={index}
-                    src={HIDE_IMAGES ? "/no-cover.png" : getChapterPageUrl(page.url, pageContainer?.isDownloaded, page.headers)}
+                    src={pageUrl}
                     alt={`Page ${index}`}
                     crossOrigin="anonymous"
                     className={imageClass}
@@ -95,7 +99,11 @@ export const IMAGE_STATUS = {
     ERROR: "error",
 }
 
-const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement | null>) => {
+const useImageLoadStatus = (
+    imageRef: React.RefObject<HTMLImageElement | null>,
+    enabled: boolean,
+    src?: string,
+) => {
     const [imageStatus, setImageStatus] = React.useState(IMAGE_STATUS.LOADING)
     const retries = React.useRef(0)
 
@@ -118,6 +126,14 @@ const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement | null>) 
     }, [])
 
     React.useEffect(() => {
+        if (!enabled || !src) {
+            setImageStatus(IMAGE_STATUS.LOADING)
+            return
+        }
+
+        retries.current = 0
+        setImageStatus(IMAGE_STATUS.LOADING)
+
         if (!imageRef.current) {
             return
         }
@@ -184,7 +200,7 @@ const useImageLoadStatus = (imageRef: React.RefObject<HTMLImageElement | null>) 
                 clearTimeout(timerId)
             }
         }
-    }, [imageRef, retries])
+    }, [enabled, imageRef, src])
 
     return {
         isLoaded,
