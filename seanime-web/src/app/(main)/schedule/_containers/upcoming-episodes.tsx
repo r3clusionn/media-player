@@ -56,6 +56,7 @@ export function UpcomingEpisodes() {
                                             image={item.episodeMetadata?.image || item.baseAnime?.bannerImage || item.baseAnime?.coverImage?.large}
                                             spoilerSafeImage={item.baseAnime?.bannerImage || item.baseAnime?.coverImage?.extraLarge || item.baseAnime?.coverImage?.large}
                                             topTitle={item?.baseAnime?.title?.userPreferred}
+                                            isAdult={item.baseAnime?.isAdult}
                                             spoilerMode="replace"
                                             spoilerActive={spoilerActive}
                                             title={`Episode ${item.episodeNumber}`}

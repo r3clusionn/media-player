@@ -41,7 +41,9 @@ import { SeaLink } from "@/components/shared/sea-link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ContextMenuGroup, ContextMenuItem, ContextMenuLabel, ContextMenuTrigger } from "@/components/ui/context-menu"
+import { preloadMediaEntry } from "@/lib/entry-preloader"
 import { useRouter } from "@/lib/navigation"
+import { __navigationPreloadModeAtom, shouldWarmEntryOnIntent } from "@/lib/navigation-preload-settings"
 import { useAtomValue, useSetAtom } from "jotai/react"
 import capitalize from "lodash/capitalize"
 import React, { useState } from "react"
@@ -103,6 +105,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
     const router = useRouter()
     const serverStatus = useServerStatus()
     const { hasStreamingEnabled } = useHasTorrentOrDebridInclusion()
+    const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
     const setActionPopupHover = useSetAtom(__mediaEntryCard_hoveredPopupId)
 
     const { selectMediaAndOpenEditor } = usePlaylistEditorManager()
@@ -164,6 +167,9 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
         return type === "anime" ? ANIME_LINK : MANGA_LINK
     }, [ANIME_LINK, MANGA_LINK, type])
 
+    const shouldWarmCollectionEntryOnViewport = !!collectionEntry || !!animeListDataFromCollection
+    const shouldBypassPreloadBudget = !!collectionEntry || !!animeListDataFromCollection || !!_listData
+
     const progressTotal = type === "anime" ? (media as AL_BaseAnime)?.episodes : (media as AL_BaseManga)?.chapters
 
     const { setPlayNext } = usePlayNext()
@@ -186,6 +192,16 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
 
     const [isHoveringCard, setIsHoveringCard] = useState(false)
     const [shouldRenderPopup, setShouldRenderPopup] = useState(false)
+
+    const warmCardEntry = React.useCallback(() => {
+        if (onClick || !shouldWarmEntryOnIntent(navigationPreloadMode)) return
+        preloadMediaEntry(link, { bypassBudget: shouldBypassPreloadBudget })
+    }, [link, navigationPreloadMode, onClick, shouldBypassPreloadBudget])
+
+    const handleCardMouseEnter = React.useCallback(() => {
+        setIsHoveringCard(true)
+        warmCardEntry()
+    }, [warmCardEntry])
 
     // Handle delayed unmount for exit animation
     React.useEffect(() => {
@@ -226,7 +242,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
             data-media-type={type}
             className={props.containerClassName}
             data-list-data={stringifiedListData}
-            onMouseEnter={() => setIsHoveringCard(true)}
+            onMouseEnter={handleCardMouseEnter}
             onMouseOver={() => setIsHoveringCard(true)}
             onMouseLeave={() => setIsHoveringCard(false)}
         >
@@ -282,6 +298,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
                                 isAdult={media.isAdult}
                                 blurAdultContent={serverStatus?.settings?.anilist?.blurAdultContent}
                                 link={link}
+                                bypassEntryPreloadBudget={shouldBypassPreloadBudget}
                                 listStatus={listData?.status}
                                 status={media.status}
                                 onClick={onClick}
@@ -294,6 +311,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
                                 season={media.season}
                                 format={media.format}
                                 link={link}
+                                bypassEntryPreloadBudget={shouldBypassPreloadBudget}
                                 onClick={onClick}
                                 // onHover={() => setHoveringTitle(true)}
                                 // onHoverLeave={() => setHoveringTitle(false)}
@@ -315,6 +333,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
 
                                 {type === "manga" && <SeaLink
                                     href={!onClick ? MANGA_LINK : undefined}
+                                    bypassEntryPreloadBudget={shouldBypassPreloadBudget}
                                     onClick={onClick}
                                     className="block w-full"
                                 >
@@ -376,6 +395,8 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
 
             <MediaEntryCardBody
                 link={link}
+                bypassEntryPreloadBudget={shouldBypassPreloadBudget}
+                warmEntryOnViewport={shouldWarmCollectionEntryOnViewport}
                 type={type}
                 title={media.title?.userPreferred || ""}
                 season={media.season}

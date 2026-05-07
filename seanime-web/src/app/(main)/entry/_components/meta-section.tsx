@@ -26,6 +26,7 @@ import { SeaLink } from "@/components/shared/sea-link"
 import { Badge } from "@/components/ui/badge"
 import { Button, ButtonProps, IconButton } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip } from "@/components/ui/tooltip"
 import { TORRENT_CLIENT } from "@/lib/server/settings"
 import { getCustomSourceExtensionId, getCustomSourceMediaSiteUrl, isCustomSource } from "@/lib/server/utils"
@@ -43,8 +44,7 @@ export function AnimeMetaActionButton({ className, ...rest }: ButtonProps) {
     const ts = useThemeSettings()
     return <Button
         className={cn(
-            "w-full",
-            "lg:w-full lg:max-w-[280px]",
+            "w-fit",
             className,
         )}
         {...rest}
@@ -52,9 +52,9 @@ export function AnimeMetaActionButton({ className, ...rest }: ButtonProps) {
     />
 }
 
-export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetailsById_Media | undefined }) {
+export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetailsById_Media | undefined, detailsLoading?: boolean }) {
     const serverStatus = useServerStatus()
-    const { entry, details } = props
+    const { entry, details, detailsLoading } = props
     const ts = useThemeSettings()
     const nakamaStatus = useNakamaStatus()
 
@@ -147,7 +147,8 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                         <MediaEntryAudienceScore meanScore={entry.media?.meanScore} badgeClass="bg-transparent border-transparent px-0" />
 
 
-                        {!isCustomSource(entry.mediaId) ? <AnimeEntryStudio studios={details?.studios} /> : (
+                        {(detailsLoading && !details) ? <Skeleton className="h-6 w-36 rounded-full opacity-70" /> : !isCustomSource(entry.mediaId) ?
+                            <AnimeEntryStudio studios={details?.studios} /> : (
                             <Badge
                                 size="lg"
                                 intent="gray"
@@ -158,7 +159,8 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                             </Badge>
                         )}
 
-                        <MediaEntryGenresList genres={details?.genres} />
+                        {(detailsLoading && !details) ? <Skeleton className="h-6 w-52 rounded-full opacity-60" /> :
+                            <MediaEntryGenresList genres={details?.genres} />}
 
                         <div
                             data-anime-meta-section-rankings-container

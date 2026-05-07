@@ -1019,6 +1019,15 @@
 //     })
 // }
 
+// export function useListAnimeEntryEpisodeTabExtensions() {
+//     return useServerQuery<Array<ExtensionRepo_PluginEpisodeTabExtensionItem>>({
+//         endpoint: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.endpoint,
+//         method: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.methods[0],
+//         queryKey: [API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.key],
+//         enabled: true,
+//     })
+// }
+
 // export function useListCustomSourceExtensions() {
 //     return useServerQuery<Array<ExtensionRepo_CustomSourceExtensionItem>>({
 //         endpoint: API_ENDPOINTS.EXTENSIONS.ListCustomSourceExtensions.endpoint,

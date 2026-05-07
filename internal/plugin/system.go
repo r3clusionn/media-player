@@ -918,18 +918,20 @@ func (a *AppContextImpl) validateCommandArgs(ext *extension.Extension, allowedAr
 
 			// Special case: $PATH allows any valid file path
 			if allowedArg.Validator == "$PATH" {
-				// Simple path validation - could be enhanced
 				if providedArgs[i] == "" {
 					return false
 				}
 
-				// Check if the path is allowed
-				if !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
+				if _, err := os.Stat(providedArgs[i]); err == nil {
+					if !a.isAllowedPath(ext, providedArgs[i], AllowPathRead) && !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
+						return false
+					}
+					continue
+				} else if !os.IsNotExist(err) {
 					return false
 				}
 
-				// Check if the path exists
-				if _, err := os.Stat(providedArgs[i]); os.IsNotExist(err) {
+				if !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
 					return false
 				}
 

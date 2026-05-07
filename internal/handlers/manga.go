@@ -65,7 +65,7 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 	return h.RespondWithData(c, mangaCollection)
 }
 
-var mangaTagsCache anilist.MediaTagMap
+var mangaTagsCache *anilist.MediaTagMap
 
 // HandleGetRawAnilistMangaCollectionTags
 //
@@ -79,7 +79,7 @@ func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
 	})
 
 	if mangaTagsCache != nil {
-		return h.RespondWithData(c, mangaTagsCache)
+		return h.RespondWithData(c, *mangaTagsCache)
 	}
 
 	userName := h.App.GetUsername()
@@ -93,7 +93,7 @@ func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
 	}
 
 	tags := anilist.MediaTagMapFromMangaCollectionTags(ret)
-	mangaTagsCache = tags
+	mangaTagsCache = &tags
 
 	return h.RespondWithData(c, tags)
 }

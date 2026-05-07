@@ -4034,6 +4034,33 @@
     }
   },
   {
+    "name": "HandleListAnimeEntryEpisodeTabExtensions",
+    "trimmedName": "ListAnimeEntryEpisodeTabExtensions",
+    "comments": [
+      "HandleListAnimeEntryEpisodeTabExtensions",
+      "",
+      "\t@summary returns the installed plugins that registered an anime entry episode tab.",
+      "\t@route /api/v1/extensions/list/anime-entry-episode-tabs [GET]",
+      "\t@returns []extension_repo.PluginEpisodeTabExtensionItem",
+      ""
+    ],
+    "filepath": "internal/handlers/extensions.go",
+    "filename": "extensions.go",
+    "api": {
+      "summary": "returns the installed plugins that registered an anime entry episode tab.",
+      "descriptions": [],
+      "endpoint": "/api/v1/extensions/list/anime-entry-episode-tabs",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "[]extension_repo.PluginEpisodeTabExtensionItem",
+      "returnGoType": "extension_repo.PluginEpisodeTabExtensionItem",
+      "returnTypescriptType": "Array\u003cExtensionRepo_PluginEpisodeTabExtensionItem\u003e"
+    }
+  },
+  {
     "name": "HandleListCustomSourceExtensions",
     "trimmedName": "ListCustomSourceExtensions",
     "comments": [

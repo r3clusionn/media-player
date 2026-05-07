@@ -127,6 +127,17 @@ func (u *UI) Destroyed() <-chan struct{} {
 	return u.destroyedCh
 }
 
+func (u *UI) ListAnimeEntryEpisodeTabs() []*EpisodeTabItem {
+	u.mu.RLock()
+	defer u.mu.RUnlock()
+
+	if u.destroyed || u.context == nil || u.context.episodeTabManager == nil {
+		return nil
+	}
+
+	return u.context.episodeTabManager.ListTabs()
+}
+
 // signalDestroyed tells the plugin that the UI has been destroyed.
 // This is used to interrupt the Plugin when the UI is stopped
 // TODO: FIX

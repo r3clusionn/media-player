@@ -1,4 +1,5 @@
 import { AL_AnimeDetailsById_Media, AL_MangaDetailsById_Media } from "@/api/generated/types"
+import { MediaEntryDetailsSkeleton } from "@/app/(main)/_features/media/_components/media-entry-page-loading-display"
 import { imageShimmer } from "@/components/shared/image-helpers"
 import { SeaImage } from "@/components/shared/sea-image"
 import { SeaLink } from "@/components/shared/sea-link"
@@ -10,6 +11,7 @@ import { BiSolidHeart } from "react-icons/bi"
 type RelationsRecommendationsSectionProps = {
     details: AL_AnimeDetailsById_Media | AL_MangaDetailsById_Media | undefined
     isMangaPage?: boolean
+    loading?: boolean
 }
 
 export function MediaEntryCharactersSection(props: RelationsRecommendationsSectionProps) {
@@ -17,6 +19,7 @@ export function MediaEntryCharactersSection(props: RelationsRecommendationsSecti
     const {
         details,
         isMangaPage,
+        loading,
         ...rest
     } = props
 
@@ -26,10 +29,11 @@ export function MediaEntryCharactersSection(props: RelationsRecommendationsSecti
         return details?.characters?.edges?.filter(n => n.role === "MAIN" || n.role === "SUPPORTING") || []
     }, [details?.characters?.edges])
 
+    if (loading && !details) return <MediaEntryDetailsSkeleton isMangaPage={isMangaPage} showCards={false} />
     if (characters.length === 0) return null
 
     return (
-        <>
+        <div className="space-y-4 animate-in fade-in-0 duration-200">
             {/*{!isMangaPage && <Separator />}*/}
 
             <h2 data-media-entry-characters-section-title>Characters</h2>
@@ -111,6 +115,6 @@ export function MediaEntryCharactersSection(props: RelationsRecommendationsSecti
                     </div>
                 })}
             </div>
-        </>
+        </div>
     )
 }

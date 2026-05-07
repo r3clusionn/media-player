@@ -23,7 +23,7 @@ export function EpisodeCardImage(props: EpisodeCardImageProps) {
     const imageRef = React.useRef<HTMLImageElement | null>(null)
 
     React.useEffect(() => {
-        setLoaded(false)
+        setLoaded(disabled)
     }, [src])
 
     React.useEffect(() => {
@@ -57,7 +57,7 @@ export function EpisodeCardImage(props: EpisodeCardImageProps) {
                     className,
                     "transition-[opacity,transform] ease-out motion-reduce:transition-none",
                     faster ? "duration-200" : "duration-400",
-                    loaded ? loadedClassName : "opacity-0 scale-[0.95]",
+                    loaded ? loadedClassName : "opacity-0 scale-[0.97]",
                 )}
             />
         </>

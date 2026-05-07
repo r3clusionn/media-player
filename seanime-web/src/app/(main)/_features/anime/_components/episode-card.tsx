@@ -2,6 +2,7 @@ import { Anime_Episode } from "@/api/generated/types"
 import { EpisodeCardImage } from "@/app/(main)/_features/anime/_components/episode-card-image"
 import { SeaContextMenu } from "@/app/(main)/_features/context-menu/sea-context-menu"
 import { EpisodeItemBottomGradient } from "@/app/(main)/_features/custom-ui/item-bottom-gradients"
+import { MediaEntryCardAdultVeil } from "@/app/(main)/_features/media/_components/media-entry-card-components"
 import { useMediaPreviewModal } from "@/app/(main)/_features/media/_containers/media-preview-modal"
 import { usePlaylistEditorManager } from "@/app/(main)/_features/playlists/lib/playlist-editor-manager"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
@@ -44,6 +45,7 @@ type EpisodeCardProps = {
     length?: string | number | null
     imageClass?: string
     badge?: React.ReactNode
+    isAdult?: boolean
     percentageComplete?: number
     minutesRemaining?: number
     allowAnimeInfo?: boolean
@@ -86,6 +88,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
         length,
         imageClass,
         badge,
+        isAdult,
         percentageComplete,
         minutesRemaining,
         allowAnimeInfo,
@@ -127,6 +130,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
     const displayImage = spoiler.replaceImage
         ? spoilerSafeImage || getSpoilerFreeAnimeImage(episode?.baseAnime) || anime?.image || image
         : image
+    const showAdultVeil = !!serverStatus?.settings?.anilist?.blurAdultContent && !!(isAdult ?? episode?.baseAnime?.isAdult)
 
     const Meta = () => (
         <div data-episode-card-info-container className="relative z-[3] w-full space-y-0">
@@ -240,6 +244,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             className="object-cover rounded-xl object-center"
                             loadedClassName={cn(
                                 "opacity-100 scale-100 lg:group-hover/episode-card:scale-[1.02]",
+                                showAdultVeil && "opacity-80",
                                 spoiler.blurImage && "blur-2xl scale-110 lg:group-hover/episode-card:scale-110",
                                 imageClass,
                             )}
@@ -247,6 +252,14 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             data-episode-card-image-bottom-gradient
                             className="h-full block rounded-xl absolute w-full bg-gradient-to-t from-gray-800 to-transparent z-[2]"
                         ></div>}
+
+                        {showAdultVeil && (
+                            <MediaEntryCardAdultVeil
+                                data-episode-card-adult-content-overlay
+                                className="z-[2]"
+                            />
+                        )}
+
                         {/*[CUSTOM UI] BOTTOM GRADIENT*/}
                         <EpisodeItemBottomGradient isSingleContainer={isSingleContainer} className="rounded-b-xl" />
 

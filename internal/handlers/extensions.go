@@ -309,6 +309,16 @@ func (h *Handler) HandleListAnimeTorrentProviderExtensions(c echo.Context) error
 	return h.RespondWithData(c, extensions)
 }
 
+// HandleListAnimeEntryEpisodeTabExtensions
+//
+//	@summary returns the installed plugins that registered an anime entry episode tab.
+//	@route /api/v1/extensions/list/anime-entry-episode-tabs [GET]
+//	@returns []extension_repo.PluginEpisodeTabExtensionItem
+func (h *Handler) HandleListAnimeEntryEpisodeTabExtensions(c echo.Context) error {
+	extensions := h.App.ExtensionRepository.ListAnimeEntryEpisodeTabExtensions()
+	return h.RespondWithData(c, extensions)
+}
+
 // HandleListCustomSourceExtensions
 //
 //	@summary returns the installed torrent providers.

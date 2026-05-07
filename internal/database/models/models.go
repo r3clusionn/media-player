@@ -101,7 +101,8 @@ type LibrarySettings struct {
 	ScannerConfig            string `gorm:"column:scanner_config" json:"scannerConfig"`
 	UpdateChannel            string `gorm:"column:update_channel" json:"updateChannel"` // "github", "seanime", "seanime_nightly"
 	// v3.7.0+
-	EnableExtensionSecureMode bool `gorm:"column:enable_extension_secure_mode" json:"enableExtensionSecureMode"`
+	EnableExtensionSecureMode bool   `gorm:"column:enable_extension_secure_mode" json:"enableExtensionSecureMode"`
+	DefaultPlaybackSource     string `gorm:"column:default_playback_source" json:"defaultPlaybackSource"` // "", "library", "torrentstream", "debridstream", "onlinestream", "ext:[extensionId]"
 }
 
 func (o *LibrarySettings) GetLibraryPaths() (ret []string) {

@@ -4,10 +4,11 @@ import { Alert } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
 import { defineSchema, Field, Form } from "@/components/ui/form"
+import { RadioGroup } from "@/components/ui/radio-group"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ANIME_COLLECTION_SORTING_OPTIONS, CONTINUE_WATCHING_SORTING_OPTIONS, MANGA_COLLECTION_SORTING_OPTIONS } from "@/lib/helpers/filtering"
-import { __navigationPreloadingDisabledAtom } from "@/lib/navigation-preload-settings"
+import { __navigationPreloadModeAtom, NavigationPreloadMode } from "@/lib/navigation-preload-settings"
 import { THEME_COLOR_BANK } from "@/lib/theme/theme-bank"
 import {
     THEME_DEFAULT_VALUES,
@@ -222,6 +223,79 @@ const bannerSizeOptions = ThemeMediaPageBannerSizeOptions.map(n => ({
     ),
 }))
 
+function NavigationPreloadThumb({ mode }: { mode: NavigationPreloadMode }) {
+    switch (mode) {
+        case "disable":
+            return (
+                <SelThumb>
+                    <div className="absolute inset-0 bg-gray-950" />
+                    <div className="absolute left-1 top-1 h-1 w-4 rounded-full bg-gray-700/65" />
+                    <div className="absolute left-1 top-3 h-1 w-6 rounded-full bg-gray-700/45" />
+                    <div className="absolute right-1 top-1.5 h-4 w-3 rounded-sm border border-gray-400/40 bg-gray-500/25" />
+                    <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
+                        <div className="h-px w-11 bg-white/25 rotate-[20deg] origin-left" />
+                    </div>
+                </SelThumb>
+            )
+        case "faster":
+            return (
+                <SelThumb>
+                    <div className="absolute inset-0 bg-gray-950" />
+                    <div className="absolute left-1 top-1 h-1 w-4 rounded-full bg-gray-700/65" />
+                    <div className="absolute left-1 top-3 h-1 w-6 rounded-full bg-gray-700/45" />
+                    <div className="absolute right-1 top-1.5 h-4 w-3 rounded-sm border border-brand-400/40 bg-brand-500/25" />
+                    <div className="absolute right-2 top-2.5 h-px w-4 bg-brand-300/80" />
+                </SelThumb>
+            )
+        case "viewport":
+            return (
+                <SelThumb>
+                    <div className="absolute inset-0 bg-gray-950" />
+                    <div className="absolute inset-1 rounded-sm border border-white/[0.07]" />
+                    <div className="absolute left-6 top-1.5 h-4 w-3 rounded-sm bg-brand-500/30 border border-brand-400/30" />
+                    <div className="absolute left-2 top-1.5 h-4 w-3 rounded-sm bg-brand-500/20 border border-brand-400/20" />
+                </SelThumb>
+            )
+        default:
+            return (
+                <SelThumb>
+                    <div className="absolute inset-0 bg-gray-950" />
+                    <div className="absolute left-1 top-1 h-1 w-4 rounded-full bg-gray-700/70" />
+                    <div className="absolute left-1 top-3 h-1 w-6 rounded-full bg-gray-700/50" />
+                    <div className="absolute right-1 top-1 h-4 w-3 rounded-sm border border-brand-400/35 bg-brand-500/25" />
+                    <div className="absolute right-2.5 top-2 h-1.5 w-1.5 rounded-full bg-brand-300/80" />
+                </SelThumb>
+            )
+    }
+}
+
+const navigationPreloadOptions: Array<{
+    value: NavigationPreloadMode
+    title: string
+    description?: string
+}> = [
+    {
+        value: "disable",
+        title: "Disabled",
+        description: "No preloading",
+    },
+    {
+        value: "default",
+        title: "Intent",
+        description: "Preload on hover",
+    },
+    {
+        value: "faster",
+        title: "Faster Intent",
+        description: "Preload more aggressively",
+    },
+    {
+        value: "viewport",
+        title: "Viewport",
+        description: "When visible in the viewport",
+    },
+]
+
 
 // smaller thumbnail for Field.Switch label prop
 function SwThumb({ children }: { children?: React.ReactNode }) {
@@ -249,7 +323,7 @@ export function UISettings() {
 
     const { mutate, isPending } = useUpdateTheme()
     const [fixBorderRenderingArtifacts, setFixBorerRenderingArtifacts] = useAtom(__ui_fixBorderRenderingArtifacts)
-    const [disableNavigationPreloading, setDisableNavigationPreloading] = useAtom(__navigationPreloadingDisabledAtom)
+    const [navigationPreloadMode, setNavigationPreloadMode] = useAtom(__navigationPreloadModeAtom)
     const [enableLivePreview, setEnableLivePreview] = useState(false)
 
     const [tab, setTab] = useAtom(selectUISettingTabAtom)
@@ -441,12 +515,12 @@ export function UISettings() {
                         triggerClass={tabsTriggerClass}
                         listClass={tabsListClass}
                     >
-                        <TabsList className="flex-wrap max-w-full bg-[--paper] p-2 border rounded-xl">
+                        <TabsList data-settings-ui-panel-tabs className="flex-wrap max-w-full bg-[--paper] p-2 border rounded-xl">
                             <TabsTrigger value="main">General</TabsTrigger>
                             <TabsTrigger value="css">CSS</TabsTrigger>
                         </TabsList>
 
-                        <TabsContent value="css" className={tabContentClass}>
+                        <TabsContent value="css" className={cn(tabContentClass)} data-settings-ui-panel-css>
 
                             <SettingsCard>
 
@@ -497,7 +571,7 @@ export function UISettings() {
 
                         </TabsContent>
 
-                        <TabsContent value="main" className={tabContentClass}>
+                        <TabsContent value="main" className={tabContentClass} data-settings-ui-panel-general>
 
                             <SettingsCard title="Sorting">
 
@@ -723,23 +797,43 @@ export function UISettings() {
 
                             <SettingsCard title="Tweaks">
 
-                                <Switch
-                                    side="right"
-                                    label={swLabel(
-                                        <SwThumb>
-                                            <div className="absolute inset-0 bg-gray-950" />
-                                            <div className="absolute left-1 top-1 right-1 h-1 rounded-full bg-gray-700/70" />
-                                            <div className="absolute left-1 top-3 right-3 h-1 rounded-full bg-gray-700/50" />
-                                            <div className="absolute bottom-1 right-1 h-2 w-2 rounded-full border border-brand-400/60 bg-brand-500/30" />
-                                            <div className="absolute top-0 left-0 right-0 bottom-0 flex items-start justify-start pt-1.5 pl-0.5">
-                                                <div className="h-px w-9 bg-white/25 rotate-[20deg] origin-left" />
+                                <RadioGroup
+                                    label="Navigation preloading"
+                                    value={navigationPreloadMode}
+                                    onValueChange={(value) => setNavigationPreloadMode(value as NavigationPreloadMode)}
+                                    options={navigationPreloadOptions.map(option => ({
+                                        value: option.value,
+                                        label: (
+                                            <div className="flex items-center gap-3 text-left flex-none">
+                                                <NavigationPreloadThumb mode={option.value} />
+                                                <span className="flex flex-col gap-0.5">
+                                                    <span>{option.title}</span>
+                                                    <span className="text-xs leading-4 text-[--muted] data-[state=checked]:text-[--muted]">
+                                                        {option.description}
+                                                    </span>
+                                                </span>
                                             </div>
-                                        </SwThumb>,
-                                        "Disable navigation preloading",
+                                        ),
+                                    }))}
+                                    fieldClass="settings-ui-navigation-preloading"
+                                    itemContainerClass={cn(
+                                        "cursor-pointer transition border-transparent rounded-[--radius] p-3 w-full md:w-fit",
+                                        "bg-transparent dark:hover:bg-gray-900 dark:bg-transparent",
+                                        "data-[state=checked]:bg-brand-500/5 dark:data-[state=checked]:bg-gray-900",
+                                        "focus:ring-2 ring-brand-100 dark:ring-brand-900 ring-offset-1 ring-offset-[--background] focus-within:ring-transparent transition",
+                                        "dark:border dark:data-[state=checked]:border-[--border] data-[state=checked]:ring-offset-0",
+                                        "items-center",
                                     )}
-                                    value={disableNavigationPreloading}
-                                    onValueChange={setDisableNavigationPreloading}
-                                    help="Stops page and entry warmups on this client."
+                                    itemClass={cn(
+                                        "border-transparent absolute top-2 right-2 bg-transparent dark:bg-transparent dark:data-[state=unchecked]:bg-transparent",
+                                        "data-[state=unchecked]:bg-transparent data-[state=unchecked]:hover:bg-transparent dark:data-[state=unchecked]:hover:bg-transparent",
+                                        "focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:ring-offset-transparent",
+                                    )}
+                                    itemIndicatorClass="hidden"
+                                    itemLabelClass="font-medium justify-center flex flex-col items-center data-[state=unchecked]:hover:text-[--foreground] data-[state=checked]:text-[--brand] text-[--muted] cursor-pointer"
+                                    // stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
+                                    stackClass={cn("flex flex-col md:flex-row gap-2 space-y-0 flex-wrap")}
+                                    help="Applies to media pages on this client. Preloading can cause you to hit rate limits faster."
                                 />
 
                                 <Field.Switch
@@ -947,11 +1041,12 @@ export function UISettings() {
                                     side="right"
                                     label={swLabel(
                                         <SwThumb>
-                                            <div className="absolute left-0 top-0 bottom-0 w-2.5 bg-gray-800" />
-                                            <div className="absolute left-0 top-0 bottom-0 w-5 bg-gray-700/30 border-r border-brand-500/20" />
-                                            <div className="absolute left-6 top-1 right-0.5 bottom-1 flex flex-col gap-0.5">
-                                                <div className="h-px bg-white/15 rounded" />
-                                                <div className="h-px w-2/3 bg-white/10 rounded" />
+                                            <div className="absolute inset-0 bg-gradient-to-br from-gray-600/30 to-gray-950" />
+                                            <div className="absolute left-0 top-0 bottom-0 w-6 bg-gray-950 border-r" />
+                                            <div className="absolute left-1 top-1.5 flex flex-col gap-0.5">
+                                                <div className="h-0.5 w-1.5 bg-white/30 rounded" />
+                                                <div className="h-0.5 w-1.5 bg-white/20 rounded" />
+                                                <div className="h-0.5 w-1.5 bg-white/20 rounded" />
                                             </div>
                                         </SwThumb>,
                                         "Expand sidebar on hover",

@@ -1,11 +1,24 @@
 import { cn } from "@/components/ui/core/styling"
 import { preloadMediaEntry } from "@/lib/entry-preloader"
-import { __navigationPreloadingDisabledAtom } from "@/lib/navigation-preload-settings"
+import {
+    __navigationPreloadModeAtom,
+    getNavigationPreloadDelay,
+    getNavigationRoutePreload,
+    getNavigationWarmDelay,
+    isNavigationPreloadingEnabled,
+    shouldWarmEntryOnIntent,
+    shouldWarmEntryOnViewport,
+} from "@/lib/navigation-preload-settings"
 import { Link } from "@tanstack/react-router"
 import { useAtomValue } from "jotai/react"
 import React from "react"
 
-type SeaLinkProps = React.ComponentPropsWithRef<"a"> & { href: string | undefined, resetScroll?: boolean }
+type SeaLinkProps = React.ComponentPropsWithRef<"a"> & {
+    href: string | undefined
+    resetScroll?: boolean
+    bypassEntryPreloadBudget?: boolean
+    warmEntryOnViewport?: boolean
+}
 
 export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props, ref) => {
     const {
@@ -19,20 +32,39 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
         onMouseLeave,
         onTouchStart,
         resetScroll = true,
+        bypassEntryPreloadBudget = false,
+        warmEntryOnViewport = false,
         ...rest
     } = props
 
     // const navigate = useNavigate()
 
     const isExternal = href?.startsWith("http") || href?.startsWith("mailto")
-    const disableNavigationPreloading = useAtomValue(__navigationPreloadingDisabledAtom)
+    const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
+    const preload = getNavigationRoutePreload(navigationPreloadMode)
+    const preloadDelay = getNavigationPreloadDelay(navigationPreloadMode)
+    const preloadingEnabled = isNavigationPreloadingEnabled(navigationPreloadMode)
+    const linkRef = React.useRef<HTMLAnchorElement | null>(null)
 
     const hoverPreloadTimer = React.useRef<number | undefined>(undefined)
 
     const warmEntry = React.useCallback(() => {
-        if (disableNavigationPreloading) return
-        preloadMediaEntry(href)
-    }, [disableNavigationPreloading, href])
+        if (!preloadingEnabled) return
+        preloadMediaEntry(href, { bypassBudget: bypassEntryPreloadBudget })
+    }, [bypassEntryPreloadBudget, preloadingEnabled, href])
+
+    const setRefs = React.useCallback((node: HTMLAnchorElement | null) => {
+        linkRef.current = node
+
+        if (typeof ref === "function") {
+            ref(node)
+            return
+        }
+
+        if (ref) {
+            ref.current = node
+        }
+    }, [ref])
 
     const clearHoverPreload = React.useCallback(() => {
         if (!hoverPreloadTimer.current) return
@@ -42,14 +74,42 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
 
     React.useEffect(() => clearHoverPreload, [clearHoverPreload])
 
+    React.useEffect(() => {
+        const shouldObserveViewport = shouldWarmEntryOnViewport(navigationPreloadMode) || (warmEntryOnViewport && shouldWarmEntryOnIntent(
+            navigationPreloadMode))
+        if (!shouldObserveViewport) return
+        if (!href || isExternal) return
+        if (typeof IntersectionObserver === "undefined") return
+
+        const node = linkRef.current
+        if (!node) return
+
+        const observer = new IntersectionObserver((entries) => {
+            if (!entries.some(entry => entry.isIntersecting)) return
+
+            observer.disconnect()
+            warmEntry()
+        }, {
+            rootMargin: "120px 0px",
+        })
+
+        observer.observe(node)
+        return () => observer.disconnect()
+    }, [href, isExternal, navigationPreloadMode, warmEntry, warmEntryOnViewport])
+
     const handleMouseEnter = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
+        if (!shouldWarmEntryOnIntent(navigationPreloadMode)) {
+            onMouseEnter?.(event)
+            return
+        }
+
         clearHoverPreload()
         hoverPreloadTimer.current = window.setTimeout(() => {
             hoverPreloadTimer.current = undefined
             warmEntry()
-        }, 350)
+        }, getNavigationWarmDelay(navigationPreloadMode))
         onMouseEnter?.(event)
-    }, [clearHoverPreload, warmEntry, onMouseEnter])
+    }, [clearHoverPreload, navigationPreloadMode, onMouseEnter, warmEntry])
 
     const handleMouseLeave = React.useCallback((event: React.MouseEvent<HTMLAnchorElement>) => {
         clearHoverPreload()
@@ -57,9 +117,11 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
     }, [clearHoverPreload, onMouseLeave])
 
     const handleFocus = React.useCallback((event: React.FocusEvent<HTMLAnchorElement>) => {
-        warmEntry()
+        if (shouldWarmEntryOnIntent(navigationPreloadMode)) {
+            warmEntry()
+        }
         onFocus?.(event)
-    }, [warmEntry, onFocus])
+    }, [navigationPreloadMode, onFocus, warmEntry])
 
     const handleTouchStart = React.useCallback((event: React.TouchEvent<HTMLAnchorElement>) => {
         warmEntry()
@@ -105,9 +167,11 @@ export const SeaLink = React.forwardRef<HTMLAnchorElement, SeaLinkProps>((props,
 
     return (
         <Link
+            ref={setRefs}
             to={pathname}
             search={Object.keys(searchParams).length > 0 ? () => searchParams : undefined}
-            preload={disableNavigationPreloading ? false : "intent"}
+            preload={preload}
+            preloadDelay={preload === "intent" ? preloadDelay : undefined}
             className={cn("cursor-pointer", className)}
             resetScroll={resetScroll}
             onClick={onClick}

@@ -69,6 +69,13 @@ func (p *GojaPlugin) GetExtension() *extension.Extension {
 	return p.ext
 }
 
+func (p *GojaPlugin) ListAnimeEntryEpisodeTabs() []*plugin_ui.EpisodeTabItem {
+	if p.ui == nil {
+		return nil
+	}
+	return p.ui.ListAnimeEntryEpisodeTabs()
+}
+
 func (p *GojaPlugin) PutVM(vm *goja.Runtime) {
 	p.pool.Put(vm)
 }

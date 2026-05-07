@@ -1,5 +1,5 @@
 import { preloadMediaEntry } from "@/lib/entry-preloader"
-import { __navigationPreloadingDisabledAtom } from "@/lib/navigation-preload-settings"
+import { __navigationPreloadModeAtom, isNavigationPreloadingEnabled } from "@/lib/navigation-preload-settings"
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useAtomValue } from "jotai/react"
 import { useMemo } from "react"
@@ -24,7 +24,7 @@ function parseHref(href: string) {
 export function useRouter() {
     const navigate = useNavigate()
     const location = useLocation()
-    const disableNavigationPreloading = useAtomValue(__navigationPreloadingDisabledAtom)
+    const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
 
     const handleNavigation = (
         href: string,
@@ -39,7 +39,7 @@ export function useRouter() {
         // default to true (scroll to top) if neither is specified
         const shouldScroll = options?.resetScroll ?? options?.scroll ?? true
 
-        if (!disableNavigationPreloading) {
+        if (isNavigationPreloadingEnabled(navigationPreloadMode)) {
             preloadMediaEntry(href)
         }
 

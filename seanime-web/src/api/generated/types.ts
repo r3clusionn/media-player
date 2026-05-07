@@ -2583,6 +2583,19 @@ export type ExtensionRepo_OnlinestreamProviderExtensionItem = {
 }
 
 /**
+ * - Filepath: internal/extension_repo/external_plugin.go
+ * - Filename: external_plugin.go
+ * - Package: extension_repo
+ */
+export type ExtensionRepo_PluginEpisodeTabExtensionItem = {
+    id: string
+    name: string
+    icon?: string
+    tabName: string
+    tabIcon?: string
+}
+
+/**
  * - Filepath: internal/extension_repo/external.go
  * - Filename: external.go
  * - Package: extension_repo
@@ -3852,6 +3865,10 @@ export type Models_LibrarySettings = {
      */
     updateChannel: string
     enableExtensionSecureMode: boolean
+    /**
+     * "", "library", "torrentstream", "debridstream", "onlinestream", "ext:[extensionId]"
+     */
+    defaultPlaybackSource: string
 }
 
 /**

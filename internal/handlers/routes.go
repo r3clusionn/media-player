@@ -505,6 +505,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1Extensions.GET("/list/manga-provider", h.HandleListMangaProviderExtensions)
 	v1Extensions.GET("/list/onlinestream-provider", h.HandleListOnlinestreamProviderExtensions)
 	v1Extensions.GET("/list/anime-torrent-provider", h.HandleListAnimeTorrentProviderExtensions)
+	v1Extensions.GET("/list/anime-entry-episode-tabs", h.HandleListAnimeEntryEpisodeTabExtensions)
 	v1Extensions.GET("/list/custom-source", h.HandleListCustomSourceExtensions)
 	v1Extensions.GET("/user-config/:id", h.HandleGetExtensionUserConfig)
 	v1Extensions.POST("/user-config", h.HandleSaveExtensionUserConfig)

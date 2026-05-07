@@ -1,6 +1,6 @@
 import { buildSeaQuery } from "@/api/client/requests"
 import { API_ENDPOINTS } from "@/api/generated/endpoints"
-import { AL_AnimeDetailsById_Media, AL_MangaDetailsById_Media, Anime_Entry, Manga_Entry, Nullish } from "@/api/generated/types"
+import { Anime_Entry, Manga_Entry, Nullish } from "@/api/generated/types"
 import type { QueryClient } from "@tanstack/react-query"
 
 type EntryPreloadType = "anime" | "manga"
@@ -10,11 +10,16 @@ type EntryPreloadTarget = {
     id: string
 }
 
+type EntryPreloadOptions = {
+    bypassBudget?: boolean
+}
+
 export const ENTRY_PRELOAD_STALE_TIME = 10 * 1000
 const ENTRY_PRELOAD_GC_TIME = 90 * 1000
-const TOKEN_CAPACITY = 1
+// dense grids and viewport preloading can surface a lot of entry cards at once
+const TOKEN_CAPACITY = 10
 const TOKEN_REFILL_MS = 6000
-const MAX_QUEUED_PRELOADS = 4
+const MAX_QUEUED_PRELOADS = 24
 
 let tokens = TOKEN_CAPACITY
 let lastRefill = Date.now()
@@ -66,16 +71,8 @@ function getAnimeEntryQueryKey(id: string) {
     return [API_ENDPOINTS.ANIME_ENTRIES.GetAnimeEntry.key, id]
 }
 
-function getAnimeDetailsQueryKey(id: string) {
-    return [API_ENDPOINTS.ANILIST.GetAnilistAnimeDetails.key, id]
-}
-
 function getMangaEntryQueryKey(id: string) {
     return [API_ENDPOINTS.MANGA.GetMangaEntry.key, id]
-}
-
-function getMangaDetailsQueryKey(id: string) {
-    return [API_ENDPOINTS.MANGA.GetMangaEntryDetails.key, id]
 }
 
 function isQueryFresh(queryKey: Array<string>) {
@@ -89,11 +86,12 @@ function isWarm(target: EntryPreloadTarget) {
     const warmed = warmedAt.get(getTargetKey(target))
     if (warmed && Date.now() - warmed < ENTRY_PRELOAD_STALE_TIME) return true
 
+    // only the main entry payload participates here so the page shell can render before details
     if (target.type === "anime") {
-        return isQueryFresh(getAnimeEntryQueryKey(target.id)) && isQueryFresh(getAnimeDetailsQueryKey(target.id))
+        return isQueryFresh(getAnimeEntryQueryKey(target.id))
     }
 
-    return isQueryFresh(getMangaEntryQueryKey(target.id)) && isQueryFresh(getMangaDetailsQueryKey(target.id))
+    return isQueryFresh(getMangaEntryQueryKey(target.id))
 }
 
 function refillTokens() {
@@ -116,6 +114,7 @@ function takeToken() {
 function scheduleQueue() {
     if (queueTimer || queued.size === 0 || typeof window === "undefined") return
 
+    // keep hover and viewport warming even when a whole card row becomes visible together
     refillTokens()
     const delay = tokens > 0 ? 0 : Math.max(100, TOKEN_REFILL_MS - (Date.now() - lastRefill))
     queueTimer = window.setTimeout(drainQueue, delay)
@@ -153,51 +152,27 @@ async function runEntryPreload(target: EntryPreloadTarget) {
         const password = getAuthToken()
 
         if (target.type === "anime") {
-            await Promise.all([
-                preloaderQueryClient.prefetchQuery<Anime_Entry | undefined>({
-                    queryKey: getAnimeEntryQueryKey(target.id),
-                    queryFn: () => buildSeaQuery<Anime_Entry>({
-                        endpoint: API_ENDPOINTS.ANIME_ENTRIES.GetAnimeEntry.endpoint.replace("{id}", target.id),
-                        method: API_ENDPOINTS.ANIME_ENTRIES.GetAnimeEntry.methods[0],
-                        password,
-                    }),
-                    staleTime: ENTRY_PRELOAD_STALE_TIME,
-                    gcTime: ENTRY_PRELOAD_GC_TIME,
+            await preloaderQueryClient.prefetchQuery<Anime_Entry | undefined>({
+                queryKey: getAnimeEntryQueryKey(target.id),
+                queryFn: () => buildSeaQuery<Anime_Entry>({
+                    endpoint: API_ENDPOINTS.ANIME_ENTRIES.GetAnimeEntry.endpoint.replace("{id}", target.id),
+                    method: API_ENDPOINTS.ANIME_ENTRIES.GetAnimeEntry.methods[0],
+                    password,
                 }),
-                preloaderQueryClient.prefetchQuery<AL_AnimeDetailsById_Media | undefined>({
-                    queryKey: getAnimeDetailsQueryKey(target.id),
-                    queryFn: () => buildSeaQuery<AL_AnimeDetailsById_Media>({
-                        endpoint: API_ENDPOINTS.ANILIST.GetAnilistAnimeDetails.endpoint.replace("{id}", target.id),
-                        method: API_ENDPOINTS.ANILIST.GetAnilistAnimeDetails.methods[0],
-                        password,
-                    }),
-                    staleTime: ENTRY_PRELOAD_STALE_TIME,
-                    gcTime: ENTRY_PRELOAD_GC_TIME,
-                }),
-            ])
+                staleTime: ENTRY_PRELOAD_STALE_TIME,
+                gcTime: ENTRY_PRELOAD_GC_TIME,
+            })
         } else {
-            await Promise.all([
-                preloaderQueryClient.prefetchQuery<Manga_Entry | undefined>({
-                    queryKey: getMangaEntryQueryKey(target.id),
-                    queryFn: () => buildSeaQuery<Manga_Entry>({
-                        endpoint: API_ENDPOINTS.MANGA.GetMangaEntry.endpoint.replace("{id}", target.id),
-                        method: API_ENDPOINTS.MANGA.GetMangaEntry.methods[0],
-                        password,
-                    }),
-                    staleTime: ENTRY_PRELOAD_STALE_TIME,
-                    gcTime: ENTRY_PRELOAD_GC_TIME,
+            await preloaderQueryClient.prefetchQuery<Manga_Entry | undefined>({
+                queryKey: getMangaEntryQueryKey(target.id),
+                queryFn: () => buildSeaQuery<Manga_Entry>({
+                    endpoint: API_ENDPOINTS.MANGA.GetMangaEntry.endpoint.replace("{id}", target.id),
+                    method: API_ENDPOINTS.MANGA.GetMangaEntry.methods[0],
+                    password,
                 }),
-                preloaderQueryClient.prefetchQuery<AL_MangaDetailsById_Media | undefined>({
-                    queryKey: getMangaDetailsQueryKey(target.id),
-                    queryFn: () => buildSeaQuery<AL_MangaDetailsById_Media>({
-                        endpoint: API_ENDPOINTS.MANGA.GetMangaEntryDetails.endpoint.replace("{id}", target.id),
-                        method: API_ENDPOINTS.MANGA.GetMangaEntryDetails.methods[0],
-                        password,
-                    }),
-                    staleTime: ENTRY_PRELOAD_STALE_TIME,
-                    gcTime: ENTRY_PRELOAD_GC_TIME,
-                }),
-            ])
+                staleTime: ENTRY_PRELOAD_STALE_TIME,
+                gcTime: ENTRY_PRELOAD_GC_TIME,
+            })
         }
 
         warmedAt.set(key, Date.now())
@@ -210,12 +185,21 @@ async function runEntryPreload(target: EntryPreloadTarget) {
     }
 }
 
-export function preloadMediaEntry(href: Nullish<string>) {
+export function preloadMediaEntry(href: Nullish<string>, options?: EntryPreloadOptions) {
     const target = getEntryPreloadTarget(href)
     if (!target) return
 
     const key = getTargetKey(target)
-    if (inFlight.has(key) || queued.has(key) || isWarm(target)) return
+    if (inFlight.has(key) || isWarm(target)) return
+
+    // collection-backed cards can skip the budget
+    if (options?.bypassBudget) {
+        queued.delete(key)
+        void runEntryPreload(target)
+        return
+    }
+
+    if (queued.has(key)) return
 
     if (takeToken()) {
         void runEntryPreload(target)

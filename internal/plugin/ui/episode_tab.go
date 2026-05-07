@@ -67,6 +67,18 @@ func (m *EpisodeTabManager) UnmountAll() {
 	}
 }
 
+func (m *EpisodeTabManager) ListTabs() []*EpisodeTabItem {
+	tabs := make([]*EpisodeTabItem, 0)
+	m.tabs.Range(func(_ string, tab *EpisodeTab) bool {
+		tabs = append(tabs, &EpisodeTabItem{
+			Name: tab.Name,
+			Icon: tab.Icon,
+		})
+		return true
+	})
+	return tabs
+}
+
 func (m *EpisodeTabManager) jsRegisterEntryEpisodeTab(call goja.FunctionCall) goja.Value {
 	if len(call.Arguments) < 1 {
 		m.ctx.handleTypeError("registerEntryEpisodeTab requires an options object")
@@ -247,13 +259,7 @@ func (m *EpisodeTabManager) renderSelectTabs(t []*EpisodeTab) {
 }
 
 func (m *EpisodeTabManager) renderTabs() {
-	tabs := make([]*EpisodeTab, 0)
-	m.tabs.Range(func(_ string, tab *EpisodeTab) bool {
-		tabs = append(tabs, tab)
-		return true
-	})
-
-	m.renderSelectTabs(tabs)
+	m.renderSelectTabs(m.tabs.Values())
 }
 
 func (m *EpisodeTabManager) setIsOpen(tab *EpisodeTab, isOpen bool) {

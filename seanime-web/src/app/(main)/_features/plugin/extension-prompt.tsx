@@ -129,11 +129,11 @@ export function ExtensionPrompt() {
                         )}
                     </div>
 
-                    <p className="text-sm text-[--muted] mb-2 text-pretty break-all">
-                        {prompt.extension?.name || "An extension"} would like to perform the following action{!!prompt.resource
-                        ? ` on "${prompt.resource}"`
-                        : ""}:
-                    </p>
+                    {/*<p className="text-sm text-[--muted] mb-2 text-pretty break-all">*/}
+                    {/*    {prompt.extension?.name || "An extension"} would like to perform the following action{!!prompt.resource*/}
+                    {/*    ? ` on "${prompt.resource}"`*/}
+                    {/*    : ""}:*/}
+                    {/*</p>*/}
 
                     <p
                         className={cn(
@@ -151,9 +151,9 @@ export function ExtensionPrompt() {
                      )} */}
 
                     {!!prompt.details?.length && (
-                        <div className="mt-5 max-h-32 overflow-y-auto rounded-xl border bg-[--paper] p-3 text-sm max-w-full space-y-1.5">
+                        <div className="mt-5 max-h-32 overflow-y-auto rounded-xl border bg-[--paper] p-3 text-sm max-w-full space-y-1.5 select-text">
                             {prompt.details.map(detail => (
-                                <div key={detail} className="line-clamp-3 break-all">
+                                <div key={detail} className="line-clamp-10 break-all">
                                     {detail}
                                 </div>
                             ))}

@@ -465,7 +465,7 @@ export function MediaPageHeaderEntryDetails(props: MediaPageHeaderEntryDetailsPr
                                     : ""}
                                 </p>
 
-                                {((status !== "FINISHED" && type === "anime") || type === "manga") && <Badge
+                                {((status !== "FINISHED")) && <Badge
                                     size="lg"
                                     intent={status === "RELEASING" ? "primary" : "gray"}
                                     className="bg-transparent border-transparent dark:text-brand-200 px-0 py-0 rounded-none flex-none"

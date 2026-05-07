@@ -17,12 +17,7 @@ type LibrarySettingsProps = {
 
 export function AnimeLibrarySettings(props: LibrarySettingsProps) {
 
-    const {
-        isPending,
-        ...rest
-    } = props
-
-    const { watch } = useFormContext()
+    const { isPending } = props
 
     const useLegacyMatching = useWatch({ name: "scannerUseLegacyMatching" })
 

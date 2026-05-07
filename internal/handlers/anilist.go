@@ -64,7 +64,7 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 	return h.RespondWithData(c, animeCollection)
 }
 
-var tagsCache anilist.MediaTagMap
+var tagsCache *anilist.MediaTagMap
 
 // HandleGetRawAnimeCollectionTags
 //
@@ -78,7 +78,7 @@ func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
 	})
 
 	if tagsCache != nil {
-		return h.RespondWithData(c, tagsCache)
+		return h.RespondWithData(c, *tagsCache)
 	}
 
 	userName := h.App.GetUsername()
@@ -92,7 +92,7 @@ func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
 	}
 
 	tags := anilist.MediaTagMapFromAnimeCollectionTags(ret)
-	tagsCache = tags
+	tagsCache = &tags
 
 	return h.RespondWithData(c, tags)
 }

@@ -16,8 +16,7 @@ export default function Page() {
     const router = useRouter()
     const pathname = usePathname()
     const searchParams = useSearchParams()
-    const mediaId = searchParams.get("id")
-    const scrollResetMediaIdRef = React.useRef(mediaId)
+    const mediaId = pathname.startsWith("/manga/entry") ? searchParams.get("id") : null
     const { data: mangaEntry, isLoading: mangaEntryLoading } = useGetMangaEntry(mediaId)
     const { data: mangaDetails, isLoading: mangaDetailsLoading } = useGetMangaEntryDetails(mediaId)
 
@@ -25,12 +24,6 @@ export default function Page() {
      * Fetch manga download data
      */
     const { downloadData, downloadDataLoading } = useHandleMangaDownloadData(mediaId)
-
-    React.useLayoutEffect(() => {
-        if (!mediaId || scrollResetMediaIdRef.current === mediaId) return
-        scrollResetMediaIdRef.current = mediaId
-        window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior })
-    }, [mediaId])
 
     React.useEffect(() => {
         if (!pathname.startsWith("/manga/entry")) return
@@ -51,7 +44,7 @@ export default function Page() {
         }
     }, [mangaEntry])
 
-    if (!mangaEntry || mangaEntryLoading || mangaDetailsLoading) return <MediaEntryPageLoadingDisplay />
+    if (!mangaEntry || mangaEntryLoading) return <MediaEntryPageLoadingDisplay />
 
     return (
         <div
@@ -59,7 +52,7 @@ export default function Page() {
             data-media={JSON.stringify(mangaEntry.media)}
             data-manga-entry-list-data={JSON.stringify(mangaEntry.listData)}
         >
-            <MetaSection entry={mangaEntry} details={mangaDetails} />
+            <MetaSection entry={mangaEntry} details={mangaDetails} detailsLoading={mangaDetailsLoading} />
 
             <div data-manga-entry-page-content-container className="px-4 md:px-8 relative z-[8]">
 
@@ -94,13 +87,13 @@ export default function Page() {
                         </div>
 
                         <div data-manga-entry-page-characters-section-container className="pt-12">
-                            <MediaEntryCharactersSection details={mangaDetails} isMangaPage />
+                            <MediaEntryCharactersSection details={mangaDetails} isMangaPage loading={mangaDetailsLoading} />
                         </div>
                     </div>
 
                     <PluginWebviewSlot slot="after-manga-entry-chapter-list" />
 
-                    <MangaRecommendations entry={mangaEntry} details={mangaDetails} />
+                    <MangaRecommendations entry={mangaEntry} details={mangaDetails} loading={mangaDetailsLoading} />
 
                     <PluginWebviewSlot slot="manga-entry-screen-bottom" />
 

@@ -362,6 +362,7 @@ export default function Page() {
                                         scannerConfig: data.scannerConfig ?? "",
                                         updateChannel: data.updateChannel || "github",
                                         enableExtensionSecureMode: data.enableExtensionSecureMode ?? false,
+                                        defaultPlaybackSource: data.defaultPlaybackSource === "-" ? "" : data.defaultPlaybackSource,
                                     },
                                     nakama: {
                                         enabled: data.nakamaEnabled ?? false,
@@ -562,6 +563,7 @@ export default function Page() {
                                 scannerConfig: status?.settings?.library?.scannerConfig ?? "",
                                 updateChannel: status?.settings?.library?.updateChannel || "github",
                                 enableExtensionSecureMode: status?.settings?.library?.enableExtensionSecureMode ?? false,
+                                defaultPlaybackSource: status?.settings?.library?.defaultPlaybackSource || "-",
                                 hideAnimeSpoilers: status?.themeSettings?.hideAnimeSpoilers ?? THEME_DEFAULT_VALUES.hideAnimeSpoilers,
                                 hideAnimeSpoilerThumbnails: status?.themeSettings?.hideAnimeSpoilerThumbnails ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerThumbnails,
                                 hideAnimeSpoilerTitles: status?.themeSettings?.hideAnimeSpoilerTitles ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerTitles,
@@ -675,12 +677,14 @@ export default function Page() {
                                         />
 
                                         <SettingsCard>
-                                            <Field.Switch
-                                                side="right"
-                                                name="enableOnlinestream"
-                                                label="Enable"
-                                                help="Watch anime episodes from online sources."
-                                            />
+                                            <div data-settings-enable-onlinestream>
+                                                <Field.Switch
+                                                    side="right"
+                                                    name="enableOnlinestream"
+                                                    label="Enable"
+                                                    help="Watch anime episodes from online sources."
+                                                />
+                                            </div>
                                         </SettingsCard>
 
                                         <SettingsCard title="Home Screen">

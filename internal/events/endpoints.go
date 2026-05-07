@@ -138,6 +138,7 @@ const (
 	InstallExternalExtensionEndpoint                   = "EXTENSIONS-install-external-extension"
 	InstallExternalExtensionRepositoryEndpoint         = "EXTENSIONS-install-external-extension-repository"
 	InstallLatestUpdateEndpoint                        = "RELEASES-install-latest-update"
+	ListAnimeEntryEpisodeTabExtensionsEndpoint         = "EXTENSIONS-list-anime-entry-episode-tab-extensions"
 	ListAnimeTorrentProviderExtensionsEndpoint         = "EXTENSIONS-list-anime-torrent-provider-extensions"
 	ListCustomSourceExtensionsEndpoint                 = "EXTENSIONS-list-custom-source-extensions"
 	ListDevelopmentModeExtensionsEndpoint              = "EXTENSIONS-list-development-mode-extensions"

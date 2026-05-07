@@ -14,6 +14,7 @@ import { PluginWebviewSlot } from "@/app/(main)/_features/plugin/webview/plugin-
 import { SeaLink } from "@/components/shared/sea-link"
 import { IconButton } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Tooltip } from "@/components/ui/tooltip"
 import { getCustomSourceExtensionId, getCustomSourceMediaSiteUrl, isCustomSource } from "@/lib/server/utils"
 import { ThemeMediaPageInfoBoxSize, useThemeSettings } from "@/lib/theme/theme-hooks"
@@ -24,9 +25,9 @@ import { SiAnilist } from "react-icons/si"
 import { PluginMangaPageButtons } from "../../_features/plugin/actions/plugin-actions"
 
 
-export function MetaSection(props: { entry: Manga_Entry | undefined, details: AL_MangaDetailsById_Media | undefined }) {
+export function MetaSection(props: { entry: Manga_Entry | undefined, details: AL_MangaDetailsById_Media | undefined, detailsLoading?: boolean }) {
 
-    const { entry, details } = props
+    const { entry, details, detailsLoading } = props
     const ts = useThemeSettings()
 
     if (!entry?.media) return null
@@ -41,7 +42,8 @@ export function MetaSection(props: { entry: Manga_Entry | undefined, details: AL
             >
                 <MediaEntryAudienceScore meanScore={entry.media?.meanScore} badgeClass="bg-transparent" />
 
-                <MediaEntryGenresList genres={details?.genres} type="manga" />
+                {(detailsLoading && !details) ? <Skeleton className="h-6 w-52 rounded-full opacity-60" /> :
+                    <MediaEntryGenresList genres={details?.genres} type="manga" />}
             </div>
 
             <AnimeEntryRankings rankings={details?.rankings} />

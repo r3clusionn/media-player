@@ -36,21 +36,24 @@ function MediaEntryCardImage(props: MediaEntryCardImageProps) {
         ...rest
     } = props
 
-    const [loaded, setLoaded] = React.useState(false)
+    const [loaded, setLoaded] = React.useState<"not-loaded" | "loaded" | "end">("not-loaded")
+    const [prevSrc, setPrevSrc] = React.useState(src)
     const imageRef = React.useRef<HTMLImageElement | null>(null)
 
-    React.useEffect(() => {
-        setLoaded(false)
-    }, [src])
+    if (src !== prevSrc) {
+        setPrevSrc(src)
+        setLoaded("not-loaded")
+    }
 
     React.useEffect(() => {
-        const image = imageRef.current
-        if (!image) return
+        if (loaded !== "loaded") return
 
-        if (image.complete && image.naturalWidth > 0) {
-            setLoaded(true)
-        }
-    }, [src])
+        const timeout = setTimeout(() => {
+            setLoaded("end")
+        }, 1000)
+
+        return () => clearTimeout(timeout)
+    }, [loaded])
 
     return (
         <>
@@ -58,22 +61,23 @@ function MediaEntryCardImage(props: MediaEntryCardImageProps) {
                 aria-hidden="true"
                 className={cn(
                     "absolute inset-0 z-0 bg-gradient-to-br from-gray-900/80 via-gray-800/70 to-gray-950/80",
-                    loaded ? "opacity-0" : "opacity-100",
+                    loaded !== "not-loaded" ? "opacity-0" : "opacity-100",
                 )}
             />
             <SeaImage
                 ref={imageRef}
                 {...rest}
                 src={src}
+                decoding="async"
                 onLoad={(event) => {
-                    setLoaded(true)
+                    setLoaded("loaded")
                     onLoad?.(event)
                 }}
                 className={cn(
                     className,
                     "transition-[opacity,transform] ease-out motion-reduce:transition-none",
-                    faster ? "duration-200" : "duration-400",
-                    loaded ? loadedClassName : (
+                    faster ? "duration-200" : loaded === "end" ? "duration-200" : "duration-400",
+                    loaded !== "not-loaded" ? loadedClassName : (
                         faster ? "opacity-10" : "opacity-0 scale-[0.95]"
                     ),
                 )}
@@ -82,7 +86,7 @@ function MediaEntryCardImage(props: MediaEntryCardImageProps) {
     )
 }
 
-function MediaEntryCardAdultVeil(props: React.HTMLAttributes<HTMLDivElement>) {
+export function MediaEntryCardAdultVeil(props: React.HTMLAttributes<HTMLDivElement>) {
     const { className, ...rest } = props
 
     return (
@@ -304,6 +308,7 @@ export function MediaEntryCardHoverPopupFooter(props: MediaEntryCardHoverPopupFo
 
 type MediaEntryCardHoverPopupTitleSectionProps = {
     link: string
+    bypassEntryPreloadBudget?: boolean
     title: string
     allTitles?: AL_BaseAnime_Title | AL_BaseManga_Title | undefined
     season?: string
@@ -318,6 +323,7 @@ export function MediaEntryCardHoverPopupTitleSection(props: MediaEntryCardHoverP
 
     const {
         link,
+        bypassEntryPreloadBudget,
         title,
         allTitles,
         season,
@@ -343,6 +349,7 @@ export function MediaEntryCardHoverPopupTitleSection(props: MediaEntryCardHoverP
             >
                 <SeaLink
                     href={!onClick ? link : undefined}
+                    bypassEntryPreloadBudget={bypassEntryPreloadBudget}
                     className="block text-center text-pretty font-medium text-sm lg:text-base px-2 leading-none line-clamp-2 hover:text-brand-100"
                     onClick={onClick}
                 >
@@ -403,6 +410,8 @@ export function AnimeEntryCardNextAiring(props: AnimeEntryCardNextAiringProps) {
 
 type MediaEntryCardBodyProps = {
     link: string
+    bypassEntryPreloadBudget?: boolean
+    warmEntryOnViewport?: boolean
     type: "anime" | "manga"
     title: string
     season?: string
@@ -425,6 +434,8 @@ export function MediaEntryCardBody(props: MediaEntryCardBodyProps) {
 
     const {
         link,
+        bypassEntryPreloadBudget,
+        warmEntryOnViewport,
         type,
         title,
         season,
@@ -448,6 +459,8 @@ export function MediaEntryCardBody(props: MediaEntryCardBodyProps) {
         <>
             <SeaLink
                 href={!onClick ? link : undefined}
+                bypassEntryPreloadBudget={bypassEntryPreloadBudget}
+                warmEntryOnViewport={warmEntryOnViewport}
                 onClick={onClick}
                 className="w-full relative focus-visible:ring-2 ring-[--brand]"
                 data-media-entry-card-body-link
@@ -574,6 +587,7 @@ export const MediaEntryCardHoverPopupBanner = memo(({
     isAdult,
     blurAdultContent,
     link,
+    bypassEntryPreloadBudget,
     listStatus,
     status,
     onClick,
@@ -586,6 +600,7 @@ export const MediaEntryCardHoverPopupBanner = memo(({
     showProgressBar: boolean
     showTrailer?: boolean
     link: string
+    bypassEntryPreloadBudget?: boolean
     disableAnimeCardTrailers?: boolean
     blurAdultContent?: boolean
     isAdult?: boolean
@@ -608,6 +623,7 @@ export const MediaEntryCardHoverPopupBanner = memo(({
     return <SeaLink
         tabIndex={-1}
         href={!onClick ? link : undefined}
+        bypassEntryPreloadBudget={bypassEntryPreloadBudget}
         onClick={onClick}
         data-media-entry-card-hover-popup-banner-link
     >

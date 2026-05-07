@@ -1,4 +1,5 @@
 import { useGetAnilistCacheLayerStatus, useToggleAnilistCacheLayerStatus } from "@/api/hooks/anilist.hooks"
+import { useListAnimeEntryEpisodeTabExtensions } from "@/api/hooks/extensions.hooks"
 import { useLocalSyncSimulatedDataToAnilist } from "@/api/hooks/local.hooks"
 import { __seaCommand_shortcuts } from "@/app/(main)/_features/sea-command/sea-command"
 import { SettingsCard } from "@/app/(main)/settings/_components/settings-card"
@@ -13,10 +14,11 @@ import { Switch } from "@/components/ui/switch"
 import { __isElectronDesktop__ } from "@/types/constants"
 import { useAtom } from "jotai/react"
 import React from "react"
-import { useFormContext } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
 import { FaRedo } from "react-icons/fa"
 import { LuCircleAlert, LuCloudUpload, LuDatabaseBackup, LuEyeOff, LuImageOff, LuImages, LuShield, LuStarOff, LuUserPen } from "react-icons/lu"
 import { MdDownloading } from "react-icons/md"
+import { RiMovieAiLine } from "react-icons/ri"
 import { TbAlertSquareRoundedOff, TbBrowserShare, TbChecklist, TbClockPlay, TbDownloadOff, TbProgressCheck, TbRating18Plus } from "react-icons/tb"
 import { useServerStatus } from "../../_hooks/use-server-status"
 
@@ -32,9 +34,36 @@ export function ServerSettings(props: ServerSettingsProps) {
     } = props
 
     const serverStatus = useServerStatus()
+    const { data: episodeTabExtensions } = useListAnimeEntryEpisodeTabExtensions()
 
     const [shortcuts, setShortcuts] = useAtom(__seaCommand_shortcuts)
     const f = useFormContext()
+    const defaultPlaybackSource = useWatch({ name: "defaultPlaybackSource" })
+
+    const defaultPlaybackSourceOptions = React.useMemo(() => {
+        const pluginOptions = Array.from(new Map((episodeTabExtensions ?? []).map(ext => [
+            `ext:${ext.id}`,
+            {
+                value: `ext:${ext.id}`,
+                label: ext.tabName ? `${ext.tabName} (${ext.name})` : ext.name,
+            },
+        ])).values()).sort((a, b) => a.label.localeCompare(b.label))
+
+        const options = [
+            { value: "-", label: "Automatic" },
+            { value: "library", label: "Local library" },
+            ...(serverStatus?.debridSettings?.enabled ? [{ value: "debridstream", label: "Debrid streaming" }] : []),
+            ...(serverStatus?.torrentstreamSettings?.enabled ? [{ value: "torrentstream", label: "Torrent streaming" }] : []),
+            ...(serverStatus?.settings?.library?.enableOnlinestream ? [{ value: "onlinestream", label: "Online streaming" }] : []),
+            ...pluginOptions,
+        ]
+
+        if (!!defaultPlaybackSource && defaultPlaybackSource.startsWith("ext:") && !options.some(option => option.value === defaultPlaybackSource)) {
+            options.push({ value: defaultPlaybackSource, label: "Unavailable plugin" })
+        }
+
+        return options
+    }, [episodeTabExtensions, serverStatus, defaultPlaybackSource])
 
     const { mutate: upload, isPending: isUploading } = useLocalSyncSimulatedDataToAnilist()
 
@@ -89,15 +118,27 @@ export function ServerSettings(props: ServerSettingsProps) {
                     icon={<TbClockPlay className="" />}
                 />
 
+                <div data-settings-default-episode-source>
+                    <Field.Select
+                        name="defaultPlaybackSource"
+                        label="Default episode source"
+                        help="Used when opening anime pages."
+                        leftIcon={<RiMovieAiLine />}
+                        options={defaultPlaybackSourceOptions}
+                    />
+                </div>
+
                 <Separator />
 
-                <Field.Switch
-                    side="right"
-                    label="Hide anime spoilers"
-                    help="Use spoiler-safe episode art and text across continue watching, entry episode lists, and missing episodes."
-                    name="hideAnimeSpoilers"
-                    icon={<LuEyeOff className="" />}
-                />
+                <div data-settings-hide-anime-spoilers>
+                    <Field.Switch
+                        side="right"
+                        label="Hide anime spoilers"
+                        help="Use spoiler-safe episode art and text across continue watching, entry episode lists, and missing episodes."
+                        name="hideAnimeSpoilers"
+                        icon={<LuEyeOff className="" />}
+                    />
+                </div>
 
                 {f.watch("hideAnimeSpoilers") && (
                     <div className="space-y-1 pl-4 border-l border-[--border] ml-2">
@@ -165,13 +206,15 @@ export function ServerSettings(props: ServerSettingsProps) {
 
                 <Separator />
 
-                <Field.Switch
-                    side="right"
-                    name="enableExtensionSecureMode"
-                    label="Enable Extension Secure Mode"
-                    help="If enabled, Seanime will prompt you for confirmation whenever an extension tries to perform a sensitive action, even if permissions have been granted."
-                    icon={<LuShield className="" />}
-                />
+                <div data-settings-enable-extension-secure-mode>
+                    <Field.Switch
+                        side="right"
+                        name="enableExtensionSecureMode"
+                        label="Enable Extension Secure Mode"
+                        help="If enabled, Seanime will prompt you for confirmation whenever an extension tries to perform a sensitive action, even if permissions have been granted."
+                        icon={<LuShield className="" />}
+                    />
+                </div>
 
 
             </SettingsCard>

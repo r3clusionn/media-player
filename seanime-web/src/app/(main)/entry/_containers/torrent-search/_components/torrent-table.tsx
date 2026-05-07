@@ -89,7 +89,7 @@ export const TorrentTable = memo((
                         onSortChange={handleSortChange}
                         onFilterChange={handleFilterChange}
                     />
-                    <ScrollAreaBox className={searchAcrossProviders ? "h-[calc(100dvh_-_28rem)]" : "h-[calc(100dvh_-_24rem)]"}>
+                    <ScrollAreaBox className={searchAcrossProviders ? "h-[calc(100dvh_-_30rem)]" : "h-[calc(100dvh_-_26rem)]"}>
                         <TorrentList>
                             {sortedTorrents.map(torrent => {
                                 const metadata = torrentMetadata?.[torrent.infoHash!]

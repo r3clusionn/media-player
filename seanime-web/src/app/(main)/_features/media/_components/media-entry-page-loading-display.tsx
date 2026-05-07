@@ -68,3 +68,50 @@ export function MediaEntryPageLoadingDisplay() {
         </div>
     )
 }
+
+type MediaEntryDetailsSkeletonProps = {
+    isMangaPage?: boolean
+    showCharacters?: boolean
+    showCards?: boolean
+    className?: string
+}
+
+export function MediaEntryDetailsSkeleton(props: MediaEntryDetailsSkeletonProps) {
+    const { isMangaPage, showCharacters = true, showCards = true, className } = props
+    const rowCount = isMangaPage ? 4 : 5
+    const cardCount = isMangaPage ? 4 : 5
+
+    return (
+        <div data-media-entry-details-skeleton className={cn("space-y-8", className)}>
+            {showCharacters && <div className="space-y-4">
+                <Skeleton className="h-8 w-40 rounded-xl" />
+                <div
+                    className={cn(
+                        "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4",
+                        isMangaPage && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-2 2xl:grid-cols-2",
+                    )}
+                >
+                    {Array.from({ length: rowCount }).map((_, index) => (
+                        <div key={index} className="flex gap-4 py-3 pr-12">
+                            <Skeleton className="size-20 flex-none rounded-[--radius-md]" />
+                            <div className="flex-1 space-y-2 pt-1">
+                                <Skeleton className="h-5 w-3/4 rounded-xl" />
+                                <Skeleton className="h-4 w-1/2 rounded-xl opacity-70" />
+                                <Skeleton className="h-3 w-1/3 rounded-xl opacity-60" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>}
+
+            {showCards && <div className="space-y-4">
+                <Skeleton className="h-8 w-52 rounded-xl" />
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
+                    {Array.from({ length: cardCount }).map((_, index) => (
+                        <Skeleton key={index} className="aspect-[7/10] h-auto rounded-[--radius-md]" />
+                    ))}
+                </div>
+            </div>}
+        </div>
+    )
+}

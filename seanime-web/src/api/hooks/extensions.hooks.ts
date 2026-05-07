@@ -23,6 +23,7 @@ import {
     ExtensionRepo_ExtensionUserConfig,
     ExtensionRepo_MangaProviderExtensionItem,
     ExtensionRepo_OnlinestreamProviderExtensionItem,
+    ExtensionRepo_PluginEpisodeTabExtensionItem,
     ExtensionRepo_RepositoryInstallResponse,
     ExtensionRepo_StoredPluginSettingsData,
     ExtensionRepo_UpdateData,
@@ -180,6 +181,15 @@ export function useAnimeListTorrentProviderExtensions() {
         endpoint: API_ENDPOINTS.EXTENSIONS.ListAnimeTorrentProviderExtensions.endpoint,
         method: API_ENDPOINTS.EXTENSIONS.ListAnimeTorrentProviderExtensions.methods[0],
         queryKey: [API_ENDPOINTS.EXTENSIONS.ListAnimeTorrentProviderExtensions.key],
+        enabled: true,
+    })
+}
+
+export function useListAnimeEntryEpisodeTabExtensions() {
+    return useServerQuery<Array<ExtensionRepo_PluginEpisodeTabExtensionItem>>({
+        endpoint: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.endpoint,
+        method: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.methods[0],
+        queryKey: [API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.key],
         enabled: true,
     })
 }

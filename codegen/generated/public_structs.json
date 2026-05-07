@@ -30741,6 +30741,17 @@
         "required": true,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "DefaultPlaybackSource",
+        "jsonName": "defaultPlaybackSource",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": [
+          " \"\", \"library\", \"torrentstream\", \"debridstream\", \"onlinestream\", \"ext:[extensionId]\""
+        ]
       }
     ],
     "comments": []
@@ -42423,6 +42434,61 @@
         "comments": [
           " Extension ID -\u003e Permission Hash"
         ]
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/external_plugin.go",
+    "filename": "external_plugin.go",
+    "name": "PluginEpisodeTabExtensionItem",
+    "formattedName": "ExtensionRepo_PluginEpisodeTabExtensionItem",
+    "package": "extension_repo",
+    "fields": [
+      {
+        "name": "ID",
+        "jsonName": "id",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Name",
+        "jsonName": "name",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Icon",
+        "jsonName": "icon",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TabName",
+        "jsonName": "tabName",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TabIcon",
+        "jsonName": "tabIcon",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": []

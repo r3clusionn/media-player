@@ -443,10 +443,10 @@ export function DiscoverPageHeader({ playTrailer }: { playTrailer?: boolean }) {
     if (!randomTrending) return <div>
         <Skeleton
             className={cn(
-                "__header lg:h-[28rem] overflow-hidden",
-                ts.hideTopNavbar && "lg:h-[32rem]",
-                ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && "lg:h-[24rem]",
-                (ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && ts.hideTopNavbar) && "lg:h-[28rem]",
+                "lg:h-[35rem] w-full flex-none object-cover object-center absolute top-0 lg-[5rem]",
+                !ts.disableSidebarTransparency && TRANSPARENT_SIDEBAR_BANNER_IMG_STYLE,
+                __isDesktop__ && "top-[-2rem]",
+                ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && "lg:h-[30rem]",
             )}
         />
     </div>

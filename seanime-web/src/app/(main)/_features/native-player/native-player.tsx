@@ -200,6 +200,8 @@ export function NativePlayer() {
         if (videoElement) {
             log.info("Cleaning up media")
             videoElement.pause()
+            videoElement.removeAttribute("src")
+            videoElement.load()
         }
 
         setMiniPlayer(true)
@@ -237,18 +239,18 @@ export function NativePlayer() {
             active: state.active,
             loadingState: state.loadingState,
             playbackError: state.playbackError,
-            playbackInfo: {
-                id: state.playbackInfo?.id!,
-                playbackType: state.playbackInfo?.streamType!,
-                streamUrl: state.playbackInfo?.streamUrl!,
-                streamPath: state.playbackInfo?.streamPath,
-                mkvMetadata: state.playbackInfo?.mkvMetadata,
-                subtitleTracks: state.playbackInfo?.subtitleTracks,
-                media: state.playbackInfo?.media,
-                episode: state.playbackInfo?.episode,
-                localFile: state.playbackInfo?.localFile,
+            playbackInfo: state.playbackInfo ? {
+                id: state.playbackInfo.id,
+                playbackType: state.playbackInfo.streamType,
+                streamUrl: state.playbackInfo.streamUrl,
+                streamPath: state.playbackInfo.streamPath,
+                mkvMetadata: state.playbackInfo.mkvMetadata,
+                subtitleTracks: state.playbackInfo.subtitleTracks,
+                media: state.playbackInfo.media,
+                episode: state.playbackInfo.episode,
+                localFile: state.playbackInfo.localFile,
                 streamType: "native",
-            },
+            } : null,
         }
     }, [state])
 

@@ -810,6 +810,11 @@ export const API_ENDPOINTS = {
             methods: ["GET"],
             endpoint: "/api/v1/extensions/list/anime-torrent-provider",
         },
+        ListAnimeEntryEpisodeTabExtensions: {
+            key: "EXTENSIONS-list-anime-entry-episode-tab-extensions",
+            methods: ["GET"],
+            endpoint: "/api/v1/extensions/list/anime-entry-episode-tabs",
+        },
         ListCustomSourceExtensions: {
             key: "EXTENSIONS-list-custom-source-extensions",
             methods: ["GET"],
