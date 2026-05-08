@@ -179,15 +179,15 @@ export function MetaSection(props: { entry: Anime_Entry, details: AL_AnimeDetail
                 <div
                     data-anime-meta-section-after-header
                     className={cn(
-                        "2xl:flex 2xl:flex-row w-full 2xl:justify-between 2xl:gap-4 space-y-4 2xl:space-y-0",
+                        "xl:flex xl:flex-row w-full xl:justify-between xl:gap-4 space-y-4 xl:space-y-0",
                         "flex-wrap",
                     )}
                 >
                     <div
                         data-anime-meta-section-buttons-row
                         className={cn(
-                            "flex 2xl:w-fit flex-row gap-3 items-center justify-center lg:justify-start lg:max-w-[65vw]",
-                            "flex-wrap 2xl:flex-nowrap",
+                            "flex xl:w-fit flex-row gap-3 items-center justify-center lg:justify-start lg:max-w-[65vw]",
+                            "flex-wrap xl:flex-nowrap",
                         )}
                     >
 

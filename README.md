@@ -7,7 +7,7 @@
 <h1 align="center"><b>Seanime</b></h1>
 
 <p align="center">
-<img src="https://seanime.app/bucket/gh-showcase.webp" alt="preview" width="100%"/>
+<img src="https://seanime.app/bucket/img-20260508-090216-igi1cwl6--sq.webp" alt="preview" width="100%"/>
 </p>
 
 <p align="center">

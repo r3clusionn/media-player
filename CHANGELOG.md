@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## v3.8.0
+
+- ✨ Torrent Search: Search from many providers at once
+- ⚡️ Subtitle Translator: Support for OpenAI-compatible local LLMs
+- ⚡️ UI: Faster transitions and route preloading
+  - Media entries in your collection will open virtually instantly
+  - Media pages loading time has been reduced by 40%
+- ⚡️ Denshi: Implemented View Transitions
+- ⚡️ Denshi: Window position and size are now remembered
+- ⚡️ VideoCore: Auto-import local subtitle files
+  - The native player will now automatically import subtitle files from the same directory as the video file
+- ⚡️ External Player Link: New '{subtitleUrl}' placeholder for local sub files
+- ⚡️ UI: Ability to hide spoilers
+  - New '/spoilers' command to toggle spoilers on/off for a specific anime
+- ⚡️ Online streaming: New HTTP/1-based video proxy
+- ⚡️ Online streaming: Option to automatically cycle through providers
+  - Seanime can now try providers until a working one is found
+- ⚡️ Extensions: Ability to disable extensions
+- ⚡️ Streaming: Ability to delete previous batch selection
+- ⚡️ Debrid: Improved downloading handling
+  - Fixes some edge cases encountered while downloading from TorBox and RD
+- ⚡️ Plugins: More APIs
+  - 'ctx.settings', 'ctx.auth', 'ctx.extensions' to securily manage the app systems
+- ⚡️ Settings: New 'Extension Secure Mode'
+  - Confirmation prompts whenever an extension tries to perform a sensitive action
+- 🦺 qBittorrent: Fixed support for 5.2.x
+- 🦺 Cache mode: Queued updates are deleted on manual mutation
+- 🦺 VideoCore: Potential fix for duplicated subtitles
+- 🦺 VideoCore: Potential fix for media session not being ended
+- 🦺 Online streaming: Fixed video source selection
+- 🦺 Online streaming: Fixed occasional HTTP/2 related errors
+- 🦺 Plugins: Faster reads for '$storage' and '$store'
+- 🦺 UI: Fixed some UI issues
+- 🦺 Auto Downloader: Fixed handling of debrid downloads
+- 🦺 Manga: Fixed chapter page image height
+- 🦺 Core: Fixed handling of stale cookies
+- ⬆️ Updated Go to 1.26.2
+
 ## v3.7.1
 
 - ⚡️ Cache mode: Ability to update entries in the cache (Experimental)
