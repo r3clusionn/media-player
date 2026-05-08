@@ -5,24 +5,16 @@ export type NavigationPreloadMode = "disable" | "default" | "faster" | "viewport
 const NAVIGATION_PRELOAD_MODE_KEY = "sea-ui-settings-navigation-preload-mode"
 const DEFAULT_NAVIGATION_PRELOAD_MODE: NavigationPreloadMode = "default"
 
-function normalizeNavigationPreloadMode(value: unknown): NavigationPreloadMode {
-    switch (value) {
-        case "disable":
-        case "default":
-        case "faster":
-        case "viewport":
-            return value
-        default:
-            return "default"
-    }
+export function getActualNavigationPreloadMode(mode: NavigationPreloadMode, isSimulatedUser = false): NavigationPreloadMode {
+    return isSimulatedUser ? "disable" : mode
 }
 
-export function isNavigationPreloadingEnabled(mode: NavigationPreloadMode) {
-    return mode !== "disable"
+export function isNavigationPreloadingEnabled(mode: NavigationPreloadMode, isSimulatedUser = false) {
+    return getActualNavigationPreloadMode(mode, isSimulatedUser) !== "disable"
 }
 
-export function getNavigationRoutePreload(mode: NavigationPreloadMode): false | "intent" | "viewport" {
-    switch (mode) {
+export function getNavigationRoutePreload(mode: NavigationPreloadMode, isSimulatedUser = false): false | "intent" | "viewport" {
+    switch (getActualNavigationPreloadMode(mode, isSimulatedUser)) {
         case "disable":
             return false
         case "viewport":
@@ -32,20 +24,21 @@ export function getNavigationRoutePreload(mode: NavigationPreloadMode): false | 
     }
 }
 
-export function getNavigationPreloadDelay(mode: NavigationPreloadMode) {
-    return mode === "faster" ? 0 : undefined
+export function getNavigationPreloadDelay(mode: NavigationPreloadMode, isSimulatedUser = false) {
+    return getActualNavigationPreloadMode(mode, isSimulatedUser) === "faster" ? 0 : undefined
 }
 
-export function getNavigationWarmDelay(mode: NavigationPreloadMode) {
-    return mode === "faster" ? 100 : 350
+export function getNavigationWarmDelay(mode: NavigationPreloadMode, isSimulatedUser = false) {
+    return getActualNavigationPreloadMode(mode, isSimulatedUser) === "faster" ? 100 : 350
 }
 
-export function shouldWarmEntryOnIntent(mode: NavigationPreloadMode) {
+export function shouldWarmEntryOnIntent(_mode: NavigationPreloadMode, isSimulatedUser = false) {
+    const mode = getActualNavigationPreloadMode(_mode, isSimulatedUser)
     return mode === "default" || mode === "faster"
 }
 
-export function shouldWarmEntryOnViewport(mode: NavigationPreloadMode) {
-    return mode === "viewport"
+export function shouldWarmEntryOnViewport(mode: NavigationPreloadMode, isSimulatedUser = false) {
+    return getActualNavigationPreloadMode(mode, isSimulatedUser) === "viewport"
 }
 
 export const __navigationPreloadModeAtom = atomWithStorage<NavigationPreloadMode>(

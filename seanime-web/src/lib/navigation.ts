@@ -1,3 +1,4 @@
+import { useIsSimulatedUser } from "@/app/(main)/_hooks/use-server-status"
 import { preloadMediaEntry } from "@/lib/entry-preloader"
 import { __navigationPreloadModeAtom, isNavigationPreloadingEnabled } from "@/lib/navigation-preload-settings"
 import { useLocation, useNavigate } from "@tanstack/react-router"
@@ -25,6 +26,7 @@ export function useRouter() {
     const navigate = useNavigate()
     const location = useLocation()
     const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
+    const isSimulatedUser = useIsSimulatedUser()
 
     const handleNavigation = (
         href: string,
@@ -39,7 +41,7 @@ export function useRouter() {
         // default to true (scroll to top) if neither is specified
         const shouldScroll = options?.resetScroll ?? options?.scroll ?? true
 
-        if (isNavigationPreloadingEnabled(navigationPreloadMode)) {
+        if (isNavigationPreloadingEnabled(navigationPreloadMode, isSimulatedUser)) {
             preloadMediaEntry(href)
         }
 

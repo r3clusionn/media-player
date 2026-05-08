@@ -26,14 +26,39 @@ let lastRefill = Date.now()
 let queueTimer: number | undefined
 let preloaderQueryClient: QueryClient | undefined
 let getAuthToken: () => string | undefined = () => undefined
+let canPreloadEntries: () => boolean = () => true
 
 const inFlight = new Set<string>()
 const queued = new Map<string, EntryPreloadTarget>()
 const warmedAt = new Map<string, number>()
 
-export function configureEntryPreloader(queryClient: QueryClient, authTokenGetter: () => string | undefined) {
+export function initEntryPreloader(
+    queryClient: QueryClient,
+    authTokenGetter: () => string | undefined,
+    preloadEnabledGetter?: () => boolean,
+) {
     preloaderQueryClient = queryClient
     getAuthToken = authTokenGetter
+    canPreloadEntries = preloadEnabledGetter ?? (() => true)
+}
+
+function clearQueuedPreloads() {
+    queued.clear()
+
+    if (queueTimer && typeof window !== "undefined") {
+        window.clearTimeout(queueTimer)
+        queueTimer = undefined
+    }
+}
+
+function isEntryPreloadingEnabled() {
+    const enabled = canPreloadEntries()
+
+    if (!enabled) {
+        clearQueuedPreloads()
+    }
+
+    return enabled
 }
 
 function getTargetKey(target: EntryPreloadTarget) {
@@ -112,6 +137,7 @@ function takeToken() {
 }
 
 function scheduleQueue() {
+    if (!isEntryPreloadingEnabled()) return
     if (queueTimer || queued.size === 0 || typeof window === "undefined") return
 
     // keep hover and viewport warming even when a whole card row becomes visible together
@@ -122,6 +148,7 @@ function scheduleQueue() {
 
 function drainQueue() {
     queueTimer = undefined
+    if (!isEntryPreloadingEnabled()) return
     refillTokens()
 
     while (tokens > 0 && queued.size > 0) {
@@ -141,7 +168,7 @@ function drainQueue() {
 }
 
 async function runEntryPreload(target: EntryPreloadTarget) {
-    if (!preloaderQueryClient) return
+    if (!preloaderQueryClient || !isEntryPreloadingEnabled()) return
 
     const key = getTargetKey(target)
     if (inFlight.has(key) || isWarm(target)) return
@@ -186,13 +213,15 @@ async function runEntryPreload(target: EntryPreloadTarget) {
 }
 
 export function preloadMediaEntry(href: Nullish<string>, options?: EntryPreloadOptions) {
+    if (!isEntryPreloadingEnabled()) return
+
     const target = getEntryPreloadTarget(href)
     if (!target) return
 
     const key = getTargetKey(target)
     if (inFlight.has(key) || isWarm(target)) return
 
-    // collection-backed cards can skip the budget
+    // collection-backed entries can skip the budget
     if (options?.bypassBudget) {
         queued.delete(key)
         void runEntryPreload(target)

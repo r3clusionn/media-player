@@ -129,15 +129,15 @@ export function ExtensionPrompt() {
                         )}
                     </div>
 
-                    {/*<p className="text-sm text-[--muted] mb-2 text-pretty break-all">*/}
-                    {/*    {prompt.extension?.name || "An extension"} would like to perform the following action{!!prompt.resource*/}
-                    {/*    ? ` on "${prompt.resource}"`*/}
-                    {/*    : ""}:*/}
-                    {/*</p>*/}
+                    <p className="text-sm text-[--muted] mb-2 text-pretty break-all">
+                        {prompt.extension?.name || "An extension"} would like to perform the following action{!!prompt.resource
+                        ? ` on "${prompt.resource}"`
+                        : ""}:
+                    </p>
 
                     <p
                         className={cn(
-                            "text-pretty text-2xl font-semibold leading-[1.15] tracking-normal break-all",
+                            "text-pretty text-2xl font-semibold leading-[1.15] tracking-normal break-words",
                             title.length > 60 ? "text-lg leading-snug" : "text-2xl",
                         )}
                     >

@@ -118,8 +118,22 @@ export function TorrentSearchContainer({ type, entry }: { type: TorrentSelection
         }
     }, [searchType, entry.media?.title])
 
-    const torrents = React.useMemo(() => data?.torrents ?? [], [data?.torrents])
-    const previews = React.useMemo(() => data?.previews ?? [], [data?.previews])
+    const torrents = React.useMemo(() => {
+        return [...(data?.torrents ?? [])].sort((a, b) => {
+            if (a.isBestRelease && !b.isBestRelease) return -1
+            if (!a.isBestRelease && b.isBestRelease) return 1
+            return 0
+        })
+    }, [data?.torrents])
+
+    const previews = React.useMemo(() => {
+        return [...(data?.previews ?? [])].sort((a, b) => {
+            if (a.torrent?.isBestRelease && !b.torrent?.isBestRelease) return -1
+            if (!a.torrent?.isBestRelease && b.torrent?.isBestRelease) return 1
+            return 0
+        })
+    }, [data?.previews])
+
     const debridInstantAvailability = React.useMemo(() => serverStatus?.debridSettings?.enabled ? data?.debridInstantAvailability ?? {} : {},
         [data?.debridInstantAvailability, serverStatus?.debridSettings?.enabled])
 

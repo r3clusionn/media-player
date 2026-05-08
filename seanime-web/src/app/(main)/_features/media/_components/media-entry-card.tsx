@@ -35,7 +35,7 @@ import { useMediaPreviewModal } from "@/app/(main)/_features/media/_containers/m
 import { usePlaylistEditorManager } from "@/app/(main)/_features/playlists/lib/playlist-editor-manager"
 import { useAnilistUserAnimeListData } from "@/app/(main)/_hooks/anilist-collection-loader"
 import { useHasMissingEpisodes } from "@/app/(main)/_hooks/missing-episodes-loader"
-import { useHasTorrentOrDebridInclusion, useServerStatus } from "@/app/(main)/_hooks/use-server-status"
+import { useHasTorrentOrDebridInclusion, useIsSimulatedUser, useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { MangaEntryCardUnreadBadge } from "@/app/(main)/manga/_containers/manga-entry-card-unread-badge"
 import { SeaLink } from "@/components/shared/sea-link"
 import { Badge } from "@/components/ui/badge"
@@ -104,6 +104,7 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
 
     const router = useRouter()
     const serverStatus = useServerStatus()
+    const isSimulatedUser = useIsSimulatedUser()
     const { hasStreamingEnabled } = useHasTorrentOrDebridInclusion()
     const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
     const setActionPopupHover = useSetAtom(__mediaEntryCard_hoveredPopupId)
@@ -194,9 +195,9 @@ export function MediaEntryCard<T extends "anime" | "manga">(props: MediaEntryCar
     const [shouldRenderPopup, setShouldRenderPopup] = useState(false)
 
     const warmCardEntry = React.useCallback(() => {
-        if (onClick || !shouldWarmEntryOnIntent(navigationPreloadMode)) return
+        if (onClick || !shouldWarmEntryOnIntent(navigationPreloadMode, isSimulatedUser)) return
         preloadMediaEntry(link, { bypassBudget: shouldBypassPreloadBudget })
-    }, [link, navigationPreloadMode, onClick, shouldBypassPreloadBudget])
+    }, [isSimulatedUser, link, navigationPreloadMode, onClick, shouldBypassPreloadBudget])
 
     const handleCardMouseEnter = React.useCallback(() => {
         setIsHoveringCard(true)

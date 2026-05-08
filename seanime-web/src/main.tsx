@@ -1,6 +1,7 @@
+import { useIsSimulatedUser } from "@/app/(main)/_hooks/use-server-status"
 import { ClientProviders, queryClient, store } from "@/app/client-providers"
 import "./app/globals.css"
-import { __navigationPreloadModeAtom, NavigationPreloadMode } from "@/lib/navigation-preload-settings"
+import { __navigationPreloadModeAtom, getActualNavigationPreloadMode, NavigationPreloadMode } from "@/lib/navigation-preload-settings"
 import { createRouter, RouterProvider } from "@tanstack/react-router"
 import { useAtomValue } from "jotai/react"
 import React from "react"
@@ -50,9 +51,11 @@ declare module "@tanstack/react-router" {
 }
 
 function AppRouterProvider() {
-    const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
+    const _preloadMode = useAtomValue(__navigationPreloadModeAtom)
+    const isSimulatedUser = useIsSimulatedUser()
+    const preloadMode = getActualNavigationPreloadMode(_preloadMode, isSimulatedUser)
 
-    return <RouterProvider router={routersByPreloadMode[navigationPreloadMode]} />
+    return <RouterProvider router={routersByPreloadMode[preloadMode]} />
 }
 
 function RootErrorFallback({ error, resetErrorBoundary }: FallbackProps) {

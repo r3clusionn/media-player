@@ -103,6 +103,8 @@ func (h *Handler) HandleImportLocalFiles(c echo.Context) error {
 
 	h.App.Database.TrimLocalFileEntries()
 
+	anime.ClearMissingEpisodesCache()
+
 	return h.RespondWithData(c, true)
 }
 
@@ -205,6 +207,8 @@ func (h *Handler) HandleUpdateLocalFileData(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	anime.ClearMissingEpisodesCache()
+
 	return h.RespondWithData(c, retLfs)
 }
 
@@ -232,6 +236,8 @@ func (h *Handler) HandleSuperUpdateLocalFiles(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	anime.ClearMissingEpisodesCache()
 
 	return h.RespondWithData(c, true)
 }
@@ -301,6 +307,8 @@ func (h *Handler) HandleUpdateLocalFiles(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	anime.ClearMissingEpisodesCache()
+
 	return h.RespondWithData(c, true)
 }
 
@@ -363,6 +371,8 @@ func (h *Handler) HandleDeleteLocalFiles(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	anime.ClearMissingEpisodesCache()
 
 	return h.RespondWithData(c, true)
 }

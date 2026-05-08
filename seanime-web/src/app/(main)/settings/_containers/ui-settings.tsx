@@ -28,6 +28,7 @@ import { useFormContext, UseFormReturn, useWatch } from "react-hook-form"
 import { LuChevronRight } from "react-icons/lu"
 import { toast } from "sonner"
 import { z } from "zod"
+import { useIsSimulatedUser } from "../../_hooks/use-server-status"
 import { useServerStatus } from "../../_hooks/use-server-status"
 import { SettingsCard } from "../_components/settings-card"
 import { SettingsIsDirty } from "../_components/settings-submit-button"
@@ -322,9 +323,10 @@ export function UISettings() {
     const serverStatus = useServerStatus()
 
     const { mutate, isPending } = useUpdateTheme()
-    const [fixBorderRenderingArtifacts, setFixBorerRenderingArtifacts] = useAtom(__ui_fixBorderRenderingArtifacts)
+    // const [fixBorderRenderingArtifacts, setFixBorerRenderingArtifacts] = useAtom(__ui_fixBorderRenderingArtifacts)
     const [navigationPreloadMode, setNavigationPreloadMode] = useAtom(__navigationPreloadModeAtom)
     const [enableLivePreview, setEnableLivePreview] = useState(false)
+    const isSimulatedUser = useIsSimulatedUser()
 
     const [tab, setTab] = useAtom(selectUISettingTabAtom)
 
@@ -799,7 +801,7 @@ export function UISettings() {
 
                                 <RadioGroup
                                     label="Navigation preloading"
-                                    value={navigationPreloadMode}
+                                    value={isSimulatedUser ? "disable" : navigationPreloadMode}
                                     onValueChange={(value) => setNavigationPreloadMode(value as NavigationPreloadMode)}
                                     options={navigationPreloadOptions.map(option => ({
                                         value: option.value,
@@ -815,7 +817,10 @@ export function UISettings() {
                                             </div>
                                         ),
                                     }))}
-                                    fieldClass="settings-ui-navigation-preloading"
+                                    fieldClass={cn(
+                                        "settings-ui-navigation-preloading",
+                                        isSimulatedUser && "pointer-events-none opacity-50",
+                                    )}
                                     itemContainerClass={cn(
                                         "cursor-pointer transition border-transparent rounded-[--radius] p-3 w-full md:w-fit",
                                         "bg-transparent dark:hover:bg-gray-900 dark:bg-transparent",
@@ -835,6 +840,11 @@ export function UISettings() {
                                     stackClass={cn("flex flex-col md:flex-row gap-2 space-y-0 flex-wrap")}
                                     help="Applies to media pages on this client. Preloading can cause you to hit rate limits faster."
                                 />
+                                {isSimulatedUser && (
+                                    <p className="text-orange-300/50 text-sm">
+                                        Navigation preloading is disabled for use without an AniList account due to rate limits.
+                                    </p>
+                                )}
 
                                 <Field.Switch
                                     side="right"
