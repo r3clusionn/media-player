@@ -4,12 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## v3.8.0
 
-- ✨ Torrent Search: Search from many providers at once
+- ✨ Torrent Search: Search from multiple providers at once
+  - Seanime can now aggregate torrent results from multiple providers
 - ⚡️ Subtitle Translator: Support for OpenAI-compatible local LLMs
-- ⚡️ UI: Faster transitions and route preloading
+- ⚡️ UI: Route preloading and faster transitions
   - Media entries in your collection will open virtually instantly
   - Media pages loading time has been reduced by 40%
-- ⚡️ Denshi: Implemented View Transitions
 - ⚡️ Denshi: Window position and size are now remembered
 - ⚡️ VideoCore: Auto-import local subtitle files
   - The native player will now automatically import subtitle files from the same directory as the video file
