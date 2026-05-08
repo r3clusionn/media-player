@@ -30732,6 +30732,26 @@
         "comments": [
           " \"github\", \"seanime\", \"seanime_nightly\""
         ]
+      },
+      {
+        "name": "EnableExtensionSecureMode",
+        "jsonName": "enableExtensionSecureMode",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DefaultPlaybackSource",
+        "jsonName": "defaultPlaybackSource",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": [
+          " \"\", \"library\", \"torrentstream\", \"debridstream\", \"onlinestream\", \"ext:[extensionId]\""
+        ]
       }
     ],
     "comments": []
@@ -31068,6 +31088,24 @@
       {
         "name": "VcTranslateApiKey",
         "jsonName": "vcTranslateApiKey",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "VcTranslateBaseUrl",
+        "jsonName": "vcTranslateBaseUrl",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "VcTranslateModel",
+        "jsonName": "vcTranslateModel",
         "goType": "string",
         "typescriptType": "string",
         "required": true,
@@ -32049,6 +32087,51 @@
       {
         "name": "EnableBlurringEffects",
         "jsonName": "enableBlurringEffects",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilers",
+        "jsonName": "hideAnimeSpoilers",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerThumbnails",
+        "jsonName": "hideAnimeSpoilerThumbnails",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerTitles",
+        "jsonName": "hideAnimeSpoilerTitles",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerDescriptions",
+        "jsonName": "hideAnimeSpoilerDescriptions",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "HideAnimeSpoilerSkipNextEpisode",
+        "jsonName": "hideAnimeSpoilerSkipNextEpisode",
         "goType": "bool",
         "typescriptType": "boolean",
         "required": true,
@@ -34823,6 +34906,28 @@
         "public": true,
         "comments": [
           " Whether the torrent is ready to be downloaded"
+        ]
+      },
+      {
+        "name": "IsQueuedForLocalDownload",
+        "jsonName": "isQueuedForLocalDownload",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": [
+          " Whether Seanime has queued this torrent for local download"
+        ]
+      },
+      {
+        "name": "IsDownloadingLocally",
+        "jsonName": "isDownloadingLocally",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": [
+          " Whether Seanime is currently downloading this torrent locally"
         ]
       },
       {
@@ -42334,6 +42439,91 @@
     "comments": []
   },
   {
+    "filepath": "../internal/extension_repo/external_plugin.go",
+    "filename": "external_plugin.go",
+    "name": "PluginEpisodeTabExtensionItem",
+    "formattedName": "ExtensionRepo_PluginEpisodeTabExtensionItem",
+    "package": "extension_repo",
+    "fields": [
+      {
+        "name": "ID",
+        "jsonName": "id",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Name",
+        "jsonName": "name",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Icon",
+        "jsonName": "icon",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TabName",
+        "jsonName": "tabName",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TabIcon",
+        "jsonName": "tabIcon",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/external_settings.go",
+    "filename": "external_settings.go",
+    "name": "StoredExtensionSettingsData",
+    "formattedName": "ExtensionRepo_StoredExtensionSettingsData",
+    "package": "extension_repo",
+    "fields": [
+      {
+        "name": "DisabledExtensionIds",
+        "jsonName": "disabledExtensionIds",
+        "goType": "map[string]bool",
+        "typescriptType": "Record\u003cstring, boolean\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
     "filepath": "../internal/extension_repo/goja_anime_torrent_provider.go",
     "filename": "goja_anime_torrent_provider.go",
     "name": "GojaAnimeTorrentProvider",
@@ -42642,6 +42832,391 @@
     ]
   },
   {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "Manager",
+    "formattedName": "Manager",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "logger",
+        "jsonName": "logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "ws",
+        "jsonName": "ws",
+        "goType": "events.WSEventManagerInterface",
+        "typescriptType": "Events_WSEventManagerInterface",
+        "usedTypescriptType": "Events_WSEventManagerInterface",
+        "usedStructName": "events.WSEventManagerInterface",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "mu",
+        "jsonName": "mu",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "pending",
+        "jsonName": "pending",
+        "goType": "map[string]pendingRequest",
+        "typescriptType": "Record\u003cstring, pendingRequest\u003e",
+        "usedTypescriptType": "pendingRequest",
+        "usedStructName": "prompt.pendingRequest",
+        "required": false,
+        "public": false,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "NewManagerOptions",
+    "formattedName": "NewManagerOptions",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "Logger",
+        "jsonName": "Logger",
+        "goType": "zerolog.Logger",
+        "typescriptType": "Logger",
+        "usedTypescriptType": "Logger",
+        "usedStructName": "zerolog.Logger",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "WSEventManager",
+        "jsonName": "WSEventManager",
+        "goType": "events.WSEventManagerInterface",
+        "typescriptType": "Events_WSEventManagerInterface",
+        "usedTypescriptType": "Events_WSEventManagerInterface",
+        "usedStructName": "events.WSEventManagerInterface",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "Extension",
+    "formattedName": "Extension",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "ID",
+        "jsonName": "id",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Name",
+        "jsonName": "name",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Icon",
+        "jsonName": "icon",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "Request",
+    "formattedName": "Request",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "ID",
+        "jsonName": "id",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Kind",
+        "jsonName": "kind",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Extension",
+        "jsonName": "extension",
+        "goType": "Extension",
+        "typescriptType": "Extension",
+        "usedTypescriptType": "Extension",
+        "usedStructName": "prompt.Extension",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Action",
+        "jsonName": "action",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Resource",
+        "jsonName": "resource",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Message",
+        "jsonName": "message",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Details",
+        "jsonName": "details",
+        "goType": "[]string",
+        "typescriptType": "Array\u003cstring\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "AllowLabel",
+        "jsonName": "allowLabel",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DenyLabel",
+        "jsonName": "denyLabel",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Expired",
+        "jsonName": "expired",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CreatedAt",
+        "jsonName": "createdAt",
+        "goType": "time.Time",
+        "typescriptType": "string",
+        "usedStructName": "time.Time",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "Options",
+    "formattedName": "Options",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "Kind",
+        "jsonName": "Kind",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Action",
+        "jsonName": "Action",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Resource",
+        "jsonName": "Resource",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Message",
+        "jsonName": "Message",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Details",
+        "jsonName": "Details",
+        "goType": "[]string",
+        "typescriptType": "Array\u003cstring\u003e",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "AllowLabel",
+        "jsonName": "AllowLabel",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DenyLabel",
+        "jsonName": "DenyLabel",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "TTL",
+        "jsonName": "TTL",
+        "goType": "time.Duration",
+        "typescriptType": "Duration",
+        "usedTypescriptType": "Duration",
+        "usedStructName": "time.Duration",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Cache",
+        "jsonName": "Cache",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CacheKey",
+        "jsonName": "CacheKey",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "CacheTTL",
+        "jsonName": "CacheTTL",
+        "goType": "time.Duration",
+        "typescriptType": "Duration",
+        "usedTypescriptType": "Duration",
+        "usedStructName": "time.Duration",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/extension_repo/prompt/manager.go",
+    "filename": "manager.go",
+    "name": "Response",
+    "formattedName": "Response",
+    "package": "prompt",
+    "fields": [
+      {
+        "name": "ID",
+        "jsonName": "id",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Allowed",
+        "jsonName": "allowed",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "ClientID",
+        "jsonName": "clientId",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": false,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
     "filepath": "../internal/extension_repo/repository.go",
     "filename": "repository.go",
     "name": "Repository",
@@ -42729,6 +43304,15 @@
         "comments": []
       },
       {
+        "name": "disabledExtensions",
+        "jsonName": "disabledExtensions",
+        "goType": "",
+        "typescriptType": "any",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
         "name": "hookManager",
         "jsonName": "hookManager",
         "goType": "hook.Manager",
@@ -42746,6 +43330,17 @@
         "typescriptType": "Client",
         "usedTypescriptType": "Client",
         "usedStructName": "http.Client",
+        "required": false,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "promptManager",
+        "jsonName": "promptManager",
+        "goType": "prompt.Manager",
+        "typescriptType": "Manager",
+        "usedTypescriptType": "Manager",
+        "usedStructName": "prompt.Manager",
         "required": false,
         "public": false,
         "comments": []
@@ -42831,6 +43426,17 @@
         "typescriptType": "Array\u003cExtension_InvalidExtension\u003e",
         "usedTypescriptType": "Extension_InvalidExtension",
         "usedStructName": "extension.InvalidExtension",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "DisabledExtensions",
+        "jsonName": "disabledExtensions",
+        "goType": "[]extension.Extension",
+        "typescriptType": "Array\u003cExtension_Extension\u003e",
+        "usedTypescriptType": "Extension_Extension",
+        "usedStructName": "extension.Extension",
         "required": false,
         "public": true,
         "comments": []
@@ -71943,6 +72549,17 @@
         ]
       },
       {
+        "name": "SubtitleTracks",
+        "jsonName": "subtitleTracks",
+        "goType": "[]videocore.VideoSubtitleTrack",
+        "typescriptType": "Array\u003cVideoCore_VideoSubtitleTrack\u003e",
+        "usedTypescriptType": "VideoCore_VideoSubtitleTrack",
+        "usedStructName": "videocore.VideoSubtitleTrack",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
         "name": "EntryListData",
         "jsonName": "entryListData",
         "goType": "anime.EntryListData",
@@ -73905,6 +74522,17 @@
         "comments": [
           " called when an invalid token is detected"
         ]
+      },
+      {
+        "name": "pendingUpdateSyncMutex",
+        "jsonName": "pendingUpdateSyncMutex",
+        "goType": "sync.Mutex",
+        "typescriptType": "Mutex",
+        "usedTypescriptType": "Mutex",
+        "usedStructName": "sync.Mutex",
+        "required": false,
+        "public": false,
+        "comments": []
       }
     ],
     "comments": []
@@ -75080,6 +75708,125 @@
         "required": true,
         "public": true,
         "comments": []
+      },
+      {
+        "name": "PromptManager",
+        "jsonName": "PromptManager",
+        "goType": "prompt.Manager",
+        "typescriptType": "Manager",
+        "usedTypescriptType": "Manager",
+        "usedStructName": "prompt.Manager",
+        "required": false,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Auth",
+        "jsonName": "Auth",
+        "goType": "AuthActions",
+        "typescriptType": "AuthActions",
+        "usedTypescriptType": "AuthActions",
+        "usedStructName": "plugin.AuthActions",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Settings",
+        "jsonName": "Settings",
+        "goType": "SettingsActions",
+        "typescriptType": "SettingsActions",
+        "usedTypescriptType": "SettingsActions",
+        "usedStructName": "plugin.SettingsActions",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Extensions",
+        "jsonName": "Extensions",
+        "goType": "ExtensionActions",
+        "typescriptType": "ExtensionActions",
+        "usedTypescriptType": "ExtensionActions",
+        "usedStructName": "plugin.ExtensionActions",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/app_context.go",
+    "filename": "app_context.go",
+    "name": "AuthActions",
+    "formattedName": "AuthActions",
+    "package": "plugin",
+    "fields": [
+      {
+        "name": "Login",
+        "jsonName": "Login",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Logout",
+        "jsonName": "Logout",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/app_context.go",
+    "filename": "app_context.go",
+    "name": "SettingsActions",
+    "formattedName": "SettingsActions",
+    "package": "plugin",
+    "fields": [
+      {
+        "name": "OnSaved",
+        "jsonName": "OnSaved",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
+    "filepath": "../internal/plugin/app_context.go",
+    "filename": "app_context.go",
+    "name": "ExtensionActions",
+    "formattedName": "ExtensionActions",
+    "package": "plugin",
+    "fields": [
+      {
+        "name": "SetDisabled",
+        "jsonName": "SetDisabled",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "GetName",
+        "jsonName": "GetName",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": true,
+        "comments": []
       }
     ],
     "comments": []
@@ -75332,6 +76079,48 @@
         "jsonName": "autoSelect",
         "goType": "",
         "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "promptManager",
+        "jsonName": "promptManager",
+        "goType": "",
+        "typescriptType": "any",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "auth",
+        "jsonName": "auth",
+        "goType": "AuthActions",
+        "typescriptType": "AuthActions",
+        "usedTypescriptType": "AuthActions",
+        "usedStructName": "plugin.AuthActions",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "settings",
+        "jsonName": "settings",
+        "goType": "SettingsActions",
+        "typescriptType": "SettingsActions",
+        "usedTypescriptType": "SettingsActions",
+        "usedStructName": "plugin.SettingsActions",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "extensions",
+        "jsonName": "extensions",
+        "goType": "ExtensionActions",
+        "typescriptType": "ExtensionActions",
+        "usedTypescriptType": "ExtensionActions",
+        "usedStructName": "plugin.ExtensionActions",
         "required": true,
         "public": false,
         "comments": []
@@ -92639,6 +93428,61 @@
     "comments": []
   },
   {
+    "filepath": "../internal/util/local_subtitles.go",
+    "filename": "local_subtitles.go",
+    "name": "LocalSubtitleFile",
+    "formattedName": "Util_LocalSubtitleFile",
+    "package": "util",
+    "fields": [
+      {
+        "name": "Path",
+        "jsonName": "path",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Filename",
+        "jsonName": "filename",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Label",
+        "jsonName": "label",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Language",
+        "jsonName": "language",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      },
+      {
+        "name": "Type",
+        "jsonName": "type",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": true,
+        "comments": []
+      }
+    ],
+    "comments": []
+  },
+  {
     "filepath": "../internal/util/map.go",
     "filename": "map.go",
     "name": "RWMutexMap",
@@ -93887,6 +94731,17 @@
         "required": false,
         "public": false,
         "comments": []
+      },
+      {
+        "name": "client",
+        "jsonName": "client",
+        "goType": "http.Client",
+        "typescriptType": "Client",
+        "usedTypescriptType": "Client",
+        "usedStructName": "http.Client",
+        "required": false,
+        "public": false,
+        "comments": []
       }
     ],
     "comments": []
@@ -93905,6 +94760,62 @@
         "typescriptType": "string",
         "required": true,
         "public": true,
+        "comments": []
+      },
+      {
+        "name": "endpoint",
+        "jsonName": "endpoint",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "model",
+        "jsonName": "model",
+        "goType": "string",
+        "typescriptType": "string",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "needsAuth",
+        "jsonName": "needsAuth",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "maxBatchSize",
+        "jsonName": "maxBatchSize",
+        "goType": "int",
+        "typescriptType": "number",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "jsonMode",
+        "jsonName": "jsonMode",
+        "goType": "bool",
+        "typescriptType": "boolean",
+        "required": true,
+        "public": false,
+        "comments": []
+      },
+      {
+        "name": "client",
+        "jsonName": "client",
+        "goType": "http.Client",
+        "typescriptType": "Client",
+        "usedTypescriptType": "Client",
+        "usedStructName": "http.Client",
+        "required": false,
+        "public": false,
         "comments": []
       },
       {

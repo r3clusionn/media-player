@@ -158,16 +158,18 @@ func (h *Handler) HandleDebridDownloadTorrent(c echo.Context) error {
 		return err
 	}
 
-	// Remove the torrent from the database
-	// This is done so that the torrent is not downloaded automatically
-	// We ignore the error here because the torrent might not be in the database
-	_ = h.App.Database.DeleteDebridTorrentItemByTorrentItemId(b.TorrentItem.ID)
-
 	// Download the torrent locally
 	err := h.App.DebridClientRepository.DownloadTorrent(b.TorrentItem, b.Destination)
 	if err != nil {
+		if errors.Is(err, debrid_client.ErrDownloadAlreadyActive) {
+			return h.RespondWithData(c, true)
+		}
 		return h.RespondWithError(c, err)
 	}
+
+	// Remove the torrent from the database after the local download starts
+	// This prevents the auto downloader from starting a duplicate download
+	_ = h.App.Database.DeleteDebridTorrentItemByTorrentItemId(b.TorrentItem.ID)
 
 	return h.RespondWithData(c, true)
 }
@@ -244,6 +246,31 @@ func (h *Handler) HandleDebridGetTorrents(c echo.Context) error {
 	if err != nil {
 		h.App.Logger.Err(err).Msg("debrid: Failed to get torrents")
 		return h.RespondWithError(c, err)
+	}
+
+	queuedItems, err := h.App.Database.GetDebridTorrentItems()
+	if err != nil {
+		h.App.Logger.Err(err).Msg("debrid: Failed to get queued torrent items")
+		return h.RespondWithError(c, err)
+	}
+
+	providerId := provider.GetSettings().ID
+	queuedIds := make(map[string]struct{}, len(queuedItems))
+	for _, item := range queuedItems {
+		if item == nil || (item.Provider != "" && item.Provider != providerId) {
+			continue
+		}
+
+		queuedIds[item.TorrentItemID] = struct{}{}
+	}
+
+	for _, torrent := range torrents {
+		if torrent == nil {
+			continue
+		}
+
+		_, torrent.IsQueuedForLocalDownload = queuedIds[torrent.ID]
+		torrent.IsDownloadingLocally = h.App.DebridClientRepository.IsDownloadActive(torrent.ID)
 	}
 
 	return h.RespondWithData(c, torrents)

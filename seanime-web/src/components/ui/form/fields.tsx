@@ -310,8 +310,10 @@ const RadioGroupField = React.memo(withControlledInput(forwardRef<HTMLButtonElem
 )))
 
 
-const RadioCardsField = React.memo(withControlledInput(forwardRef<HTMLButtonElement, FieldComponent<RadioGroupProps>>(
-    ({ onChange, itemContainerClass, itemClass, ...props }, ref) => {
+const RadioCardsField = React.memo(withControlledInput(forwardRef<HTMLButtonElement, FieldComponent<RadioGroupProps & {
+    radioGroupStackClass?: string
+}>>(
+    ({ onChange, itemContainerClass, itemClass, radioGroupStackClass, ...props }, ref) => {
         return <RadioGroup
             // itemContainerClass={cn(
             //     "items-start cursor-pointer transition border-transparent rounded-[--radius] p-4 w-full",
@@ -345,7 +347,7 @@ const RadioCardsField = React.memo(withControlledInput(forwardRef<HTMLButtonElem
             // stackClass="flex flex-col md:flex-row flex-wrap gap-2 space-y-0"
             {...props}
             onValueChange={onChange}
-            stackClass="flex flex-col md:flex-row gap-2 space-y-0"
+            stackClass={cn("flex flex-col md:flex-row gap-2 space-y-0", radioGroupStackClass)}
             ref={ref}
         />
     },

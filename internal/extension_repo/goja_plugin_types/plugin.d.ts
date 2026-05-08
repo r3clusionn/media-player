@@ -118,6 +118,26 @@ declare namespace $ui {
         debridstream: DebridStream
 
         /**
+         * Cron
+         */
+        cron: Cron
+
+        /**
+         * Auth actions. Requires the auth permission and user approval.
+         */
+        auth: Auth
+
+        /**
+         * App settings. Requires the settings permission and user approval.
+         */
+        appSettings: AppSettings
+
+        /**
+         * Extension management. Requires the extensions permission and user approval.
+         */
+        extensions: Extensions
+
+        /**
          * Creates a new state object with an initial value.
          * @param initialValue - The initial value for the state
          * @returns A state object that can be used to get and set values
@@ -283,6 +303,32 @@ declare namespace $ui {
 
     interface Settings {
         define<T extends Record<string, any>>(name: string, defaults: T): DefinedSettings<T>
+    }
+
+    interface Auth {
+        login(token: string): Promise<boolean>
+
+        logout(): Promise<boolean>
+    }
+
+    interface AppSettings {
+        get<T = Record<string, any>>(): Promise<T>
+
+        get<T = any>(path: string, fallback?: T): Promise<T>
+
+        set<T extends Record<string, any> = Record<string, any>>(settings: T): Promise<T>
+
+        set<T = any>(path: string, value: T): Promise<Record<string, any>>
+
+        patch<T extends Record<string, any> = Record<string, any>>(settings: T): Promise<Record<string, any>>
+    }
+
+    interface Extensions {
+        enable(id: string): Promise<boolean>
+
+        disable(id: string): Promise<boolean>
+
+        setDisabled(id: string, disabled: boolean): Promise<boolean>
     }
 
     interface PollOptions {
@@ -1064,6 +1110,49 @@ declare namespace $ui {
         render?: () => void
         /** Called when the item is selected */
         onSelect: () => void
+    }
+
+    interface Cron {
+        /**
+         * Adds a cron job
+         * @param id - The id of the cron job
+         * @param cronExpr - The cron expression
+         * @param fn - The function to call
+         */
+        add(id: string, cronExpr: string, fn: () => void): void
+
+        /**
+         * Removes a cron job
+         * @param id - The id of the cron job
+         */
+        remove(id: string): void
+
+        /**
+         * Removes all cron jobs
+         */
+        removeAll(): void
+
+        /**
+         * Gets the total number of cron jobs
+         * @returns The total number of cron jobs
+         */
+        total(): number
+
+        /**
+         * Starts the cron jobs, can be paused by calling stop()
+         */
+        start(): void
+
+        /**
+         * Stops the cron jobs, can be resumed by calling start()
+         */
+        stop(): void
+
+        /**
+         * Checks if the cron jobs have started
+         * @returns True if the cron jobs have started, false otherwise
+         */
+        hasStarted(): boolean
     }
 
     interface Screen {
@@ -2425,6 +2514,15 @@ declare namespace $storage {
     function get<T = any>(key: string): T | undefined
 
     /**
+     * Gets a value from the storage without cloning.
+     * Use with caution. Do not mutate the returned object or its nested values.
+     * @param key - The key to get
+     * @returns The value associated with the key
+     * @throws Error if something goes wrong
+     */
+    function getUnsafe<T = any>(key: string): T | undefined
+
+    /**
      * Removes a value from the storage.
      * @param key - The key to remove
      * @throws Error if something goes wrong
@@ -2619,53 +2717,6 @@ declare namespace $anilist {
      * Make a custom GraphQL query
      */
     function customQuery<T = any>(body: Record<string, any>, token: string): T
-}
-
-/**
- * Cron
- */
-
-declare namespace $cron {
-    /**
-     * Adds a cron job
-     * @param id - The id of the cron job
-     * @param cronExpr - The cron expression
-     * @param fn - The function to call
-     */
-    function add(id: string, cronExpr: string, fn: () => void): void
-
-    /**
-     * Removes a cron job
-     * @param id - The id of the cron job
-     */
-    function remove(id: string): void
-
-    /**
-     * Removes all cron jobs
-     */
-    function removeAll(): void
-
-    /**
-     * Gets the total number of cron jobs
-     * @returns The total number of cron jobs
-     */
-    function total(): number
-
-    /**
-     * Starts the cron jobs, can be paused by calling stop()
-     */
-    function start(): void
-
-    /**
-     * Stops the cron jobs, can be resumed by calling start()
-     */
-    function stop(): void
-
-    /**
-     * Checks if the cron jobs have started
-     * @returns True if the cron jobs have started, false otherwise
-     */
-    function hasStarted(): boolean
 }
 
 /**

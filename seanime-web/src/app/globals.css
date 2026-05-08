@@ -176,6 +176,106 @@ body {
     background-color: transparent !important;
 }
 
+/* denshi route view transitions */
+html[data-denshi-view-transitions] {
+    --sea-denshi-vt-ease: ease;
+    --sea-denshi-vt: 200ms;
+}
+
+html[data-denshi-view-transitions]::view-transition {
+    pointer-events: none;
+}
+
+html[data-denshi-view-transitions]::view-transition-group(*),
+html[data-denshi-view-transitions]::view-transition-image-pair(*),
+html[data-denshi-view-transitions]::view-transition-old(*),
+html[data-denshi-view-transitions]::view-transition-new(*) {
+    pointer-events: none;
+}
+
+html[data-denshi-view-transitions] .UI-AppLayoutContent__root {
+    view-transition-name: denshi-main;
+}
+
+html[data-denshi-view-transitions] .UI-AppLayoutSidebar__root {
+    view-transition-name: denshi-sidebar;
+}
+
+html[data-denshi-view-transitions] .__electron-window-title-bar {
+    view-transition-name: denshi-titlebar;
+}
+
+html[data-denshi-view-transitions]::view-transition-group(root),
+html[data-denshi-view-transitions]::view-transition-old(root),
+html[data-denshi-view-transitions]::view-transition-new(root) {
+    animation: none;
+    opacity: 0;
+}
+
+html[data-denshi-view-transitions]::view-transition-group(denshi-sidebar),
+html[data-denshi-view-transitions]::view-transition-group(denshi-titlebar) {
+    animation: none;
+    z-index: 2;
+}
+
+html[data-denshi-view-transitions]::view-transition-group(denshi-main) {
+    animation-duration: var(--sea-denshi-vt);
+    animation-timing-function: var(--sea-denshi-vt-ease);
+}
+
+html[data-denshi-view-transitions]::view-transition-old(denshi-main),
+html[data-denshi-view-transitions]::view-transition-new(denshi-main),
+html[data-denshi-view-transitions]::view-transition-old(denshi-sidebar),
+html[data-denshi-view-transitions]::view-transition-new(denshi-sidebar),
+html[data-denshi-view-transitions]::view-transition-old(denshi-titlebar),
+html[data-denshi-view-transitions]::view-transition-new(denshi-titlebar) {
+    mix-blend-mode: normal;
+    backface-visibility: hidden;
+}
+
+html[data-denshi-view-transitions]::view-transition-old(denshi-sidebar),
+html[data-denshi-view-transitions]::view-transition-old(denshi-titlebar) {
+    animation: none;
+    opacity: 0;
+}
+
+html[data-denshi-view-transitions]::view-transition-new(denshi-sidebar),
+html[data-denshi-view-transitions]::view-transition-new(denshi-titlebar) {
+    animation: none;
+    opacity: 1;
+}
+
+html[data-denshi-view-transitions]::view-transition-old(denshi-main) {
+    animation: sea-denshi-fade-out var(--sea-denshi-vt) var(--sea-denshi-vt-ease) both;
+}
+
+html[data-denshi-view-transitions]::view-transition-new(denshi-main) {
+    animation: sea-denshi-fade-in var(--sea-denshi-vt) var(--sea-denshi-vt-ease) both;
+}
+
+@keyframes sea-denshi-fade-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes sea-denshi-fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html[data-denshi-view-transitions]::view-transition-old(denshi-main),
+    html[data-denshi-view-transitions]::view-transition-new(denshi-main) {
+        animation: none;
+    }
+}
+
 html * {
     border-color: var(--border);
 }
@@ -296,6 +396,22 @@ pre {
 .discrete-controls[data-media-player][data-buffering][data-controls]:not(:has(.vds-controls-group:hover)) .vds-controls {
     @apply lg:opacity-0
 }
+
+/* radio selector card hover pulse
+@keyframes sea-pulse-ring {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(97, 82, 223, 0.07); }
+    50% { box-shadow: 0 0 0 2px rgba(97, 82, 223, 0.18), 0 0 8px rgba(97, 82, 223, 0.05); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .sea-selector-card:hover:not([data-state="checked"]) {
+        animation: sea-pulse-ring 1.8s ease-in-out infinite;
+    }
+}
+
+.sea-selector-card[data-state="checked"] {
+    box-shadow: 0 0 0 1px rgba(97, 82, 223, 0.35) !important;
+} */
 
 
 .discrete-controls[data-media-player][data-playing][data-seeking][data-controls]:not(:has(.vds-controls-group:hover)) {

@@ -57,7 +57,7 @@ export function AnimeEntryDropdownMenu({ entry, details }: { entry: Anime_Entry,
                 trigger={<IconButton
                     data-anime-entry-dropdown-menu-trigger
                     icon={<BiDotsVerticalRounded />}
-                    intent="gray-basic"
+                    intent="gray-subtle"
                     size="md"
                 />}
             >

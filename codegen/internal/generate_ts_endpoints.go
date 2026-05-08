@@ -428,7 +428,12 @@ func writeParamField(f *os.File, handler *RouteHandler, param *RouteHandlerParam
 	if len(param.Descriptions) > 0 {
 		writeLine(f, "\t/**")
 		for _, cmt := range param.Descriptions {
-			writeLine(f, fmt.Sprintf("\t *  %s", strings.TrimSpace(cmt)))
+			cmt = strings.TrimSpace(cmt)
+			if cmt == "" {
+				writeLine(f, "\t *")
+				continue
+			}
+			writeLine(f, fmt.Sprintf("\t *  %s", cmt))
 		}
 		writeLine(f, "\t */")
 	}

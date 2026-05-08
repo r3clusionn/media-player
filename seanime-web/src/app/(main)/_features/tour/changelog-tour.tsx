@@ -1,5 +1,6 @@
 import { useSeaCommand } from "@/app/(main)/_features/sea-command/sea-command.tsx"
 import { SeaImage } from "@/components/shared/sea-image"
+import { useRouter } from "@/lib/navigation"
 import { useAtom } from "jotai"
 import { atomWithStorage } from "jotai/utils"
 import React from "react"
@@ -14,8 +15,9 @@ export const seenChangelogAtom = atomWithStorage<string | null>("sea-seen-change
 
 function useSetupTour(): Record<string, () => TourStep[]> {
     const serverStatus = useServerStatus()
+    const router = useRouter()
     const [, openScannerModal] = useAtom(__scanner_modalIsOpen)
-    const [settingsTab, setSettingsTab] = useAtom(__settings_tabAtom)
+    const [, setSettingsTab] = useAtom(__settings_tabAtom)
     const { setSeaCommandOpen, setSeaCommandInput } = useSeaCommand()
 
     const get3_5_0 = (): TourStep[] => {
@@ -195,9 +197,198 @@ function useSetupTour(): Record<string, () => TourStep[]> {
         ]
     }
 
+    const get3_8_0 = (): TourStep[] => {
+        return [
+            {
+                id: "changelog-1",
+                content: (
+                    <div>
+                        <h4 className="text-xl font-bold text-white">What's New in 3.8.0?</h4>
+                        <p>Let's take a look at the biggest additions in this release.</p>
+                    </div>
+                ),
+                route: "/",
+                nextLabel: "Start",
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "torrent-search",
+                title: "Torrent Search and Downloads",
+                content: "Torrent search can now fan out across many providers at once. This release also smooths out a few debrid download edge cases.",
+                route: "/",
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "subtitle-translation",
+                title: "Subtitle Translation",
+                content: "Subtitle Translator now supports OpenAI-compatible local LLMs, so tools like LM Studio and Ollama can be used as local translation backends.",
+                route: "/",
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "external-player-link",
+                target: "[data-settings-external-player-link-scheme]",
+                title: "Local Subtitle Files",
+                content: "Local subtitle files are now picked up automatically from the video folder, and external player links can use the new '{subtitleUrl}' placeholder for those local subtitle files.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("external-player-link")
+                    await tourHelpers.waitForSelector("[data-settings-external-player-link-scheme]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "spoilers",
+                target: "[data-settings-hide-anime-spoilers]",
+                title: "Hide Spoilers",
+                content: "You can now hide spoilers across the app, and on anime pages the new '/spoilers' command lets you toggle spoiler hiding for that specific anime.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("seanime")
+                    await tourHelpers.waitForSelector("[data-settings-hide-anime-spoilers]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "online-streaming",
+                target: "[data-settings-enable-onlinestream]",
+                title: "Online Streaming",
+                content: "Online streaming now uses a new HTTP/1-based proxy and can automatically cycle through providers until it finds one that works.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("onlinestream")
+                    await tourHelpers.waitForSelector("[data-settings-enable-onlinestream]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "default-episode-source",
+                target: "[data-settings-default-episode-source]",
+                title: "Default Episode Source",
+                content: "Choose which episode source Seanime should open by default when you land on an anime page.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("seanime")
+                    await tourHelpers.waitForSelector("[data-settings-default-episode-source]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "ui-settings-redesign",
+                target: "[data-settings-ui-panel-tabs]",
+                title: "Redesigned UI Settings",
+                content: "The User Interface settings panel has been redesigned so it is easier to navigate.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("ui")
+                    await tourHelpers.waitForSelector("[data-settings-ui-panel-tabs]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "ui-settings-redesign2",
+                target: ".settings-ui-navigation-preloading",
+                title: "Route Preloading",
+                content: "Seanime can now preload routes in the background to make navigation feel instant. You can adjust the preloading behavior in the new UI settings panel.",
+                prepare: async () => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+                    await new Promise(resolve => setTimeout(resolve, 1000))
+                    await tourHelpers.waitForSelector(".settings-ui-navigation-preloading")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "entry-header-redesign",
+                target: "[data-media-page-header]",
+                title: "UI Updates",
+                content: "The media header has been slightly redesigned. There are also new animations and transitions for a snappier experience.",
+                prepare: async () => {
+                    router.push("/entry?id=21827")
+                    await tourHelpers.waitForSelector("[data-media-page-header]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "extensions",
+                title: "Extensions",
+                content: "Extensions can now be disabled without uninstalling them, and plugins have new APIs for settings, auth, and extension management.",
+                route: "/extensions",
+                ignoreOutsideClick: true,
+            },
+            {
+                id: "extension-secure-mode",
+                target: "[data-settings-enable-extension-secure-mode]",
+                title: "Extension Secure Mode",
+                content: "Enable Extension Secure Mode to get a confirmation prompt whenever an extension tries to perform a sensitive action.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("seanime")
+                    await tourHelpers.waitForSelector("[data-settings-enable-extension-secure-mode]")
+                },
+                ignoreOutsideClick: true,
+                popoverWidth: 460,
+            },
+            {
+                id: "denshi",
+                title: "Denshi Window State",
+                content: "Seanime Denshi now remembers its window position and size, so reopening the app brings you back to the same desktop layout.",
+                route: "/settings",
+                prepare: async () => {
+                    setSettingsTab("denshi")
+                },
+                condition: () => typeof window !== "undefined" && !!window.electron,
+                conditionFailBehavior: "skip",
+                ignoreOutsideClick: true,
+            },
+            // {
+            //     id: "denshi",
+            //     title: "View Transitions",
+            //     content: "Seanime Denshi now uses the View Transitions API for native transitions between different screens.",
+            //     route: "/schedule",
+            //     prepare: async () => {
+            //         setSettingsTab("seanime")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/lists")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/settings")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         // scroll to bottom
+            //         window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" })
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/schedule")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/lists")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/settings")
+            //         await new Promise(resolve => setTimeout(resolve, 650))
+            //         router.push("/")
+            //         await new Promise(resolve => setTimeout(resolve, 500))
+            //     },
+            //     condition: () => typeof window !== "undefined" && !!window.electron,
+            //     conditionFailBehavior: "skip",
+            //     ignoreOutsideClick: true,
+            // },
+            {
+                id: "changelog-2",
+                title: "Bug Fixes",
+                content: "Several bugs have been fixed in this release, including some related to the built-in player. Read the full changelog for more details.",
+                route: "/",
+                ignoreOutsideClick: true,
+            },
+        ]
+    }
+
     return {
         "3.5.0": get3_5_0,
         "3.7.0": get3_7_0,
+        "3.8.0": get3_8_0,
     }
 }
 

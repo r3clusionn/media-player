@@ -3,8 +3,11 @@ package handlers
 import (
 	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"seanime/internal/database/models"
 	"seanime/internal/mediastream"
+	"seanime/internal/util"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -219,4 +222,48 @@ func (h *Handler) HandleMediastreamFile(c echo.Context) error {
 	fp := c.QueryParam("path")
 	libraryPaths := h.App.Settings.GetLibrary().GetLibraryPaths()
 	return h.App.MediastreamRepository.ServeEchoFile(c, fp, client, libraryPaths)
+}
+
+// HandleMediastreamLocalSubtitles
+//
+//	@summary get local subtitle files.
+//	@desc This returns same-directory subtitle files for a local video file.
+//	@returns []util.LocalSubtitleFile
+//	@route /api/v1/mediastream/local-subtitles [GET]
+func (h *Handler) HandleMediastreamLocalSubtitles(c echo.Context) error {
+	if err := h.guardMediaConsumption(c); err != nil {
+		return err
+	}
+
+	rawPath := c.QueryParam("path")
+	fp, _ := url.PathUnescape(rawPath)
+	if util.IsBase64(rawPath) {
+		decodedPath, err := util.Base64DecodeStr(rawPath)
+		if err == nil {
+			fp = decodedPath
+		}
+	}
+
+	if err := h.guardStrictFilesystemPath(c, fp); err != nil {
+		return err
+	}
+
+	libraryPaths := h.App.Settings.GetLibrary().GetLibraryPaths()
+	inLibrary := false
+	for _, libraryPath := range libraryPaths {
+		if util.IsFileUnderDir(fp, libraryPath) {
+			inLibrary = true
+			break
+		}
+	}
+	if !inLibrary {
+		return c.NoContent(http.StatusNotFound)
+	}
+
+	files, err := util.FindLocalSubtitleFiles(fp)
+	if err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, files)
 }

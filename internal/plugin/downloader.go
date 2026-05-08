@@ -57,6 +57,7 @@ type progressSubscriber struct {
 
 func (a *AppContextImpl) BindDownloaderToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) {
 	downloadObj := vm.NewObject()
+	secureCache := newPromptCache()
 
 	progressMap := sync.Map{}
 	downloadCancels := sync.Map{}
@@ -134,6 +135,9 @@ func (a *AppContextImpl) BindDownloaderToContextObj(vm *goja.Runtime, obj *goja.
 	_ = downloadObj.Set("download", func(url string, destination string, options map[string]interface{}) (string, error) {
 		if !a.isAllowedPath(ext, destination, AllowPathWrite) {
 			return "", ErrPathNotAuthorized
+		}
+		if err := a.secureDownload(ext, secureCache, url, destination); err != nil {
+			return "", err
 		}
 
 		// Generate unique download ID

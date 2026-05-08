@@ -65,6 +65,8 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 	return h.RespondWithData(c, mangaCollection)
 }
 
+var mangaTagsCache *anilist.MediaTagMap
+
 // HandleGetRawAnilistMangaCollectionTags
 //
 //	@summary returns the AniList tags for the user's raw manga collection.
@@ -72,6 +74,14 @@ func (h *Handler) HandleGetRawAnilistMangaCollection(c echo.Context) error {
 //	@route /api/v1/manga/anilist/collection/raw/tags [GET]
 //	@returns anilist.MediaTagMap
 func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
+	h.App.OnRefreshAnilistCollectionFuncs.Set("HandleGetRawAnilistMangaCollectionTags", func() {
+		mangaTagsCache = nil
+	})
+
+	if mangaTagsCache != nil {
+		return h.RespondWithData(c, *mangaTagsCache)
+	}
+
 	userName := h.App.GetUsername()
 	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
@@ -82,7 +92,10 @@ func (h *Handler) HandleGetRawAnilistMangaCollectionTags(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	return h.RespondWithData(c, anilist.MediaTagMapFromMangaCollectionTags(ret))
+	tags := anilist.MediaTagMapFromMangaCollectionTags(ret)
+	mangaTagsCache = &tags
+
+	return h.RespondWithData(c, tags)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -223,6 +223,13 @@ const config: Config = {
                     "40%": { transform: "translateX(0) scaleX(0.4)" },
                     "100%": { transform: "translateX(100%) scaleX(0.5)" },
                 },
+                "shake": {
+                    "0%": { transform: "translateX(0)" },
+                    "25%": { transform: "translateX(-0.5rem)" },
+                    "50%": { transform: "translateX(0)" },
+                    "75%": { transform: "translateX(0.5rem)" },
+                    "100%": { transform: "translateX(0)" },
+                },
             },
             animation: {
                 "accordion-down": "accordion-down 0.15s linear",
@@ -230,6 +237,7 @@ const config: Config = {
                 "slide-down": "slide-down 0.15s ease-in-out",
                 "slide-up": "slide-up 0.15s ease-in-out",
                 "indeterminate-progress": "indeterminate-progress 1s infinite ease-out",
+                "shake": "shake 0.5s ease-in-out",
             },
             transformOrigin: {
                 "left-right": "0% 100%",

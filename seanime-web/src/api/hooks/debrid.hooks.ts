@@ -52,23 +52,27 @@ export function useDebridAddTorrents(onSuccess: () => void) {
 }
 
 export function useDebridDownloadTorrent() {
+    const qc = useQueryClient()
     return useServerMutation<boolean, DebridDownloadTorrent_Variables>({
         endpoint: API_ENDPOINTS.DEBRID.DebridDownloadTorrent.endpoint,
         method: API_ENDPOINTS.DEBRID.DebridDownloadTorrent.methods[0],
         mutationKey: [API_ENDPOINTS.DEBRID.DebridDownloadTorrent.key],
         onSuccess: async () => {
             toast.info("Download started")
+            await qc.invalidateQueries({ queryKey: [API_ENDPOINTS.DEBRID.DebridGetTorrents.key] })
         },
     })
 }
 
 export function useDebridCancelDownload() {
+    const qc = useQueryClient()
     return useServerMutation<boolean, DebridCancelDownload_Variables>({
         endpoint: API_ENDPOINTS.DEBRID.DebridCancelDownload.endpoint,
         method: API_ENDPOINTS.DEBRID.DebridCancelDownload.methods[0],
         mutationKey: [API_ENDPOINTS.DEBRID.DebridCancelDownload.key],
         onSuccess: async () => {
             toast.info("Download cancelled")
+            await qc.invalidateQueries({ queryKey: [API_ENDPOINTS.DEBRID.DebridGetTorrents.key] })
         },
     })
 }

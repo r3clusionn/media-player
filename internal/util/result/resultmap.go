@@ -57,6 +57,16 @@ func (c *Map[K, V]) GetOrSet(key K, createFunc func() (V, error)) (V, error) {
 	return newValue, nil
 }
 
+func (c *Map[K, V]) LoadOrStore(key K, value V) (V, bool) {
+	item, loaded := c.store.LoadOrStore(key, &mapItem[K, V]{value: value})
+	if !loaded {
+		return value, false
+	}
+
+	ci := item.(*mapItem[K, V])
+	return ci.value, true
+}
+
 func (c *Map[K, V]) Delete(key K) {
 	c.store.Delete(key)
 }

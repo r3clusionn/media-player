@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"seanime/internal/extension"
+	plugin_ui "seanime/internal/plugin/ui"
 	"seanime/internal/util"
 	"seanime/internal/util/filecache"
 
@@ -25,6 +26,18 @@ type (
 	StoredPluginSettingsData struct {
 		PinnedTrayPluginIds      []string          `json:"pinnedTrayPluginIds"`
 		PluginGrantedPermissions map[string]string `json:"pluginGrantedPermissions"` // Extension ID -> Permission Hash
+	}
+
+	PluginEpisodeTabExtensionItem struct {
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		Icon    string `json:"icon,omitempty"`
+		TabName string `json:"tabName"`
+		TabIcon string `json:"tabIcon,omitempty"`
+	}
+
+	pluginEpisodeTabProvider interface {
+		ListAnimeEntryEpisodeTabs() []*plugin_ui.EpisodeTabItem
 	}
 )
 
@@ -46,6 +59,37 @@ func (r *Repository) GetPluginSettings() *StoredPluginSettingsData {
 	}
 
 	return &settings
+}
+
+func (r *Repository) ListAnimeEntryEpisodeTabExtensions() (ret []*PluginEpisodeTabExtensionItem) {
+	r.gojaExtensions.Range(func(_ string, gojaExt GojaExtension) bool {
+		ext := gojaExt.GetExtension()
+		if ext == nil || ext.Type != extension.TypePlugin {
+			return true
+		}
+
+		provider, ok := gojaExt.(pluginEpisodeTabProvider)
+		if !ok {
+			return true
+		}
+
+		for _, tab := range provider.ListAnimeEntryEpisodeTabs() {
+			if tab == nil {
+				continue
+			}
+			ret = append(ret, &PluginEpisodeTabExtensionItem{
+				ID:      ext.ID,
+				Name:    ext.Name,
+				Icon:    ext.Icon,
+				TabName: tab.Name,
+				TabIcon: tab.Icon,
+			})
+		}
+
+		return true
+	})
+
+	return ret
 }
 
 // SetPluginSettingsPinnedTrays sets the pinned tray plugin IDs.

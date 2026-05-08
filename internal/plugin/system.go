@@ -15,7 +15,7 @@ import (
 	"regexp"
 	"runtime"
 	"seanime/internal/extension"
-	util "seanime/internal/util"
+	"seanime/internal/util"
 	gojautil "seanime/internal/util/goja"
 	"strings"
 	"sync"
@@ -33,6 +33,13 @@ const (
 	AllowPathRead  = 0
 	AllowPathWrite = 1
 )
+
+func openFileMode(flag int) (int, string) {
+	if flag&(os.O_WRONLY|os.O_RDWR|os.O_APPEND|os.O_CREATE|os.O_TRUNC) != 0 {
+		return AllowPathWrite, "write"
+	}
+	return AllowPathRead, "read"
+}
 
 type AsyncCmd struct {
 	cmd *exec.Cmd
@@ -56,6 +63,7 @@ type CmdHelper struct {
 // BindSystem binds the system module to the Goja runtime.
 // Permissions needed: system + allowlist
 func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) {
+	secureCache := newPromptCache()
 
 	//////////////////////////////////////
 	// OS
@@ -80,6 +88,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedCommand(ext, name, arg...) {
 			return nil, fmt.Errorf("command (%s) not authorized", fmt.Sprintf("%s %s", name, strings.Join(arg, " ")))
 		}
+		if err := a.secureCmd(ext, secureCache, name, arg...); err != nil {
+			return nil, err
+		}
 
 		return util.NewCmdCtx(context.Background(), name, arg...), nil
 	})
@@ -91,6 +102,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, path, AllowPathRead) {
 			return nil, fmt.Errorf("$os.readFile: path (%s) not authorized for read", path)
 		}
+		if err := a.securePath(ext, secureCache, "system", "read", path); err != nil {
+			return nil, err
+		}
 
 		return os.ReadFile(path)
 	})
@@ -98,11 +112,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.writeFile: path (%s) not authorized for write", path)
 		}
+		if err := a.securePath(ext, secureCache, "system", "write", path); err != nil {
+			return err
+		}
 		return os.WriteFile(path, data, perm)
 	})
 	_ = osObj.Set("readDir", func(path string) ([]fs.DirEntry, error) {
 		if !a.isAllowedPath(ext, path, AllowPathRead) {
 			return nil, fmt.Errorf("$os.readDir: path (%s) not authorized for read", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "list", path); err != nil {
+			return nil, err
 		}
 		return os.ReadDir(path)
 	})
@@ -120,6 +140,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, configDir, AllowPathRead) {
 			return "", fmt.Errorf("$os.configDir: path (%s) not authorized for read", configDir)
 		}
+		if err := a.securePath(ext, secureCache, "system", "view", configDir); err != nil {
+			return "", err
+		}
 		return configDir, nil
 	})
 	_ = osObj.Set("homeDir", func() (string, error) {
@@ -129,6 +152,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		}
 		if !a.isAllowedPath(ext, homeDir, AllowPathRead) {
 			return "", fmt.Errorf("$os.homeDir: path (%s) not authorized for read", homeDir)
+		}
+		if err := a.securePath(ext, secureCache, "system", "view", homeDir); err != nil {
+			return "", err
 		}
 		return homeDir, nil
 	})
@@ -140,11 +166,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, cacheDir, AllowPathRead) {
 			return "", fmt.Errorf("$os.cacheDir: path (%s) not authorized for read", cacheDir)
 		}
+		if err := a.securePath(ext, secureCache, "system", "view", cacheDir); err != nil {
+			return "", err
+		}
 		return cacheDir, nil
 	})
 	_ = osObj.Set("truncate", func(path string, size int64) error {
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.truncate: path (%s) not authorized for write", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "write", path); err != nil {
+			return err
 		}
 		return os.Truncate(path, size)
 	})
@@ -152,11 +184,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.mkdir: path (%s) not authorized for write", path)
 		}
+		if err := a.securePath(ext, secureCache, "system", "create", path); err != nil {
+			return err
+		}
 		return os.Mkdir(path, perm)
 	})
 	_ = osObj.Set("mkdirAll", func(path string, perm fs.FileMode) error {
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.mkdirAll: path (%s) not authorized for write", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "create", path); err != nil {
+			return err
 		}
 		return os.MkdirAll(path, perm)
 	})
@@ -164,11 +202,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, oldpath, AllowPathWrite) || !a.isAllowedPath(ext, newpath, AllowPathWrite) {
 			return fmt.Errorf("$os.rename: path (%s) not authorized for write", oldpath)
 		}
+		if err := a.securePath(ext, secureCache, "system", "rename", oldpath, newpath); err != nil {
+			return err
+		}
 		return os.Rename(oldpath, newpath)
 	})
 	_ = osObj.Set("remove", func(path string) error {
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.remove: path (%s) not authorized for write", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "delete", path); err != nil {
+			return err
 		}
 		return os.Remove(path)
 	})
@@ -176,11 +220,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return fmt.Errorf("$os.removeAll: path (%s) not authorized for write", path)
 		}
+		if err := a.securePath(ext, secureCache, "system", "delete", path); err != nil {
+			return err
+		}
 		return os.RemoveAll(path)
 	})
 	_ = osObj.Set("stat", func(path string) (fs.FileInfo, error) {
 		if !a.isAllowedPath(ext, path, AllowPathRead) {
 			return nil, fmt.Errorf("$os.stat: path (%s) not authorized for read", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "inspect", path); err != nil {
+			return nil, err
 		}
 		return os.Stat(path)
 	})
@@ -199,8 +249,12 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 	//	file.writeString("Hello, world!")
 	//	file.close()
 	_ = osObj.Set("openFile", func(path string, flag int, perm fs.FileMode) (*os.File, error) {
-		if !a.isAllowedPath(ext, path, AllowPathWrite) {
-			return nil, fmt.Errorf("$os.openFile: path (%s) not authorized for write", path)
+		mode, action := openFileMode(flag)
+		if !a.isAllowedPath(ext, path, mode) {
+			return nil, fmt.Errorf("$os.openFile: path (%s) not authorized for %s", path, action)
+		}
+		if err := a.securePath(ext, secureCache, "system", action, path); err != nil {
+			return nil, err
 		}
 		return os.OpenFile(path, flag, perm)
 	})
@@ -212,6 +266,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 	_ = osObj.Set("create", func(path string) (*os.File, error) {
 		if !a.isAllowedPath(ext, path, AllowPathWrite) {
 			return nil, fmt.Errorf("$os.create: path (%s) not authorized for write", path)
+		}
+		if err := a.securePath(ext, secureCache, "system", "write", path); err != nil {
+			return nil, err
 		}
 		return os.Create(path)
 	})
@@ -365,6 +422,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, basePath, AllowPathRead) {
 			return nil, fmt.Errorf("$filepath.glob: path (%s) not authorized for read", basePath)
 		}
+		if err := a.securePath(ext, secureCache, "system", "list", basePath); err != nil {
+			return nil, err
+		}
 		return doublestar.Glob(os.DirFS(basePath), pattern)
 	})
 	filepathObj.Set("isAbs", filepath.IsAbs)
@@ -378,11 +438,17 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, root, AllowPathRead) {
 			return fmt.Errorf("$filepath.walk: path (%s) not authorized for read", root)
 		}
+		if err := a.securePath(ext, secureCache, "system", "read", root); err != nil {
+			return err
+		}
 		return filepath.Walk(root, walkFn)
 	})
 	filepathObj.Set("walkDir", func(root string, walkFn fs.WalkDirFunc) error {
 		if !a.isAllowedPath(ext, root, AllowPathRead) {
 			return fmt.Errorf("$filepath.walkDir: path (%s) not authorized for read", root)
+		}
+		if err := a.securePath(ext, secureCache, "system", "read", root); err != nil {
+			return err
 		}
 		return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
@@ -407,6 +473,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, src, AllowPathWrite) || !a.isAllowedPath(ext, dest, AllowPathWrite) {
 			return fmt.Errorf("$osExtra.unwrapAndMove: path (%s) not authorized for write", src)
 		}
+		if err := a.securePath(ext, secureCache, "system", "move", src, dest); err != nil {
+			return err
+		}
 		return util.UnwrapAndMove(src, dest)
 	})
 
@@ -414,12 +483,18 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, src, AllowPathWrite) || !a.isAllowedPath(ext, dest, AllowPathWrite) {
 			return fmt.Errorf("$osExtra.unzip: path (%s) not authorized for write", src)
 		}
+		if err := a.securePath(ext, secureCache, "system", "extract", src, dest); err != nil {
+			return err
+		}
 		return util.UnzipFile(src, dest)
 	})
 
 	osExtraObj.Set("unrar", func(src string, dest string) error {
 		if !a.isAllowedPath(ext, src, AllowPathWrite) || !a.isAllowedPath(ext, dest, AllowPathWrite) {
 			return fmt.Errorf("$osExtra.unrar: path (%s) not authorized for write", src)
+		}
+		if err := a.securePath(ext, secureCache, "system", "extract", src, dest); err != nil {
+			return err
 		}
 		return util.UnrarFile(src, dest)
 	})
@@ -432,6 +507,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, donwloadDir, AllowPathRead) {
 			return "", fmt.Errorf("$osExtra.downloadDir: path not authorized for read")
 		}
+		if err := a.securePath(ext, secureCache, "system", "view", donwloadDir); err != nil {
+			return "", err
+		}
 		return donwloadDir, nil
 	})
 
@@ -443,6 +521,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		if !a.isAllowedPath(ext, desktopDir, AllowPathRead) {
 			return "", fmt.Errorf("$osExtra.desktopDir: path not authorized for read")
 		}
+		if err := a.securePath(ext, secureCache, "system", "view", desktopDir); err != nil {
+			return "", err
+		}
 		return desktopDir, nil
 	})
 
@@ -453,6 +534,9 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 		}
 		if !a.isAllowedPath(ext, documentsDir, AllowPathRead) {
 			return "", fmt.Errorf("$osExtra.documentsDir: path not authorized for read")
+		}
+		if err := a.securePath(ext, secureCache, "system", "view", documentsDir); err != nil {
+			return "", err
 		}
 		return documentsDir, nil
 	})
@@ -467,16 +551,25 @@ func (a *AppContextImpl) BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ex
 				libraryDirs = append(libraryDirs, path)
 			}
 		}
+		if err := a.securePath(ext, secureCache, "system", "view", libraryDirs...); err != nil {
+			return nil, err
+		}
 		return libraryDirs, nil
 	})
 
-	_ = osExtraObj.Set("asyncCmd", func(name string, arg ...string) *AsyncCmd {
+	_ = osExtraObj.Set("asyncCmd", func(name string, arg ...string) (*AsyncCmd, error) {
+		if !a.isAllowedCommand(ext, name, arg...) {
+			return nil, fmt.Errorf("command (%s) not authorized", fmt.Sprintf("%s %s", name, strings.Join(arg, " ")))
+		}
+		if err := a.secureCmd(ext, secureCache, name, arg...); err != nil {
+			return nil, err
+		}
 		return &AsyncCmd{
 			cmd:        util.NewCmdCtx(context.Background(), name, arg...),
 			appContext: a,
 			scheduler:  scheduler,
 			vm:         vm,
-		}
+		}, nil
 	})
 
 	_ = vm.Set("$osExtra", osExtraObj)
@@ -825,18 +918,20 @@ func (a *AppContextImpl) validateCommandArgs(ext *extension.Extension, allowedAr
 
 			// Special case: $PATH allows any valid file path
 			if allowedArg.Validator == "$PATH" {
-				// Simple path validation - could be enhanced
 				if providedArgs[i] == "" {
 					return false
 				}
 
-				// Check if the path is allowed
-				if !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
+				if _, err := os.Stat(providedArgs[i]); err == nil {
+					if !a.isAllowedPath(ext, providedArgs[i], AllowPathRead) && !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
+						return false
+					}
+					continue
+				} else if !os.IsNotExist(err) {
 					return false
 				}
 
-				// Check if the path exists
-				if _, err := os.Stat(providedArgs[i]); os.IsNotExist(err) {
+				if !a.isAllowedPath(ext, providedArgs[i], AllowPathWrite) {
 					return false
 				}
 

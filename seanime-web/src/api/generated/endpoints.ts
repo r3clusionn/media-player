@@ -765,6 +765,11 @@ export const API_ENDPOINTS = {
             methods: ["POST"],
             endpoint: "/api/v1/extensions/external/reload",
         },
+        SetExternalExtensionDisabled: {
+            key: "EXTENSIONS-set-external-extension-disabled",
+            methods: ["POST"],
+            endpoint: "/api/v1/extensions/external/disabled",
+        },
         ListExtensionData: {
             key: "EXTENSIONS-list-extension-data",
             methods: ["GET"],
@@ -804,6 +809,11 @@ export const API_ENDPOINTS = {
             key: "EXTENSIONS-list-anime-torrent-provider-extensions",
             methods: ["GET"],
             endpoint: "/api/v1/extensions/list/anime-torrent-provider",
+        },
+        ListAnimeEntryEpisodeTabExtensions: {
+            key: "EXTENSIONS-list-anime-entry-episode-tab-extensions",
+            methods: ["GET"],
+            endpoint: "/api/v1/extensions/list/anime-entry-episode-tabs",
         },
         ListCustomSourceExtensions: {
             key: "EXTENSIONS-list-custom-source-extensions",
@@ -1446,6 +1456,16 @@ export const API_ENDPOINTS = {
             key: "MEDIASTREAM-mediastream-shutdown-transcode-stream",
             methods: ["POST"],
             endpoint: "/api/v1/mediastream/shutdown-transcode",
+        },
+        /**
+         *  @description
+         *  Route get local subtitle files.
+         *  This returns same-directory subtitle files for a local video file.
+         */
+        MediastreamLocalSubtitles: {
+            key: "MEDIASTREAM-mediastream-local-subtitles",
+            methods: ["GET"],
+            endpoint: "/api/v1/mediastream/local-subtitles",
         },
     },
     METADATA: {
@@ -2293,6 +2313,16 @@ export const API_ENDPOINTS = {
             key: "TORRENTSTREAM-get-torrentstream-batch-history",
             methods: ["POST"],
             endpoint: "/api/v1/torrentstream/batch-history",
+        },
+        /**
+         *  @description
+         *  Route deletes the saved batch selection.
+         *  This clears the saved previous batch selection for a media entry.
+         */
+        DeleteTorrentstreamBatchHistory: {
+            key: "TORRENTSTREAM-delete-torrentstream-batch-history",
+            methods: ["POST"],
+            endpoint: "/api/v1/torrentstream/batch-history/delete",
         },
     },
     VIDEOCORE: {

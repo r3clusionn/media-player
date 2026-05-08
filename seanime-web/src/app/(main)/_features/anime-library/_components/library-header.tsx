@@ -88,6 +88,7 @@ export function LibraryHeader({ list }: { list: Anime_Episode[] }) {
                     // Make it not fixed when the user scrolls down if a background image is set
                     !ts.libraryScreenCustomBackgroundImage && "fixed",
                     !!ts.libraryScreenCustomBackgroundImage && __isDesktop__ && "top-[-2rem]",
+                    !ts.libraryScreenCustomBackgroundImage && __isDesktop__ && "h-[22rem]",
                 )}
             >
 

@@ -9,8 +9,9 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { getScoreColor } from "@/lib/helpers/score"
 import capitalize from "lodash/capitalize"
 import React from "react"
-import { AiFillStar, AiOutlineHeart, AiOutlineStar } from "react-icons/ai"
+import { AiOutlineHeart, AiOutlineStar } from "react-icons/ai"
 import { BiHeart, BiHide } from "react-icons/bi"
+import { LuTrophy } from "react-icons/lu"
 
 type MediaEntryGenresListProps = {
     genres?: Array<string | null> | null | undefined
@@ -34,12 +35,15 @@ export function MediaEntryGenresList(props: MediaEntryGenresListProps) {
     if (serverStatus?.isOffline) {
         return (
             <>
-                <div data-media-entry-genres-list-container className={cn("items-center flex flex-wrap gap-3", className)}>
+                <div
+                    data-media-entry-genres-list-container
+                    className={cn("items-center flex flex-wrap justify-center lg:justify-start gap-2 md:gap-3", className)}
+                >
                     {genres?.map(genre => {
                         return <Badge
                             key={genre!}
                             className={cn(
-                                "opacity-75 hover:opacity-100 transition-all px-0 border-transparent bg-transparent hover:bg-transparent hover:text-white")}
+                                "hover:opacity-100 transition-all px-0 border-transparent bg-transparent hover:bg-transparent dark:text-[--muted] dark:hover:text-[--foreground]")}
                             size="lg"
                             data-media-entry-genres-list-item
                         >
@@ -52,12 +56,15 @@ export function MediaEntryGenresList(props: MediaEntryGenresListProps) {
     } else {
         return (
             <>
-                <div data-media-entry-genres-list className={cn("items-center flex flex-wrap gap-3", className)}>
+                <div
+                    data-media-entry-genres-list
+                    className={cn("items-center flex flex-wrap justify-center lg:justify-start gap-2 md:gap-3", className)}
+                >
                     {genres?.map(genre => {
                         return <SeaLink href={`/search?genre=${genre}&sorting=TRENDING_DESC${type === "manga" ? "&format=MANGA" : ""}`} key={genre!}>
                             <Badge
                                 className={cn(
-                                    "opacity-75 hover:opacity-100 transition-all px-0 border-transparent bg-transparent hover:bg-transparent hover:text-white")}
+                                    "hover:opacity-100 transition-all px-0 border-transparent bg-transparent hover:bg-transparent dark:text-[--muted] dark:hover:text-[--foreground]")}
                                 size="lg"
                                 data-media-entry-genres-list-item
                             >
@@ -163,7 +170,10 @@ export function AnimeEntryRankings(props: AnimeEntryRankingsProps) {
     return (
         <>
             {(!!allTimeHighestRated || !!seasonMostPopular) &&
-                <div className="Sea-AnimeEntryRankings__container flex-wrap gap-2 hidden md:flex" data-anime-entry-rankings>
+                <div
+                    className="Sea-AnimeEntryRankings__container flex-wrap gap-2 hidden md:flex w-full justify-center lg:justify-start"
+                    data-anime-entry-rankings
+                >
                     {allTimeHighestRated && <Link
                         href={`/search?sorting=SCORE_DESC${allTimeHighestRated.format ? `&format=${allTimeHighestRated.format}` : ""}`}
                         data-anime-entry-rankings-item
@@ -172,13 +182,11 @@ export function AnimeEntryRankings(props: AnimeEntryRankingsProps) {
                         <Badge
                             size="lg"
                             intent="gray"
-                            leftIcon={<AiFillStar className="text-lg" />}
-                            iconClass="text-yellow-500"
-                            className="opacity-75 transition-all hover:opacity-100 rounded-full bg-transparent border-transparent px-0 hover:bg-transparent hover:text-white"
+                            leftIcon={<LuTrophy className="text-sm" />}
+                            iconClass="text-yellow-500/70 group-hover/badge:text-yellow-400"
+                            className="transition-all hover:opacity-100 rounded-full bg-transparent dark:text-[--muted] border-transparent px-0 hover:bg-transparent dark:hover:text-[--foreground]"
                         >
-                            #{String(allTimeHighestRated.rank)} Highest
-                            Rated {formatFormat(allTimeHighestRated.format)} of All
-                            Time
+                            #{String(allTimeHighestRated.rank)} Highest Rated {formatFormat(allTimeHighestRated.format)}
                         </Badge>
                     </Link>}
                     {seasonHighestRated && <Link
@@ -192,14 +200,13 @@ export function AnimeEntryRankings(props: AnimeEntryRankingsProps) {
                             size="lg"
                             intent="gray"
                             leftIcon={<AiOutlineStar />}
-                            iconClass="text-yellow-500"
-                            className="opacity-75 transition-all hover:opacity-100 rounded-full border-transparent bg-transparent px-0 hover:bg-transparent hover:text-white"
+                            iconClass="text-yellow-500/70 group-hover/badge:text-yellow-400"
+                            className="transition-all hover:opacity-100 rounded-full bg-transparent dark:text-[--muted] border-transparent px-0 hover:bg-transparent dark:hover:text-[--foreground]"
                         >
-                            #{String(seasonHighestRated.rank)} Highest
-                            Rated {formatFormat(seasonHighestRated.format)} of {capitalize(seasonHighestRated.season!)} {seasonHighestRated.year}
+                            #{String(seasonHighestRated.rank)} {capitalize(seasonHighestRated.season!)} {seasonHighestRated.year}
                         </Badge>
                     </Link>}
-                    {seasonMostPopular && <Link
+                    {(seasonMostPopular && !seasonHighestRated) && <Link
                         href={`/search?sorting=POPULARITY_DESC${seasonMostPopular.format
                             ? `&format=${seasonMostPopular.format}`
                             : ""}${seasonMostPopular.year ? `&year=${seasonMostPopular.year}` : ""}${seasonMostPopular.season
@@ -212,11 +219,10 @@ export function AnimeEntryRankings(props: AnimeEntryRankingsProps) {
                             size="lg"
                             intent="gray"
                             leftIcon={<AiOutlineHeart />}
-                            iconClass="text-pink-500"
-                            className="opacity-75 transition-all hover:opacity-100 rounded-full border-transparent bg-transparent px-0 hover:bg-transparent hover:text-white"
+                            iconClass="text-[--muted] group-hover/badge:text-pink-400/70"
+                            className="transition-all hover:opacity-100 rounded-full bg-transparent dark:text-[--muted] border-transparent px-0 hover:bg-transparent dark:hover:text-[--foreground]"
                         >
-                            #{(String(seasonMostPopular.rank))} Most
-                            Popular {formatFormat(seasonMostPopular.format)} of {capitalize(seasonMostPopular.season!)} {seasonMostPopular.year}
+                            #{(String(seasonMostPopular.rank))} Popular {formatFormat(seasonMostPopular.format)} {capitalize(seasonMostPopular.season!)} {seasonMostPopular.year}
                         </Badge>
                     </Link>}
                 </div>}

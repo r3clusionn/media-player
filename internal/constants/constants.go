@@ -6,8 +6,8 @@ import (
 )
 
 const (
-	Version              = "3.7.1"
-	VersionName          = "Minamo"
+	Version              = "3.8.0-alpha.41"
+	VersionName          = "Kanata"
 	GcTime               = time.Minute * 30
 	ConfigFileName       = "config.toml"
 	MalClientId          = "51cb4294feb400f3ddc66a30f9b9a00f"

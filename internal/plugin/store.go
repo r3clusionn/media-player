@@ -62,12 +62,18 @@ func (s *Store[K, T]) Bind(vm *goja.Runtime, scheduler *gojautil.Scheduler) {
 		// devnote: clone the value so we don't run into concurrent map write panics
 		return cloneRefValue(s.Get(key))
 	})
+	_ = storeObj.Set("getUnsafe", func(key K) interface{} {
+		return s.Get(key)
+	})
 	_ = storeObj.Set("set", s.Set)
 	_ = storeObj.Set("length", s.Length)
 	_ = storeObj.Set("remove", s.Remove)
 	_ = storeObj.Set("removeAll", s.RemoveAll)
 	_ = storeObj.Set("getAll", func() interface{} {
 		return cloneRefValue(s.GetAll())
+	})
+	_ = storeObj.Set("getAllUnsafe", func() interface{} {
+		return s.GetAll()
 	})
 	_ = storeObj.Set("has", s.Has)
 	_ = storeObj.Set("getOrSet", func(key K, setFunc func() T) interface{} {
@@ -85,6 +91,9 @@ func (s *Store[K, T]) Bind(vm *goja.Runtime, scheduler *gojautil.Scheduler) {
 	_ = storeObj.Set("values", func() interface{} {
 		// devnote: clone the value so we don't run into concurrent map write panics
 		return cloneRefValue(s.Values())
+	})
+	_ = storeObj.Set("valuesUnsafe", func() interface{} {
+		return s.Values()
 	})
 	s.bindWatch(storeObj, vm, scheduler)
 	_ = vm.Set("$store", storeObj)

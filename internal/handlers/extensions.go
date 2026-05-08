@@ -190,6 +190,33 @@ func (h *Handler) HandleReloadExternalExtension(c echo.Context) error {
 	return h.RespondWithData(c, true)
 }
 
+// HandleSetExternalExtensionDisabled
+//
+//	@summary enables or disables an external extension.
+//	@route /api/v1/extensions/external/disabled [POST]
+//	@returns bool
+func (h *Handler) HandleSetExternalExtensionDisabled(c echo.Context) error {
+	type body struct {
+		ID       string `json:"id"`
+		Disabled bool   `json:"disabled"`
+	}
+
+	var b body
+	if err := c.Bind(&b); err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	if err := h.guardPrivilegedExtensionManagement(c); err != nil {
+		return err
+	}
+
+	if err := h.App.ExtensionRepository.SetExternalExtensionDisabled(b.ID, b.Disabled); err != nil {
+		return h.RespondWithError(c, err)
+	}
+
+	return h.RespondWithData(c, true)
+}
+
 // HandleListExtensionData
 //
 //	@summary returns the loaded extensions
@@ -279,6 +306,16 @@ func (h *Handler) HandleListOnlinestreamProviderExtensions(c echo.Context) error
 //	@returns []extension_repo.AnimeTorrentProviderExtensionItem
 func (h *Handler) HandleListAnimeTorrentProviderExtensions(c echo.Context) error {
 	extensions := h.App.ExtensionRepository.ListAnimeTorrentProviderExtensions()
+	return h.RespondWithData(c, extensions)
+}
+
+// HandleListAnimeEntryEpisodeTabExtensions
+//
+//	@summary returns the installed plugins that registered an anime entry episode tab.
+//	@route /api/v1/extensions/list/anime-entry-episode-tabs [GET]
+//	@returns []extension_repo.PluginEpisodeTabExtensionItem
+func (h *Handler) HandleListAnimeEntryEpisodeTabExtensions(c echo.Context) error {
+	extensions := h.App.ExtensionRepository.ListAnimeEntryEpisodeTabExtensions()
 	return h.RespondWithData(c, extensions)
 }
 

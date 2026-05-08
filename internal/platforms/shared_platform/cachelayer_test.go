@@ -154,6 +154,63 @@ func TestCacheLayerQueuesEntryUpdateAndSyncsWhenOnline(t *testing.T) {
 	requireNoQueuedUpdate(t, cacheLayer, 202)
 }
 
+func TestCacheLayerLiveProgressUpdateClearsQueuedUpdate(t *testing.T) {
+	client := &cacheLayerTestClient{
+		cacheDir:        t.TempDir(),
+		animeCollection: newTestAnimeCollection(101, 321, anilist.MediaListStatusCurrent, 2),
+	}
+	cacheLayer := newTestCacheLayer(t, client)
+
+	_, err := cacheLayer.AnimeCollection(context.Background(), new("user"))
+	require.NoError(t, err)
+
+	// first update is queued while the api is marked down
+	IsWorking.Store(false)
+	_, err = cacheLayer.UpdateMediaListEntryProgress(context.Background(), new(101), new(6), new(anilist.MediaListStatusCompleted))
+	require.NoError(t, err)
+	queued := getQueuedUpdate(t, cacheLayer, 101)
+	require.Equal(t, 6, *queued.Progress)
+
+	// a later online update should win and remove the stale queued state
+	IsWorking.Store(true)
+	_, err = cacheLayer.UpdateMediaListEntryProgress(context.Background(), new(101), new(7), new(anilist.MediaListStatusCurrent))
+	require.NoError(t, err)
+	requireNoQueuedUpdate(t, cacheLayer, 101)
+
+	cacheLayer.syncQueuedUpdates(context.Background())
+	require.Len(t, client.updateProgressCalls, 1)
+	require.Equal(t, 7, *client.updateProgressCalls[0].Progress)
+}
+
+func TestCacheLayerLiveEntryUpdateClearsQueuedUpdate(t *testing.T) {
+	client := &cacheLayerTestClient{
+		cacheDir:        t.TempDir(),
+		mangaCollection: newTestMangaCollection(202, 654, anilist.MediaListStatusCurrent, 4),
+	}
+	cacheLayer := newTestCacheLayer(t, client)
+
+	_, err := cacheLayer.MangaCollection(context.Background(), new("user"))
+	require.NoError(t, err)
+
+	// queue an older edit while AniList is unavailable
+	IsWorking.Store(false)
+	_, err = cacheLayer.UpdateMediaListEntry(context.Background(), new(202), new(anilist.MediaListStatusCompleted), new(80), new(12), nil, nil)
+	require.NoError(t, err)
+	queued := getQueuedUpdate(t, cacheLayer, 202)
+	require.Equal(t, 80, *queued.ScoreRaw)
+
+	// the successful online edit replaces it and should prevent stale replay
+	IsWorking.Store(true)
+	_, err = cacheLayer.UpdateMediaListEntry(context.Background(), new(202), new(anilist.MediaListStatusCurrent), new(90), new(13), nil, nil)
+	require.NoError(t, err)
+	requireNoQueuedUpdate(t, cacheLayer, 202)
+
+	cacheLayer.syncQueuedUpdates(context.Background())
+	require.Len(t, client.updateEntryCalls, 1)
+	require.Equal(t, 90, *client.updateEntryCalls[0].ScoreRaw)
+	require.Equal(t, 13, *client.updateEntryCalls[0].Progress)
+}
+
 func newTestCacheLayer(t *testing.T, client *cacheLayerTestClient) *CacheLayer {
 	t.Helper()
 	ShouldCache.Store(true)

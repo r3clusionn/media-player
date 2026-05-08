@@ -25,7 +25,6 @@ import {
     VideoCoreKeybindings,
 } from "@/app/(main)/_features/video-core/video-core.atoms"
 import { vc_dispatchAction } from "@/app/(main)/_features/video-core/video-core.utils"
-import { AlphaBadge } from "@/components/shared/beta-badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/components/ui/core/styling"
 import { defineSchema, Field, Form } from "@/components/ui/form"
@@ -66,6 +65,8 @@ const translationSettingsSchema = defineSchema(({ z, presets }) => z.object({
     vcTranslateProvider: z.string().default("google"),
     vcTranslateTargetLanguage: z.string().default("en"),
     vcTranslateApiKey: z.string().default(""),
+    vcTranslateBaseUrl: z.string().default(""),
+    vcTranslateModel: z.string().default(""),
 }))
 
 const KeybindingValueInput = ({
@@ -164,6 +165,8 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
     const [tab, setTab] = useState("keybinds")
     const { mutate: saveMediaPlayerSettings } = useSaveMediaPlayerSettings()
     const serverStatus = useServerStatus()
+    const mediaPlayerSettings = serverStatus?.settings?.mediaPlayer
+    const translateProvider = mediaPlayerSettings?.vcTranslateProvider || "google"
     const translationFormRef = useRef<UseFormReturn<any>>(null)
 
     const [settings, setSettings] = useAtom(vc_settings)
@@ -257,14 +260,19 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
 
     function handleSaveTranslationSettings(data: z.infer<typeof translationSettingsSchema>) {
         const currentMediaPlayer = serverStatus?.settings?.mediaPlayer!
+        const translateModel = data.vcTranslateProvider === "openai" && (!data.vcTranslateModel || data.vcTranslateModel === "local-model")
+            ? "gpt-4o-mini"
+            : data.vcTranslateModel
 
         saveMediaPlayerSettings({
             mediaPlayer: {
                 ...currentMediaPlayer,
                 vcTranslate: data.vcTranslate,
-                vcTranslateTargetLanguage: data.vcTranslateTargetLanguage.toLowerCase(),
+                vcTranslateTargetLanguage: data.vcTranslateTargetLanguage,
                 vcTranslateProvider: data.vcTranslateProvider,
                 vcTranslateApiKey: data.vcTranslateApiKey,
+                vcTranslateBaseUrl: data.vcTranslateBaseUrl,
+                vcTranslateModel: translateModel,
             },
         }, {
             onSuccess: () => {
@@ -297,7 +305,7 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
                 <TabsList className="flex-wrap max-w-full bg-[--paper] p-2 border rounded-xl">
                     <TabsTrigger value="keybinds">Keyboard Shortcuts</TabsTrigger>
                     <TabsTrigger value="subtitles">Subtitles & Audio</TabsTrigger>
-                    <TabsTrigger value="translation">Translation <AlphaBadge /></TabsTrigger>
+                    <TabsTrigger value="translation">Translation</TabsTrigger>
                     {/*<TabsTrigger value="browser-client">Rendering</TabsTrigger>*/}
                 </TabsList>
 
@@ -648,15 +656,23 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
                         schema={translationSettingsSchema}
                         onSubmit={handleSaveTranslationSettings}
                         defaultValues={{
-                            vcTranslate: serverStatus?.settings?.mediaPlayer?.vcTranslate ?? false,
-                            vcTranslateProvider: serverStatus?.settings?.mediaPlayer?.vcTranslateProvider || "deepl",
-                            vcTranslateTargetLanguage: serverStatus?.settings?.mediaPlayer?.vcTranslateTargetLanguage?.toLowerCase() || "en",
-                            vcTranslateApiKey: serverStatus?.settings?.mediaPlayer?.vcTranslateApiKey || "",
+                            vcTranslate: mediaPlayerSettings?.vcTranslate ?? false,
+                            vcTranslateProvider: translateProvider,
+                            vcTranslateTargetLanguage: mediaPlayerSettings?.vcTranslateTargetLanguage || "en",
+                            vcTranslateApiKey: mediaPlayerSettings?.vcTranslateApiKey || "",
+                            vcTranslateBaseUrl: mediaPlayerSettings?.vcTranslateBaseUrl || "http://localhost:1234/v1",
+                            vcTranslateModel: mediaPlayerSettings?.vcTranslateModel || (translateProvider === "openai"
+                                ? "gpt-4o-mini"
+                                : "local-model"),
                         }}
                         stackClass="space-y-4 relative"
                         mRef={translationFormRef}
                     >
-                        {(f) => (
+                        {(f) => {
+                            const provider = f.watch("vcTranslateProvider")
+                            const usesOpenAIProvider = provider === "openai" || provider === "openai-compatible"
+
+                            return (
                             <div className="space-y-4">
                                 <div className="space-y-4">
                                     <Field.Switch
@@ -670,16 +686,18 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
                                             label="Provider"
                                             name="vcTranslateProvider"
                                             options={[
+                                                { value: "google", label: "Google Free" },
                                                 { value: "deepl", label: "DeepL" },
                                                 { value: "openai", label: "OpenAI" },
+                                                { value: "openai-compatible", label: "OpenAI Compatible" },
                                             ]}
                                             contentClass="z-[999]"
                                         />
                                     </div>
 
-                                    {f.watch("vcTranslateProvider") === "deepl" && (
+                                    {provider === "deepl" && (
                                         <p>
-                                            Note: DeepL does not support all target languages.
+                                            DeepL does not support all target languages.
                                         </p>
                                     )}
 
@@ -748,19 +766,40 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
                                     </div>
 
                                     <div className="space-y-2">
-                                        <Field.Text
-                                            label="API Key"
-                                            name="vcTranslateApiKey"
-                                            placeholder="Enter your API key"
-                                            onKeyDown={(e) => e.stopPropagation()}
-                                            onInput={(e) => e.stopPropagation()}
-                                            type="password"
-                                        />
+                                        {provider === "openai-compatible" && (
+                                            <Field.Text
+                                                label="Base URL"
+                                                name="vcTranslateBaseUrl"
+                                                placeholder="http://localhost:1234/v1"
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                                onInput={(e) => e.stopPropagation()}
+                                                help="OpenAI-compatible /v1 endpoint, e.g. LM Studio or Ollama."
+                                            />
+                                        )}
+                                        {usesOpenAIProvider && (
+                                            <Field.Text
+                                                label="Model"
+                                                name="vcTranslateModel"
+                                                placeholder={provider === "openai-compatible" ? "local-model" : "gpt-4o-mini"}
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                                onInput={(e) => e.stopPropagation()}
+                                            />
+                                        )}
+                                        {provider !== "google" && (
+                                            <Field.Text
+                                                label={provider === "openai-compatible" ? "API Key (optional)" : "API Key"}
+                                                name="vcTranslateApiKey"
+                                                placeholder="Enter your API key"
+                                                onKeyDown={(e) => e.stopPropagation()}
+                                                onInput={(e) => e.stopPropagation()}
+                                                type="password"
+                                            />
+                                        )}
                                     </div>
                                 </div>
 
                                 <p className="text-[--muted]">
-                                    Reloading the player is required only when switching languages or API Key.
+                                    Reloading the player is required only when switching translation provider, language, endpoint, model, or API key.
                                 </p>
 
                                 <div className="flex items-center justify-end pt-6">
@@ -781,7 +820,8 @@ export function VideoCorePreferencesModal({ isWebPlayer }: { isWebPlayer: boolea
                                     </div>
                                 </div>
                             </div>
-                        )}
+                            )
+                        }}
                     </Form>
                 </TabsContent>
             </Tabs>

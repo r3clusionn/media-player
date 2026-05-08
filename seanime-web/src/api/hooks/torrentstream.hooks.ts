@@ -1,5 +1,6 @@
 import { useServerMutation, useServerQuery } from "@/api/client/requests"
 import {
+    DeleteTorrentstreamBatchHistory_Variables,
     GetTorrentstreamBatchHistory_Variables,
     GetTorrentstreamTorrentFilePreviews_Variables,
     SaveTorrentstreamSettings_Variables,
@@ -83,5 +84,18 @@ export function useGetTorrentstreamBatchHistory(mediaId: Nullish<string | number
             mediaId: Number(mediaId)!,
         },
         enabled: !!mediaId,
+    })
+}
+
+export function useDeleteTorrentstreamBatchHistory() {
+    const qc = useQueryClient()
+
+    return useServerMutation<boolean, DeleteTorrentstreamBatchHistory_Variables>({
+        endpoint: API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.endpoint,
+        method: API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.methods[0],
+        mutationKey: [API_ENDPOINTS.TORRENTSTREAM.DeleteTorrentstreamBatchHistory.key],
+        onSuccess: async (_, variables) => {
+            await qc.invalidateQueries({ queryKey: [API_ENDPOINTS.TORRENTSTREAM.GetTorrentstreamBatchHistory.key] })
+        },
     })
 }

@@ -98,6 +98,7 @@ export type SwitchProps = BasicFieldOptions &
     inputRef?: React.Ref<HTMLInputElement>
     className?: string
     moreHelp?: React.ReactNode
+    icon?: React.ReactElement
 }
 
 export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>((props, ref) => {
@@ -114,6 +115,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>((props, r
         inputRef,
         side,
         moreHelp,
+        icon,
         ...rest
     }, { label, ...basicFieldProps }] = extractBasicFieldProps(props, React.useId())
 
@@ -183,6 +185,10 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>((props, r
                     </Popover>}
                 </div>}
 
+                {icon &&
+                    <div className="text-2xl text-[--muted] group-hover/switch:text-[--foreground] transition-transform group-hover/switch:-rotate-12">{icon}</div>}
+
+
                 <input
                     ref={inputRef}
                     type="checkbox"
@@ -193,7 +199,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>((props, r
                     aria-hidden="true"
                     required={controlledValue === undefined && basicFieldProps.required}
                     tabIndex={-1}
-                    onChange={() => {}}
+                    onChange={() => { }}
                     onFocusCapture={() => buttonRef.current?.focus()}
                 />
             </div>

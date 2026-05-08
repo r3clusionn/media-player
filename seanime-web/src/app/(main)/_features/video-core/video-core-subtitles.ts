@@ -325,11 +325,10 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         return this.fileTracks[number]?.content || null
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
     // Sets the track to no track.
     setNoTrack() {
         this.currentTrackNumber = NO_TRACK_NUMBER
+        this._disableNativeTextTracks()
         this.libassRenderer?.renderer?.setTrack(this.defaultSubtitleHeader)
         this.libassRenderer?.resize?.()
         this.pgsRenderer?.clear()
@@ -339,13 +338,7 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         this.dispatchEvent(event)
     }
 
-    setTrackChangedEventListener(callback: (track: number | null) => void) {
-        this._onSelectedTrackChanged = callback
-    }
-
-    setTracksLoadedEventListener(callback: ((tracks: NormalizedTrackInfo[]) => void)) {
-        this._onTracksLoaded = callback
-    }
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     // Selects a track by its number.
     async selectTrack(trackNumber: number) {
@@ -368,19 +361,7 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         const track = this._getTracks()?.find?.(t => t.number === trackNumber)
         subtitleLog.info("Selecting track", trackNumber, track)
 
-        // Update the text track which is showing in the video element
-        if (this.videoElement.textTracks) {
-            subtitleLog.info("Updating video element's textTracks", this.videoElement.textTracks)
-            for (const textTrack of this.videoElement.textTracks) {
-                if (track && textTrack.id === track.number.toString()) {
-                    textTrack.mode = "showing"
-                } else {
-                    textTrack.mode = "disabled"
-                }
-            }
-            // Dispatch a change event to update the player
-            this.videoElement.textTracks.dispatchEvent(new Event("change"))
-        }
+        this._disableNativeTextTracks()
 
         if (!track) {
             subtitleLog.error("Track not found", trackNumber)
@@ -457,8 +438,17 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         this.dispatchEvent(selectedEvent)
     }
 
+    setTrackChangedEventListener(callback: (track: number | null) => void) {
+        this._onSelectedTrackChanged = callback
+    }
+
+    setTracksLoadedEventListener(callback: ((tracks: NormalizedTrackInfo[]) => void)) {
+        this._onTracksLoaded = callback
+    }
+
     destroy() {
         subtitleLog.info("Destroying subtitle manager")
+        this._disableNativeTextTracks()
         this.libassRenderer?.destroy()
         this.libassRenderer = null
         this.pgsRenderer?.destroy()
@@ -478,6 +468,16 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
 
         const event: SubtitleManagerDestroyedEvent = new CustomEvent("destroyed")
         this.dispatchEvent(event)
+    }
+
+    private _disableNativeTextTracks() {
+        if (!this.videoElement.textTracks) return
+
+        subtitleLog.info("Disabling video element textTracks", this.videoElement.textTracks)
+        for (const textTrack of this.videoElement.textTracks) {
+            textTrack.mode = "disabled"
+        }
+        this.videoElement.textTracks.dispatchEvent(new Event("change"))
     }
 
     getTracks() {
@@ -514,6 +514,7 @@ Style: Default, Roboto Medium,24,&H00FFFFFF,&H000000FF,&H00000000,&H00000000,0,0
         // If translation settings changed, we need to refresh the current track
         const translationChanged = this.shouldTranslate !== shouldTranslate
         this.shouldTranslate = shouldTranslate
+        this.translationTargetLang = shouldTranslate
 
         if (translationChanged && this.currentTrackNumber !== NO_TRACK_NUMBER) {
             subtitleLog.info("Translation settings changed, reloading current track")

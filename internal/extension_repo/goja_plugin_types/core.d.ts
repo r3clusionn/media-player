@@ -657,6 +657,14 @@ declare namespace $store {
     function get<T = any>(key: string): T
 
     /**
+     * Gets a value from the store without cloning.
+     * Use with caution. Do not mutate the returned object.
+     * @param key - The key to get
+     * @returns The value associated with the key
+     */
+    function getUnsafe<T = any>(key: string): T
+
+    /**
      * Checks if a key exists in the store.
      * @param key - The key to check
      * @returns True if the key exists, false otherwise
@@ -702,6 +710,26 @@ declare namespace $store {
      * @returns An array of all values in the store
      */
     function values(): any[]
+
+    /**
+     * Gets all values from the store without cloning.
+     * Use with caution. Do not mutate the returned objects in the array.
+     * @returns An array of all values in the store
+     */
+    function valuesUnsafe(): any[]
+
+    /**
+     * Gets the entire internal map from the store.
+     * @returns An object containing all the key-value pairs
+     */
+    function getAll(): Record<string, any>
+
+    /**
+     * Gets the entire internal map from the store without cloning.
+     * Use with caution. Do not mutate the returned object or its nested values.
+     * @returns An object containing all the key-value pairs
+     */
+    function getAllUnsafe(): Record<string, any>
 
     /**
      * Watches a key in the store.

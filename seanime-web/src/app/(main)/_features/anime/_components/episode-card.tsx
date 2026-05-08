@@ -1,6 +1,8 @@
 import { Anime_Episode } from "@/api/generated/types"
+import { EpisodeCardImage } from "@/app/(main)/_features/anime/_components/episode-card-image"
 import { SeaContextMenu } from "@/app/(main)/_features/context-menu/sea-context-menu"
 import { EpisodeItemBottomGradient } from "@/app/(main)/_features/custom-ui/item-bottom-gradients"
+import { MediaEntryCardAdultVeil } from "@/app/(main)/_features/media/_components/media-entry-card-components"
 import { useMediaPreviewModal } from "@/app/(main)/_features/media/_containers/media-preview-modal"
 import { usePlaylistEditorManager } from "@/app/(main)/_features/playlists/lib/playlist-editor-manager"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
@@ -11,6 +13,7 @@ import { cn } from "@/components/ui/core/styling"
 import { ProgressBar } from "@/components/ui/progress-bar"
 import { usePathname, useRouter } from "@/lib/navigation"
 import { getImageUrl } from "@/lib/server/assets"
+import { getSpoilerFreeAnimeImage, useEpisodeSpoilerState } from "@/lib/theme/anime-spoilers"
 import { useThemeSettings } from "@/lib/theme/theme-hooks"
 import React from "react"
 import { BiAddToQueue } from "react-icons/bi"
@@ -22,21 +25,27 @@ type EpisodeCardProps = {
     title: React.ReactNode
     actionIcon?: React.ReactElement | null
     image?: string
+    spoilerSafeImage?: string
     onClick?: () => void
     topTitle?: string
+    spoilerSafeTopTitle?: string
     meta?: string
     type?: "carousel" | "grid"
+    spoilerMode?: "blur" | "replace"
+    spoilerActive?: boolean
     contextType?: string // used for plugin context menu item filtering
     isInvalid?: boolean
     containerClass?: string
     episodeNumber?: number
     progressNumber?: number
+    watchedProgress?: number
     progressTotal?: number
     mRef?: React.RefObject<HTMLDivElement | null>
     hasDiscrepancy?: boolean
     length?: string | number | null
     imageClass?: string
     badge?: React.ReactNode
+    isAdult?: boolean
     percentageComplete?: number
     minutesRemaining?: number
     allowAnimeInfo?: boolean
@@ -49,6 +58,7 @@ type EpisodeCardProps = {
         title?: string
     }
     episode?: Anime_Episode // Optional, used for plugin actions
+    disableAnimation?: boolean
 } & Omit<React.ComponentPropsWithoutRef<"div">, "title">
 
 export function EpisodeCard(props: EpisodeCardProps) {
@@ -57,11 +67,15 @@ export function EpisodeCard(props: EpisodeCardProps) {
         children,
         actionIcon = props.actionIcon !== null ? <FaCirclePlay className="opacity-50" /> : undefined,
         image,
+        spoilerSafeImage,
         onClick,
         topTitle,
+        spoilerSafeTopTitle,
         meta,
         title,
         type = "carousel",
+        spoilerMode = "blur",
+        spoilerActive,
         isInvalid,
         className,
         containerClass,
@@ -69,10 +83,12 @@ export function EpisodeCard(props: EpisodeCardProps) {
         episodeNumber,
         progressTotal,
         progressNumber,
+        watchedProgress,
         hasDiscrepancy,
         length,
         imageClass,
         badge,
+        isAdult,
         percentageComplete,
         minutesRemaining,
         allowAnimeInfo,
@@ -82,6 +98,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
         contextType,
         additionalContextMenuItems,
         fallbackImage,
+        disableAnimation,
         ...rest
     } = props
 
@@ -100,17 +117,32 @@ export function EpisodeCard(props: EpisodeCardProps) {
     const missingImage = false
 
     const isSingleContainer = ts.useLegacyEpisodeCard || forceSingleContainer
+    const spoiler = useEpisodeSpoilerState(ts, {
+        mediaId: anime?.id ?? episode?.baseAnime?.id,
+        episodeNumber,
+        watchedProgress,
+        spoilerMode,
+        spoilerActive,
+    })
+    const displayTopTitle = spoiler.replaceTitle
+        ? spoilerSafeTopTitle || topTitle
+        : topTitle
+    const displayImage = spoiler.replaceImage
+        ? spoilerSafeImage || getSpoilerFreeAnimeImage(episode?.baseAnime) || anime?.image || image
+        : image
+    const showAdultVeil = !!serverStatus?.settings?.anilist?.blurAdultContent && !!(isAdult ?? episode?.baseAnime?.isAdult)
 
     const Meta = () => (
         <div data-episode-card-info-container className="relative z-[3] w-full space-y-0">
-            {(topTitle !== title || showTotalEpisodes) && <p
+            {(displayTopTitle !== title || showTotalEpisodes) && <p
                 data-episode-card-title
                 className={cn(
                     "w-[80%] line-clamp-1 text-md md:text-lg transition-colors duration-200 text-[--foreground] font-semibold",
                     isSingleContainer && "text-sm max-w-[80%] text-white/60",
+                    spoiler.blurTitle && "blur-sm",
                 )}
             >
-                {topTitle?.replaceAll("`", "'")}
+                {displayTopTitle?.replaceAll("`", "'")}
             </p>}
             <div data-episode-card-info-content className="w-full justify-between flex flex-none items-center">
                 <p data-episode-card-subtitle className="line-clamp-1 flex items-center">
@@ -200,22 +232,34 @@ export function EpisodeCard(props: EpisodeCardProps) {
                             // duration-200",
                         )}
                     >
-                        {!!image ? <SeaImage
+                        {!!displayImage ? <EpisodeCardImage
                             data-episode-card-image
-                            src={getImageUrl(image)}
+                            src={getImageUrl(displayImage)}
                             alt={""}
                             fill
                             quality={100}
                             placeholder={imageShimmer(700, 475)}
                             sizes="20rem"
-                            className={cn(
-                                "object-cover rounded-xl object-center transition lg:group-hover/episode-card:scale-[1.02] duration-200",
+                            disabled={disableAnimation}
+                            className="object-cover rounded-xl object-center"
+                            loadedClassName={cn(
+                                "opacity-100 scale-100 lg:group-hover/episode-card:scale-[1.02]",
+                                showAdultVeil && "opacity-80",
+                                spoiler.blurImage && "blur-2xl scale-110 lg:group-hover/episode-card:scale-110",
                                 imageClass,
                             )}
                         /> : <div
                             data-episode-card-image-bottom-gradient
                             className="h-full block rounded-xl absolute w-full bg-gradient-to-t from-gray-800 to-transparent z-[2]"
                         ></div>}
+
+                        {showAdultVeil && (
+                            <MediaEntryCardAdultVeil
+                                data-episode-card-adult-content-overlay
+                                className="z-[2]"
+                            />
+                        )}
+
                         {/*[CUSTOM UI] BOTTOM GRADIENT*/}
                         <EpisodeItemBottomGradient isSingleContainer={isSingleContainer} className="rounded-b-xl" />
 

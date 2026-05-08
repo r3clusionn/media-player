@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"os"
+	"path/filepath"
 	"seanime/internal/extension"
 	"testing"
 
@@ -367,14 +369,14 @@ func TestIsAllowedCommand(t *testing.T) {
 									},
 								},
 							},
-							WritePaths: []string{"$SEANIME_ANIME_LIBRARY/**"},
+							WritePaths: []string{"/anime/lib1/**"},
 						},
 					},
 				},
 			},
 			cmd:      "open",
 			args:     []string{"/anime/lib1/test.txt"},
-			expected: false, // Directory does not exist on the machine
+			expected: true,
 		},
 		{
 			name: "too many args",
@@ -409,4 +411,40 @@ func TestIsAllowedCommand(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestIsAllowedCommandPathValidatorUsesReadPaths(t *testing.T) {
+	tempDir := t.TempDir()
+	videoPath := filepath.Join(tempDir, "episode-01.mkv")
+	err := os.WriteFile(videoPath, []byte("test"), 0644)
+	assert.NoError(t, err)
+
+	mockCtx := newMockAppContext(map[string][]string{
+		"SEANIME_ANIME_LIBRARY": {tempDir},
+	})
+
+	ext := &extension.Extension{
+		Plugin: &extension.PluginManifest{
+			Permissions: extension.PluginPermissions{
+				Scopes: []extension.PluginPermissionScope{
+					extension.PluginPermissionSystem,
+				},
+				Allow: extension.PluginAllowlist{
+					ReadPaths: []string{"$SEANIME_ANIME_LIBRARY/**"},
+					CommandScopes: []extension.CommandScope{
+						{
+							Command: "mpv",
+							Args: []extension.CommandArg{
+								{Validator: "$PATH"},
+								{Value: "--no-terminal"},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	allowed := mockCtx.isAllowedCommand(ext, "mpv", videoPath, "--no-terminal")
+	assert.True(t, allowed)
 }

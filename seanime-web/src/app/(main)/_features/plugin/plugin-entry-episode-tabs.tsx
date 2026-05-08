@@ -26,12 +26,17 @@ function sortTabs(tabs: PluginAnimeEntryEpisodeTab[]) {
     })
 }
 
-function getPluginEpisodeTabViewId(extensionId: string) {
+export function getPluginEpisodeTabViewId(extensionId: string) {
     return `episodeTab:${extensionId}`
+}
+
+export function getPluginEpisodeTabExtensionId(viewId: string) {
+    return viewId.startsWith("episodeTab:") ? viewId.slice("episodeTab:".length) : ""
 }
 
 const __plugin_episodeTabsAtom = atom<PluginAnimeEntryEpisodeTab[]>([])
 const __plugin_episodeTabCollectionsAtom = atom<Record<string, Anime_EpisodeCollection | undefined>>({})
+const __plugin_episodeTabRenderedExtensionIdsAtom = atom<string[]>([])
 
 export type PluginAnimeEntryEpisodeTab = {
     extensionId: string
@@ -49,6 +54,7 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
 
     const [tabs, setTabs] = useAtom(__plugin_episodeTabsAtom)
     const [, setCollections] = useAtom(__plugin_episodeTabCollectionsAtom)
+    const [renderedExtensionIds, setRenderedExtensionIds] = useAtom(__plugin_episodeTabRenderedExtensionIdsAtom)
 
     const { sendAnimeEntryEpisodeTabsRenderEvent } = usePluginSendAnimeEntryEpisodeTabsRenderEvent()
     const { sendAnimeEntryEpisodeTabOpenEvent } = usePluginSendAnimeEntryEpisodeTabOpenEvent()
@@ -56,6 +62,7 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
 
     const renderTabs = React.useEffectEvent(() => {
         if (!mediaId) return
+        setRenderedExtensionIds([])
         sendAnimeEntryEpisodeTabsRenderEvent({ mediaId }, "")
     })
 
@@ -76,6 +83,7 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
         onMessage: (extensionId: string) => {
             startTransition(() => {
                 setTabs(prev => prev.filter(tab => tab.extensionId !== extensionId))
+                setRenderedExtensionIds(prev => prev.filter(id => id !== extensionId))
                 setCollections(prev => {
                     const next = { ...prev }
                     Object.keys(next).forEach(key => {
@@ -85,12 +93,16 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
                     })
                     return next
                 })
+                if (currentView === getPluginEpisodeTabViewId(extensionId)) {
+                    setView("library")
+                }
             })
         },
     })
 
     usePluginListenAnimeEntryEpisodeTabsUpdatedEvent((event, extensionId) => {
         startTransition(() => {
+            setRenderedExtensionIds(prev => prev.includes(extensionId) ? prev : [...prev, extensionId])
             setTabs(prev => {
                 const otherTabs = prev.filter(tab => tab.extensionId !== extensionId)
                 const extensionTabs = (event.tabs ?? []).map((tab: Record<string, any>) => ({
@@ -116,13 +128,6 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
     const selectedTab = tabs.find(tab => tab.viewId === currentView)
 
     React.useEffect(() => {
-        if (!currentView.startsWith("episodeTab:")) return
-        if (!selectedTab) {
-            setView("library")
-        }
-    }, [currentView, selectedTab])
-
-    React.useEffect(() => {
         tabs.forEach(tab => {
             sendAnimeEntryEpisodeTabStateChangedEvent({
                 isOpen: tab.viewId === currentView,
@@ -139,6 +144,7 @@ export function usePluginAnimeEntryEpisodeTabsListener(props: {
 
     return {
         tabs,
+        renderedExtensionIds,
     }
 }
 
@@ -149,8 +155,9 @@ export function usePluginAnimeEntryEpisodeTabs(props: {
 }) {
     const { mediaId, currentView, setView } = props
 
-    const [tabs, setTabs] = useAtom(__plugin_episodeTabsAtom)
+    const tabs = useAtomValue(__plugin_episodeTabsAtom)
     const collections = useAtomValue(__plugin_episodeTabCollectionsAtom)
+    const renderedExtensionIds = useAtomValue(__plugin_episodeTabRenderedExtensionIdsAtom)
 
     const selectedTab = tabs.find(tab => tab.viewId === currentView)
 
@@ -171,6 +178,7 @@ export function usePluginAnimeEntryEpisodeTabs(props: {
         tabs,
         selectedTab,
         selectedEpisodeCollection: selectedTab ? collections[selectedTab.viewId] : undefined,
+        renderedExtensionIds,
         selectEpisode,
     }
 }
@@ -204,8 +212,7 @@ export function PluginAnimeEntryEpisodeTabContent(props: {
             episodeCollection={episodeCollection}
             entry={entry}
             onEpisodeClick={onSelectEpisode}
-            onPlayNextEpisodeOnMount={() => {
-            }}
+            onPlayNextEpisodeOnMount={onSelectEpisode}
             bottomSection={bottomSection}
         />
     </>

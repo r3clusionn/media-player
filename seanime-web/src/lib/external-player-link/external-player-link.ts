@@ -8,6 +8,7 @@ export class ExternalPlayerLink {
 
     private _playerLink = ""
     private _urlToSend = ""
+    private _subtitleUrls: string[] = []
     private _episodeNumber: number | null = null
     private _mediaTitle: string | null = null
 
@@ -17,6 +18,10 @@ export class ExternalPlayerLink {
 
     setUrl(url: string) {
         this._urlToSend = url
+    }
+
+    setSubtitleUrls(urls: string[]) {
+        this._subtitleUrls = urls
     }
 
     setEpisodeNumber(ep: number | undefined) {
@@ -43,7 +48,11 @@ export class ExternalPlayerLink {
     }
 
     private _getUrlToSend() {
-        let urlToSend = this._urlToSend
+        return this._formatTemplateUrl(this._urlToSend)
+    }
+
+    private _formatTemplateUrl(url: string) {
+        let urlToSend = url
         urlToSend = urlToSend.replace("{{SCHEME}}", window.location.protocol.replace(":", ""))
         urlToSend = urlToSend.replace("{{HOST}}", window.location.host)
 
@@ -65,6 +74,9 @@ export class ExternalPlayerLink {
         link = link.replace("{mediaTitle}", this._cleanTitle(this._mediaTitle ?? ""))
         link = link.replace("{episodeNumber}", this._episodeNumber?.toString?.() ?? "")
         link = link.replace("{mime}", "video/webm")
+        const subtitleUrls = this._subtitleUrls.map(url => this._formatTemplateUrl(url))
+        link = link.replaceAll("{subtitleUrl}", subtitleUrls[0] ?? "")
+        link = link.replaceAll("{subtitleUrls}", subtitleUrls.join(","))
         if (link.includes("{formattedTitle}")) {
             let title = this._mediaTitle ?? ""
             if (this._episodeNumber !== null && !!title.length) {

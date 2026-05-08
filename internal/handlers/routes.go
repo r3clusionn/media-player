@@ -82,14 +82,11 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 		return func(c echo.Context) error {
 			req := c.Request()
 			cookie, err := c.Cookie(clientIdCookieName)
-			clientID := ""
+			cookieClientID := ""
 			if err == nil {
-				clientID = strings.TrimSpace(cookie.Value)
+				cookieClientID = strings.TrimSpace(cookie.Value)
 			}
-
-			if clientID == "" {
-				clientID = getClientIdFromRequest(app, req)
-			}
+			clientID := resolveClientIdFromRequest(app, req, cookieClientID)
 
 			if clientID == "" {
 				clientID = uuid.New().String()
@@ -457,6 +454,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1.GET("/mediastream/direct", h.HandleMediastreamDirectPlay)
 	v1.HEAD("/mediastream/direct", h.HandleMediastreamDirectPlay)
 	v1.GET("/mediastream/file", h.HandleMediastreamFile)
+	v1.GET("/mediastream/local-subtitles", h.HandleMediastreamLocalSubtitles)
 
 	//
 	// Direct Stream
@@ -482,6 +480,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1.POST("/torrentstream/drop", h.HandleTorrentstreamDropTorrent)
 	v1.POST("/torrentstream/torrent-file-previews", h.HandleGetTorrentstreamTorrentFilePreviews)
 	v1.POST("/torrentstream/batch-history", h.HandleGetTorrentstreamBatchHistory)
+	v1.POST("/torrentstream/batch-history/delete", h.HandleDeleteTorrentstreamBatchHistory)
 	v1.GET("/torrentstream/stream/*", h.HandleTorrentstreamServeStream)
 
 	//
@@ -497,6 +496,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1Extensions.POST("/external/edit-payload", h.HandleUpdateExtensionCode)
 	v1Extensions.POST("/external/reload", h.HandleReloadExternalExtensions)
 	v1Extensions.POST("/external/reload", h.HandleReloadExternalExtension)
+	v1Extensions.POST("/external/disabled", h.HandleSetExternalExtensionDisabled)
 	v1Extensions.POST("/all", h.HandleGetAllExtensions)
 	v1Extensions.GET("/updates", h.HandleGetExtensionUpdateData)
 	v1Extensions.GET("/list", h.HandleListExtensionData)
@@ -505,6 +505,7 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1Extensions.GET("/list/manga-provider", h.HandleListMangaProviderExtensions)
 	v1Extensions.GET("/list/onlinestream-provider", h.HandleListOnlinestreamProviderExtensions)
 	v1Extensions.GET("/list/anime-torrent-provider", h.HandleListAnimeTorrentProviderExtensions)
+	v1Extensions.GET("/list/anime-entry-episode-tabs", h.HandleListAnimeEntryEpisodeTabExtensions)
 	v1Extensions.GET("/list/custom-source", h.HandleListCustomSourceExtensions)
 	v1Extensions.GET("/user-config/:id", h.HandleGetExtensionUserConfig)
 	v1Extensions.POST("/user-config", h.HandleSaveExtensionUserConfig)

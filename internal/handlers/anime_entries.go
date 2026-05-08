@@ -188,6 +188,8 @@ func (h *Handler) HandleAnimeEntryBulkAction(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
+	anime.ClearMissingEpisodesCache()
+
 	return h.RespondWithData(c, retLfs)
 
 }
@@ -447,6 +449,8 @@ func (h *Handler) HandleAnimeEntryManualMatch(c echo.Context) error {
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}
+
+	anime.ClearMissingEpisodesCache()
 
 	return h.RespondWithData(c, retLfs)
 }

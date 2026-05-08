@@ -21,6 +21,11 @@ export function useCurrentUser() {
     return React.useMemo(() => serverStatus?.user, [serverStatus?.user])
 }
 
+export function useIsSimulatedUser() {
+    const serverStatus = useServerStatus()
+    return React.useMemo(() => !!serverStatus?.user?.isSimulated, [serverStatus?.user?.isSimulated])
+}
+
 export function useHasTorrentProvider() {
     const serverStatus = useServerStatus()
     return {

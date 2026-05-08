@@ -1,4 +1,8 @@
-import { useNavigate, useLocation } from "@tanstack/react-router"
+import { useIsSimulatedUser } from "@/app/(main)/_hooks/use-server-status"
+import { preloadMediaEntry } from "@/lib/entry-preloader"
+import { __navigationPreloadModeAtom, isNavigationPreloadingEnabled } from "@/lib/navigation-preload-settings"
+import { useLocation, useNavigate } from "@tanstack/react-router"
+import { useAtomValue } from "jotai/react"
 import { useMemo } from "react"
 
 function parseHref(href: string) {
@@ -21,6 +25,8 @@ function parseHref(href: string) {
 export function useRouter() {
     const navigate = useNavigate()
     const location = useLocation()
+    const navigationPreloadMode = useAtomValue(__navigationPreloadModeAtom)
+    const isSimulatedUser = useIsSimulatedUser()
 
     const handleNavigation = (
         href: string,
@@ -34,6 +40,10 @@ export function useRouter() {
 
         // default to true (scroll to top) if neither is specified
         const shouldScroll = options?.resetScroll ?? options?.scroll ?? true
+
+        if (isNavigationPreloadingEnabled(navigationPreloadMode, isSimulatedUser)) {
+            preloadMediaEntry(href)
+        }
 
         navigate({
             to: targetPath,

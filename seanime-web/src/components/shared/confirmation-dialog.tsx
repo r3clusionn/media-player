@@ -7,8 +7,10 @@ type ConfirmationDialogHookProps = {
     title: string,
     description?: string,
     actionText?: string,
+    cancelText?: string,
     actionIntent?: ButtonProps["intent"]
     onConfirm: () => void
+    onCancel?: () => void
 }
 
 export function useConfirmationDialog(props: ConfirmationDialogHookProps) {
@@ -25,9 +27,11 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogHookProps & UseDiscl
         isOpen,
         close,
         onConfirm,
+        onCancel,
         title,
         description = "Are you sure you want to continue?",
         actionText = "Confirm",
+        cancelText = "Cancel",
         actionIntent = "alert-subtle",
     } = props
 
@@ -51,7 +55,15 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogHookProps & UseDiscl
                         >
                             {actionText}
                         </Button>
-                        <Button intent="white" onClick={close}>Cancel</Button>
+                        <Button
+                            intent="white"
+                            onClick={() => {
+                                onCancel?.()
+                                close()
+                            }}
+                        >
+                            {cancelText}
+                        </Button>
                     </div>
                 </div>
             </Modal>

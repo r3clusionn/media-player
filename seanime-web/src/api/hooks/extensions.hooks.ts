@@ -8,6 +8,7 @@ import {
     ReloadExternalExtension_Variables,
     RunExtensionPlaygroundCode_Variables,
     SaveExtensionUserConfig_Variables,
+    SetExternalExtensionDisabled_Variables,
     SetPluginSettingsPinnedTrays_Variables,
     UninstallExternalExtension_Variables,
     UpdateExtensionCode_Variables,
@@ -22,6 +23,7 @@ import {
     ExtensionRepo_ExtensionUserConfig,
     ExtensionRepo_MangaProviderExtensionItem,
     ExtensionRepo_OnlinestreamProviderExtensionItem,
+    ExtensionRepo_PluginEpisodeTabExtensionItem,
     ExtensionRepo_RepositoryInstallResponse,
     ExtensionRepo_StoredPluginSettingsData,
     ExtensionRepo_UpdateData,
@@ -183,6 +185,15 @@ export function useAnimeListTorrentProviderExtensions() {
     })
 }
 
+export function useListAnimeEntryEpisodeTabExtensions() {
+    return useServerQuery<Array<ExtensionRepo_PluginEpisodeTabExtensionItem>>({
+        endpoint: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.endpoint,
+        method: API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.methods[0],
+        queryKey: [API_ENDPOINTS.EXTENSIONS.ListAnimeEntryEpisodeTabExtensions.key],
+        enabled: true,
+    })
+}
+
 export function useRunExtensionPlaygroundCode() {
     return useServerMutation<RunPlaygroundCodeResponse, RunExtensionPlaygroundCode_Variables>({
         endpoint: API_ENDPOINTS.EXTENSIONS.RunExtensionPlaygroundCode.endpoint,
@@ -236,6 +247,17 @@ export function useReloadExternalExtension() {
             queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.EXTENSIONS.ListDevelopmentModeExtensions.key] })
             queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.EXTENSIONS.GetPluginSettings.key] })
             // DEVNOTE: No need to refetch, the websocket listener will do it
+        },
+    })
+}
+
+export function useSetExternalExtensionDisabled() {
+    return useServerMutation<boolean, SetExternalExtensionDisabled_Variables>({
+        endpoint: API_ENDPOINTS.EXTENSIONS.SetExternalExtensionDisabled.endpoint,
+        method: API_ENDPOINTS.EXTENSIONS.SetExternalExtensionDisabled.methods[0],
+        mutationKey: [API_ENDPOINTS.EXTENSIONS.SetExternalExtensionDisabled.key],
+        onSuccess: async (_data, variables) => {
+            toast.success(variables.disabled ? "Extension disabled." : "Extension enabled.")
         },
     })
 }

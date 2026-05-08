@@ -3762,6 +3762,52 @@
     }
   },
   {
+    "name": "HandleSetExternalExtensionDisabled",
+    "trimmedName": "SetExternalExtensionDisabled",
+    "comments": [
+      "HandleSetExternalExtensionDisabled",
+      "",
+      "\t@summary enables or disables an external extension.",
+      "\t@route /api/v1/extensions/external/disabled [POST]",
+      "\t@returns bool",
+      ""
+    ],
+    "filepath": "internal/handlers/extensions.go",
+    "filename": "extensions.go",
+    "api": {
+      "summary": "enables or disables an external extension.",
+      "descriptions": [],
+      "endpoint": "/api/v1/extensions/external/disabled",
+      "methods": [
+        "POST"
+      ],
+      "params": [],
+      "bodyFields": [
+        {
+          "name": "ID",
+          "jsonName": "id",
+          "goType": "string",
+          "usedStructType": "",
+          "typescriptType": "string",
+          "required": true,
+          "descriptions": []
+        },
+        {
+          "name": "Disabled",
+          "jsonName": "disabled",
+          "goType": "bool",
+          "usedStructType": "",
+          "typescriptType": "boolean",
+          "required": true,
+          "descriptions": []
+        }
+      ],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
+    }
+  },
+  {
     "name": "HandleListExtensionData",
     "trimmedName": "ListExtensionData",
     "comments": [
@@ -3985,6 +4031,33 @@
       "returns": "[]extension_repo.AnimeTorrentProviderExtensionItem",
       "returnGoType": "extension_repo.AnimeTorrentProviderExtensionItem",
       "returnTypescriptType": "Array\u003cExtensionRepo_AnimeTorrentProviderExtensionItem\u003e"
+    }
+  },
+  {
+    "name": "HandleListAnimeEntryEpisodeTabExtensions",
+    "trimmedName": "ListAnimeEntryEpisodeTabExtensions",
+    "comments": [
+      "HandleListAnimeEntryEpisodeTabExtensions",
+      "",
+      "\t@summary returns the installed plugins that registered an anime entry episode tab.",
+      "\t@route /api/v1/extensions/list/anime-entry-episode-tabs [GET]",
+      "\t@returns []extension_repo.PluginEpisodeTabExtensionItem",
+      ""
+    ],
+    "filepath": "internal/handlers/extensions.go",
+    "filename": "extensions.go",
+    "api": {
+      "summary": "returns the installed plugins that registered an anime entry episode tab.",
+      "descriptions": [],
+      "endpoint": "/api/v1/extensions/list/anime-entry-episode-tabs",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "[]extension_repo.PluginEpisodeTabExtensionItem",
+      "returnGoType": "extension_repo.PluginEpisodeTabExtensionItem",
+      "returnTypescriptType": "Array\u003cExtensionRepo_PluginEpisodeTabExtensionItem\u003e"
     }
   },
   {
@@ -7397,6 +7470,36 @@
     }
   },
   {
+    "name": "HandleMediastreamLocalSubtitles",
+    "trimmedName": "MediastreamLocalSubtitles",
+    "comments": [
+      "HandleMediastreamLocalSubtitles",
+      "",
+      "\t@summary get local subtitle files.",
+      "\t@desc This returns same-directory subtitle files for a local video file.",
+      "\t@returns []util.LocalSubtitleFile",
+      "\t@route /api/v1/mediastream/local-subtitles [GET]",
+      ""
+    ],
+    "filepath": "internal/handlers/mediastream.go",
+    "filename": "mediastream.go",
+    "api": {
+      "summary": "get local subtitle files.",
+      "descriptions": [
+        "This returns same-directory subtitle files for a local video file."
+      ],
+      "endpoint": "/api/v1/mediastream/local-subtitles",
+      "methods": [
+        "GET"
+      ],
+      "params": [],
+      "bodyFields": [],
+      "returns": "[]util.LocalSubtitleFile",
+      "returnGoType": "util.LocalSubtitleFile",
+      "returnTypescriptType": "Array\u003cUtil_LocalSubtitleFile\u003e"
+    }
+  },
+  {
     "name": "HandlePopulateFillerData",
     "trimmedName": "PopulateFillerData",
     "comments": [
@@ -9368,27 +9471,6 @@
       "returns": "[]anime.PlaylistEpisode",
       "returnGoType": "anime.PlaylistEpisode",
       "returnTypescriptType": "Array\u003cAnime_PlaylistEpisode\u003e"
-    }
-  },
-  {
-    "name": "rewriteURI",
-    "trimmedName": "rewriteURI",
-    "comments": [
-      "rewriteURI rewrites a URI pointer if needed, returns true if modified",
-      ""
-    ],
-    "filepath": "internal/handlers/proxy.go",
-    "filename": "proxy.go",
-    "api": {
-      "summary": "",
-      "descriptions": [],
-      "endpoint": "",
-      "methods": null,
-      "params": [],
-      "bodyFields": [],
-      "returns": "bool",
-      "returnGoType": "bool",
-      "returnTypescriptType": "boolean"
     }
   },
   {
@@ -11626,6 +11708,46 @@
       "returns": "torrentstream.BatchHistoryResponse",
       "returnGoType": "torrentstream.BatchHistoryResponse",
       "returnTypescriptType": "Torrentstream_BatchHistoryResponse"
+    }
+  },
+  {
+    "name": "HandleDeleteTorrentstreamBatchHistory",
+    "trimmedName": "DeleteTorrentstreamBatchHistory",
+    "comments": [
+      "HandleDeleteTorrentstreamBatchHistory",
+      "",
+      "\t@summary deletes the saved batch selection.",
+      "\t@desc This clears the saved previous batch selection for a media entry.",
+      "\t@returns bool",
+      "\t@route /api/v1/torrentstream/batch-history/delete [POST]",
+      ""
+    ],
+    "filepath": "internal/handlers/torrentstream.go",
+    "filename": "torrentstream.go",
+    "api": {
+      "summary": "deletes the saved batch selection.",
+      "descriptions": [
+        "This clears the saved previous batch selection for a media entry."
+      ],
+      "endpoint": "/api/v1/torrentstream/batch-history/delete",
+      "methods": [
+        "POST"
+      ],
+      "params": [],
+      "bodyFields": [
+        {
+          "name": "MediaID",
+          "jsonName": "mediaId",
+          "goType": "int",
+          "usedStructType": "",
+          "typescriptType": "number",
+          "required": true,
+          "descriptions": []
+        }
+      ],
+      "returns": "bool",
+      "returnGoType": "bool",
+      "returnTypescriptType": "boolean"
     }
   },
   {

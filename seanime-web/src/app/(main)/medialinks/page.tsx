@@ -1,3 +1,4 @@
+import { getServerBaseUrl } from "@/api/client/server-url"
 import { useGetAnimeEntry } from "@/api/hooks/anime_entries.hooks"
 import { usePlaybackStartManualTracking } from "@/api/hooks/playback_manager.hooks"
 import { useExternalPlayerLink } from "@/app/(main)/_atoms/playback.atoms"
@@ -23,6 +24,10 @@ import { toast } from "sonner"
 import { PluginEpisodeGridItemMenuItems } from "../_features/plugin/actions/plugin-actions"
 import { useServerHMACAuth } from "../_hooks/use-server-status"
 
+type LocalSubtitleFile = {
+    path: string
+}
+
 export default function Page() {
 
     const clientId = useAtomValue(clientIdAtom)
@@ -43,6 +48,28 @@ export default function Page() {
             return Buffer.from(filePath).toString("base64")
         }
         return encodeURIComponent(filePath)
+    }
+
+    async function getLocalSubtitleUrls(filePath: string) {
+        try {
+            const subtitlesToken = await getHMACTokenQueryParam("/api/v1/mediastream/local-subtitles", "&")
+            const subtitleFilesResponse = await fetch(`${getServerBaseUrl()}/api/v1/mediastream/local-subtitles?path=${encodeFilePath(filePath)}${subtitlesToken}`,
+                {
+                    credentials: "include",
+                })
+            if (!subtitleFilesResponse.ok) return []
+
+            const subtitleFilesPayload = await subtitleFilesResponse.json() as { data?: LocalSubtitleFile[] }
+            const subtitleFiles = subtitleFilesPayload.data ?? []
+            if (!subtitleFiles.length) return []
+
+            const fileToken = await getHMACTokenQueryParam("/api/v1/mediastream/file", "&")
+            return subtitleFiles.map(file => `${getServerBaseUrl()}/api/v1/mediastream/file?path=${encodeFilePath(file.path)}${fileToken}`)
+        }
+        catch (error) {
+            logger("MEDIALINKS").warning("Failed to get local subtitle files", error)
+            return []
+        }
     }
 
     React.useEffect(() => {
@@ -72,6 +99,7 @@ export default function Page() {
                 const link = new ExternalPlayerLink(externalPlayerLink)
                 link.setEpisodeNumber(episode.progressNumber)
                 link.setMediaTitle(animeEntry.media?.title?.userPreferred)
+                link.setSubtitleUrls(await getLocalSubtitleUrls(filePath))
                 await link.to({
                     endpoint: "/api/v1/mediastream/file?path=" + encodeFilePath(filePath),
                     onTokenQueryParam: () => getHMACTokenQueryParam("/api/v1/mediastream/file", "&"),
@@ -99,7 +127,7 @@ export default function Page() {
 
             handleMediaPlay()
         }
-    }, [animeEntry, filePath, externalPlayerLink, getHMACTokenQueryParam])
+    }, [animeEntry, filePath, externalPlayerLink, getHMACTokenQueryParam, encodePath])
 
     const mainEpisodes = React.useMemo(() => {
         return animeEntry?.episodes?.filter(ep => ep.type === "main") ?? []

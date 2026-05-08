@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain, shell, dialog, remote, net, protocol, nativeImage } = require("electron")
+const { app, BrowserWindow, Menu, Tray, ipcMain, shell, dialog, remote, net, protocol, nativeImage, screen } = require("electron")
 const path = require("path")
 const { spawn } = require("child_process")
 const fs = require("fs")
@@ -19,8 +19,17 @@ const DENSHI_SETTINGS_DEFAULTS = {
     minimizeToTray: true,
     openInBackground: false,
     openAtLaunch: false,
-    updateChannel: "github"
+    updateChannel: "github",
+    windowBounds: null,
+    windowMaximized: true,
 }
+
+const MAIN_WINDOW_DEFAULT_BOUNDS = {
+    width: 800,
+    height: 600,
+}
+
+const MIN_VISIBLE_WINDOW_EDGE = 120
 
 function getDenshiSettingsPath() {
     return path.join(app.getPath("userData"), "denshi-settings.json")
@@ -48,7 +57,119 @@ function saveDenshiSettings(settings) {
     }
 }
 
-let denshiSettings = DENSHI_SETTINGS_DEFAULTS
+let denshiSettings = { ...DENSHI_SETTINGS_DEFAULTS }
+let shouldMaximizeMainWindow = false
+
+// validates and returns safe window bounds based on the provided raw bounds and current display configurations
+function getSafeMainWindowPlacement(rawBounds) {
+    const width = Number(rawBounds?.width)
+    const height = Number(rawBounds?.height)
+    if (!Number.isFinite(width) || width <= 0 || !Number.isFinite(height) || height <= 0) {
+        return { bounds: { ...MAIN_WINDOW_DEFAULT_BOUNDS }, forceMaximize: false }
+    }
+
+    const x = Number(rawBounds?.x)
+    const y = Number(rawBounds?.y)
+    if (!app.isReady() || !Number.isFinite(x) || !Number.isFinite(y)) {
+        return { bounds: { width, height }, forceMaximize: false }
+    }
+
+    const bounds = { x, y, width, height }
+    if (screen.getAllDisplays().some(({ workArea }) => {
+        const visibleWidth = Math.min(bounds.x + bounds.width, workArea.x + workArea.width) - Math.max(bounds.x, workArea.x)
+        const visibleHeight = Math.min(bounds.y + bounds.height, workArea.y + workArea.height) - Math.max(bounds.y, workArea.y)
+        return visibleWidth >= MIN_VISIBLE_WINDOW_EDGE && visibleHeight >= MIN_VISIBLE_WINDOW_EDGE
+    })) {
+        return { bounds, forceMaximize: false }
+    }
+
+    const { workArea } = screen.getPrimaryDisplay()
+    const fallbackWidth = Math.min(width, workArea.width)
+    const fallbackHeight = Math.min(height, workArea.height)
+
+    return {
+        bounds: {
+            x: Math.round(workArea.x + (workArea.width - fallbackWidth) / 2),
+            y: Math.round(workArea.y + (workArea.height - fallbackHeight) / 2),
+            width: fallbackWidth,
+            height: fallbackHeight,
+        },
+        forceMaximize: true,
+    }
+}
+
+function saveMainWindowState() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return
+    }
+
+    const { x, y, width, height } = mainWindow.getNormalBounds()
+    denshiSettings = {
+        ...denshiSettings,
+        windowBounds: { x, y, width, height },
+        windowMaximized: mainWindow.isMaximized(),
+    }
+    saveDenshiSettings(denshiSettings)
+}
+
+function hideMainWindow() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return
+    }
+
+    // save window state before hiding so we can restore it later
+    saveMainWindowState()
+    mainWindow.hide()
+    if (process.platform === "darwin") {
+        app.dock.hide()
+    }
+}
+
+function showMainWindow() {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+        return
+    }
+
+    let forceMaximize = shouldMaximizeMainWindow
+    shouldMaximizeMainWindow = false
+
+    if (app.isReady()) {
+        const wasMaximized = mainWindow.isMaximized()
+        const { bounds, forceMaximize: fallbackMaximize } = getSafeMainWindowPlacement(mainWindow.getNormalBounds())
+
+        if (wasMaximized) {
+            mainWindow.unmaximize()
+        }
+
+        const currentBounds = mainWindow.getBounds()
+        if (currentBounds.x !== bounds.x
+            || currentBounds.y !== bounds.y
+            || currentBounds.width !== bounds.width
+            || currentBounds.height !== bounds.height) {
+            mainWindow.setBounds(bounds)
+        }
+
+        if (wasMaximized) {
+            mainWindow.maximize()
+        }
+
+        forceMaximize = forceMaximize || fallbackMaximize
+    }
+
+    if (mainWindow.isMinimized()) {
+        mainWindow.restore()
+    }
+
+    if ((denshiSettings.windowMaximized || forceMaximize) && !mainWindow.isMaximized()) {
+        mainWindow.maximize()
+    }
+
+    mainWindow.show()
+    mainWindow.focus()
+    if (process.platform === "darwin") {
+        app.dock.show()
+    }
+}
 
 const _isRsbuildFrontend = true
 
@@ -454,6 +575,10 @@ let mainWindowStartupReady = false
 let updateDownloaded = false
 let serverRestartPromise = null
 
+app.on("child-process-gone", (event, details) => {
+    log.warn("[Denshi] Child process gone:", JSON.stringify(details))
+})
+
 // Setup autoUpdater events with improved error handling
 autoUpdater.on("checking-for-update", () => {
     autoUpdater.logger.info("Checking for update...")
@@ -521,11 +646,7 @@ if (!gotTheLock) {
         if (mainWindow && !mainWindow.isDestroyed()) {
             if (mainWindow.isMinimized()) mainWindow.restore()
             if (!mainWindow.isVisible()) {
-                if (!mainWindow.isMaximized()) mainWindow.maximize()
-                mainWindow.show()
-                if (process.platform === "darwin") {
-                    app.dock.show()
-                }
+                showMainWindow()
             }
             mainWindow.focus()
         }
@@ -550,17 +671,9 @@ function createTray() {
         id: "toggle_visibility", label: "Toggle Visibility", click: () => {
             if (!serverStarted) return
             if (mainWindow.isVisible()) {
-                mainWindow.hide()
-                if (process.platform === "darwin") {
-                    app.dock.hide()
-                }
+                hideMainWindow()
             } else {
-                if (!mainWindow.isMaximized()) mainWindow.maximize()
-                mainWindow.show()
-                mainWindow.focus()
-                if (process.platform === "darwin") {
-                    app.dock.show()
-                }
+                showMainWindow()
             }
         }
     }, ...(process.platform === "darwin" ? [{
@@ -584,17 +697,9 @@ function createTray() {
     tray.on("click", () => {
         if (!serverStarted) return
         if (mainWindow.isVisible()) {
-            mainWindow.hide()
-            if (process.platform === "darwin") {
-                app.dock.hide()
-            }
+            hideMainWindow()
         } else {
-            if (!mainWindow.isMaximized()) mainWindow.maximize()
-            mainWindow.show()
-            mainWindow.focus()
-            if (process.platform === "darwin") {
-                app.dock.show()
-            }
+            showMainWindow()
         }
     })
 
@@ -661,8 +766,7 @@ async function launchSeanimeServer(isRestart) {
                             // Don't maximize or show
                             log.info("[Denshi] Opened in background")
                         } else {
-                            mainWindow.maximize()
-                            mainWindow.show()
+                            showMainWindow()
                         }
                     }
                 }, 1000)
@@ -691,8 +795,7 @@ async function launchSeanimeServer(isRestart) {
                 splashScreen = null
             }
             if (mainWindow && !mainWindow.isDestroyed() && !denshiSettings.openInBackground) {
-                mainWindow.maximize()
-                mainWindow.show()
+                showMainWindow()
             }
             return resolve()
         }
@@ -920,9 +1023,11 @@ function showEditableContextMenu(webContents, params) {
 function createMainWindow() {
     logStartupEvent("Creating main window")
     mainWindowStartupReady = false
+    const savedPlacement = getSafeMainWindowPlacement(denshiSettings.windowBounds)
+    shouldMaximizeMainWindow = savedPlacement.forceMaximize
 
     const windowOptions = {
-        width: 800, height: 600, show: false,
+        ...savedPlacement.bounds, show: false,
         backgroundColor: "#111111",
         acceptFirstMouse: false,
         webPreferences: {
@@ -967,8 +1072,13 @@ function createMainWindow() {
 
     mainWindow.on("render-process-gone", (event, details) => {
         console.log("[Main] Render process gone", details)
+        log.error("[Denshi] Main window render process gone:", JSON.stringify(details))
         if (crashScreen && !crashScreen.isDestroyed()) {
             crashScreen.show()
+            crashScreen.webContents.send(
+                "crash",
+                `The desktop window stopped unexpectedly (${details.reason || "unknown reason"}${typeof details.exitCode === "number" ? `, exit code ${details.exitCode}` : ""}). The background server may still be running.`
+            )
         }
     })
 
@@ -1037,10 +1147,7 @@ function createMainWindow() {
         if (!isShutdown) {
             if (denshiSettings.minimizeToTray) {
                 event.preventDefault()
-                mainWindow.hide()
-                if (process.platform === "darwin") {
-                    app.dock.hide()
-                }
+                hideMainWindow()
             } else {
                 // Close the app completely
                 cleanupAndExit()
@@ -1099,6 +1206,8 @@ function createCrashScreen() {
 function cleanupAndExit() {
     console.log("[Main] Cleaning up and exiting")
     isShutdown = true
+
+    saveMainWindowState()
 
     // Clean up cast
     if (__CAST_ENABLED__ && castSender) {
@@ -1342,13 +1451,13 @@ app.whenReady().then(async () => {
 
     ipcMain.on("window:hide", () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.hide()
+            hideMainWindow()
         }
     })
 
     ipcMain.on("window:show", () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
-            mainWindow.show()
+            showMainWindow()
         }
     })
 
@@ -1484,7 +1593,7 @@ app.whenReady().then(async () => {
     })
 
     ipcMain.handle("denshi:setSettings", (_, newSettings) => {
-        denshiSettings = { ...DENSHI_SETTINGS_DEFAULTS, ...newSettings }
+        denshiSettings = { ...DENSHI_SETTINGS_DEFAULTS, ...denshiSettings, ...newSettings }
         saveDenshiSettings(denshiSettings)
         log.info("[Denshi] Settings updated:", JSON.stringify(denshiSettings))
 

@@ -2101,6 +2101,14 @@ export type Debrid_TorrentItem = {
      */
     isReady: boolean
     /**
+     * Whether Seanime has queued this torrent for local download
+     */
+    isQueuedForLocalDownload?: boolean
+    /**
+     * Whether Seanime is currently downloading this torrent locally
+     */
+    isDownloadingLocally?: boolean
+    /**
      * List of files in the torrent (optional)
      */
     files?: Array<Debrid_TorrentItemFile>
@@ -2487,6 +2495,7 @@ export type RunPlaygroundCodeResponse = {
 export type ExtensionRepo_AllExtensions = {
     extensions?: Array<Extension_Extension>
     invalidExtensions?: Array<Extension_InvalidExtension>
+    disabledExtensions?: Array<Extension_Extension>
     invalidUserConfigExtensions?: Array<Extension_InvalidExtension>
     hasUpdate?: Array<ExtensionRepo_UpdateData>
     unsafeExtensions?: Record<string, boolean>
@@ -2571,6 +2580,19 @@ export type ExtensionRepo_OnlinestreamProviderExtensionItem = {
     lang: string
     episodeServers?: Array<string>
     supportsDub: boolean
+}
+
+/**
+ * - Filepath: internal/extension_repo/external_plugin.go
+ * - Filename: external_plugin.go
+ * - Package: extension_repo
+ */
+export type ExtensionRepo_PluginEpisodeTabExtensionItem = {
+    id: string
+    name: string
+    icon?: string
+    tabName: string
+    tabIcon?: string
 }
 
 /**
@@ -3842,6 +3864,11 @@ export type Models_LibrarySettings = {
      * "github", "seanime", "seanime_nightly"
      */
     updateChannel: string
+    enableExtensionSecureMode: boolean
+    /**
+     * "", "library", "torrentstream", "debridstream", "onlinestream", "ext:[extensionId]"
+     */
+    defaultPlaybackSource: string
 }
 
 /**
@@ -3906,6 +3933,8 @@ export type Models_MediaPlayerSettings = {
     vcTranslateTargetLanguage: string
     vcTranslateProvider: string
     vcTranslateApiKey: string
+    vcTranslateBaseUrl: string
+    vcTranslateModel: string
 }
 
 /**
@@ -4050,6 +4079,11 @@ export type Models_Theme = {
     unpinnedMenuItems: Models_StringSlice
     homeItems?: Array<string>
     enableBlurringEffects: boolean
+    hideAnimeSpoilers: boolean
+    hideAnimeSpoilerThumbnails: boolean
+    hideAnimeSpoilerTitles: boolean
+    hideAnimeSpoilerDescriptions: boolean
+    hideAnimeSpoilerSkipNextEpisode: boolean
     id: number
     createdAt?: string
     updatedAt?: string
@@ -4353,6 +4387,7 @@ export type NativePlayer_PlaybackInfo = {
      * nil if not ebml
      */
     mkvMetadata?: MKVParser_Metadata
+    subtitleTracks?: Array<VideoCore_VideoSubtitleTrack>
     /**
      * nil if not in list
      */
@@ -5065,6 +5100,23 @@ export type User = {
     viewer?: AL_GetViewer_Viewer
     token: string
     isSimulated: boolean
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Util
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+/**
+ * - Filepath: internal/util/local_subtitles.go
+ * - Filename: local_subtitles.go
+ * - Package: util
+ */
+export type Util_LocalSubtitleFile = {
+    path: string
+    filename: string
+    label: string
+    language: string
+    type: string
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////

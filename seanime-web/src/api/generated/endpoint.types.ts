@@ -853,6 +853,18 @@ export type ReloadExternalExtension_Variables = {
 /**
  * - Filepath: internal/handlers/extensions.go
  * - Filename: extensions.go
+ * - Endpoint: /api/v1/extensions/external/disabled
+ * @description
+ * Route enables or disables an external extension.
+ */
+export type SetExternalExtensionDisabled_Variables = {
+    id: string
+    disabled: boolean
+}
+
+/**
+ * - Filepath: internal/handlers/extensions.go
+ * - Filename: extensions.go
  * - Endpoint: /api/v1/extensions/all
  * @description
  * Route returns all loaded and invalid extensions.
@@ -1717,10 +1729,6 @@ export type GetPlaylistEpisodes_Variables = {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// proxy
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // releases
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -2074,6 +2082,17 @@ export type TorrentstreamStartStream_Variables = {
  * Route returns the most recent batch selected.
  */
 export type GetTorrentstreamBatchHistory_Variables = {
+    mediaId: number
+}
+
+/**
+ * - Filepath: internal/handlers/torrentstream.go
+ * - Filename: torrentstream.go
+ * - Endpoint: /api/v1/torrentstream/batch-history/delete
+ * @description
+ * Route deletes the saved batch selection.
+ */
+export type DeleteTorrentstreamBatchHistory_Variables = {
     mediaId: number
 }
 

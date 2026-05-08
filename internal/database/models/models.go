@@ -100,7 +100,9 @@ type LibrarySettings struct {
 	ScannerUseLegacyMatching bool   `gorm:"column:scanner_use_legacy_matching" json:"scannerUseLegacyMatching"`
 	ScannerConfig            string `gorm:"column:scanner_config" json:"scannerConfig"`
 	UpdateChannel            string `gorm:"column:update_channel" json:"updateChannel"` // "github", "seanime", "seanime_nightly"
-	// v3.6.0+
+	// v3.7.0+
+	EnableExtensionSecureMode bool   `gorm:"column:enable_extension_secure_mode" json:"enableExtensionSecureMode"`
+	DefaultPlaybackSource     string `gorm:"column:default_playback_source" json:"defaultPlaybackSource"` // "", "library", "torrentstream", "debridstream", "onlinestream", "ext:[extensionId]"
 }
 
 func (o *LibrarySettings) GetLibraryPaths() (ret []string) {
@@ -198,6 +200,8 @@ type MediaPlayerSettings struct {
 	VcTranslateTargetLanguage string `gorm:"column:vc_translate_target_language" json:"vcTranslateTargetLanguage"`
 	VcTranslateProvider       string `gorm:"column:vc_translate_provider" json:"vcTranslateProvider"`
 	VcTranslateApiKey         string `gorm:"column:vc_translate_api_key" json:"vcTranslateApiKey"`
+	VcTranslateBaseUrl        string `gorm:"column:vc_translate_base_url" json:"vcTranslateBaseUrl"`
+	VcTranslateModel          string `gorm:"column:vc_translate_model" json:"vcTranslateModel"`
 }
 
 type TorrentSettings struct {
@@ -381,6 +385,12 @@ type Theme struct {
 	HomeItems []byte `gorm:"column:home_items;type:text" json:"homeItems"`
 	// v3.5+
 	EnableBlurringEffects bool `gorm:"column:enable_blurring_effects" json:"enableBlurringEffects"`
+	// v3.7+
+	HideAnimeSpoilers               bool `gorm:"column:hide_anime_spoilers" json:"hideAnimeSpoilers"`
+	HideAnimeSpoilerThumbnails      bool `gorm:"column:hide_anime_spoiler_thumbnails" json:"hideAnimeSpoilerThumbnails"`
+	HideAnimeSpoilerTitles          bool `gorm:"column:hide_anime_spoiler_titles" json:"hideAnimeSpoilerTitles"`
+	HideAnimeSpoilerDescriptions    bool `gorm:"column:hide_anime_spoiler_descriptions" json:"hideAnimeSpoilerDescriptions"`
+	HideAnimeSpoilerSkipNextEpisode bool `gorm:"column:hide_anime_spoiler_skip_next_episode" json:"hideAnimeSpoilerSkipNextEpisode"`
 }
 
 type HomeItem struct {

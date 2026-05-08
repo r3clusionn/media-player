@@ -3,6 +3,7 @@ import {
     useFetchExternalExtensionData,
     useInstallExternalExtension,
     useReloadExternalExtension,
+    useSetExternalExtensionDisabled,
     useUninstallExternalExtension,
 } from "@/api/hooks/extensions.hooks"
 import { ExtensionDetails } from "@/app/(main)/extensions/_components/extension-details"
@@ -22,7 +23,7 @@ import { Tooltip } from "@/components/ui/tooltip"
 import { useRouter } from "@/lib/navigation"
 import React from "react"
 import { GrUpdate } from "react-icons/gr"
-import { LuBook, LuCode, LuEllipsisVertical, LuRefreshCcw, LuSearch, LuSettings2 } from "react-icons/lu"
+import { LuBook, LuCode, LuEllipsisVertical, LuPower, LuRefreshCcw, LuSearch, LuSettings2 } from "react-icons/lu"
 import { RiDeleteBinLine } from "react-icons/ri"
 import { TbCloudDownload } from "react-icons/tb"
 import { toast } from "sonner"
@@ -34,6 +35,7 @@ type ExtensionCardProps = {
     userConfigError?: Extension_InvalidExtension | undefined
     allowReload?: boolean
     isUnsafe?: boolean
+    isDisabled?: boolean
 }
 
 export function ExtensionCard(props: ExtensionCardProps) {
@@ -45,6 +47,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
         userConfigError,
         allowReload,
         isUnsafe = false,
+        isDisabled = false,
         ...rest
     } = props
 
@@ -59,6 +62,7 @@ export function ExtensionCard(props: ExtensionCardProps) {
                 "bg-gray-900 rounded-xl p-3",
                 !!updateData && "border-[--green]",
                 userConfigError && "border-[--orange]",
+                isDisabled && "opacity-70 border-gray-700",
             )}
         >
             <div
@@ -92,7 +96,13 @@ export function ExtensionCard(props: ExtensionCardProps) {
                     )}
 
 
-                    <ExtensionSettings extension={extension} isInstalled={isInstalled} updateData={updateData} allowReload={allowReload}>
+                    <ExtensionSettings
+                        extension={extension}
+                        isInstalled={isInstalled}
+                        updateData={updateData}
+                        allowReload={allowReload}
+                        isDisabled={isDisabled}
+                    >
                         <div>
                             <Tooltip
                                 trigger={<IconButton
@@ -208,6 +218,9 @@ export function ExtensionCard(props: ExtensionCardProps) {
                     {isBuiltin && <Badge className="rounded-md tracking-wide border-transparent px-0 italic opacity-50" intent="unstyled">
                         Built-in
                     </Badge>}
+                    {isDisabled && <Badge className="rounded-md tracking-wide border-transparent bg-transparent opacity-50 px-0" intent="warning">
+                        Disabled
+                    </Badge>}
                     {!!extension.version && !updateData && <Badge className="rounded-md tracking-wide" intent={!!updateData ? "success" : "unstyled"}>
                         {extension.version}
                     </Badge>}
@@ -239,6 +252,7 @@ type ExtensionSettingsProps = {
     isInstalled: boolean
     updateData?: ExtensionRepo_UpdateData | undefined
     allowReload?: boolean
+    isDisabled?: boolean
 }
 
 export function ExtensionSettings(props: ExtensionSettingsProps) {
@@ -249,6 +263,7 @@ export function ExtensionSettings(props: ExtensionSettingsProps) {
         isInstalled,
         updateData,
         allowReload,
+        isDisabled = false,
         ...rest
     } = props
 
@@ -259,6 +274,8 @@ export function ExtensionSettings(props: ExtensionSettingsProps) {
     const { mutate: fetchExtensionData, data: fetchedExtensionData, isPending: isFetchingData, reset } = useFetchExternalExtensionData(extension.id)
 
     const { mutate: reloadExternalExtension, isPending: isReloadingExtension } = useReloadExternalExtension()
+
+    const { mutate: setExternalExtensionDisabled, isPending: isTogglingDisabled } = useSetExternalExtensionDisabled()
 
 
     const confirmUninstall = useConfirmationDialog({
@@ -311,7 +328,7 @@ export function ExtensionSettings(props: ExtensionSettingsProps) {
             trigger={children}
             contentClass="max-w-3xl"
         >
-            {isUninstalling && <LoadingOverlay />}
+            {(isUninstalling || isTogglingDisabled) && <LoadingOverlay />}
 
             <ExtensionDetails extension={extension} />
 
@@ -330,6 +347,18 @@ export function ExtensionSettings(props: ExtensionSettingsProps) {
                                 >
                                     Check for updates
                                 </Button>}
+
+                                <Button
+                                    intent={isDisabled ? "success-subtle" : "warning-subtle"}
+                                    leftIcon={<LuPower className="text-lg" />}
+                                    loading={isTogglingDisabled}
+                                    onClick={() => {
+                                        if (!extension.id) return toast.error("Extension has no ID")
+                                        setExternalExtensionDisabled({ id: extension.id, disabled: !isDisabled })
+                                    }}
+                                >
+                                    {isDisabled ? "Enable" : "Disable"}
+                                </Button>
 
                                 <Button
                                     intent="alert-subtle"

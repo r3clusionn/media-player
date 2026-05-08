@@ -1,10 +1,11 @@
 import { Anime_Entry, Anime_Episode } from "@/api/generated/types"
 import { useGetAnimeEpisodeCollection } from "@/api/hooks/anime.hooks"
-import { useGetTorrentstreamBatchHistory } from "@/api/hooks/torrentstream.hooks"
+import { useDeleteTorrentstreamBatchHistory, useGetTorrentstreamBatchHistory } from "@/api/hooks/torrentstream.hooks"
 import { useAutoPlaySelectedTorrent, useTorrentstreamAutoplay } from "@/app/(main)/_features/autoplay/autoplay"
 
 import { useSeaCommandInject } from "@/app/(main)/_features/sea-command/use-inject"
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
+import { ENTRY_VIEW_TRANSITION } from "@/app/(main)/entry/_containers/entry-view-transition"
 import { useTorrentSearchSelectedStreamEpisode } from "@/app/(main)/entry/_containers/torrent-search/_lib/handle-torrent-selection"
 import {
     __torrentSearch_selectionAtom,
@@ -13,10 +14,10 @@ import {
 import { TorrentStreamEpisodeSection } from "@/app/(main)/entry/_containers/torrent-stream/_components/torrent-stream-episode-section"
 import { useHandleStartTorrentStream } from "@/app/(main)/entry/_containers/torrent-stream/_lib/handle-torrent-stream"
 import { ForcePlaybackMethod, useForcePlaybackMethod } from "@/app/(main)/entry/_lib/handle-play-media"
+import { ConfirmationDialog, useConfirmationDialog } from "@/components/shared/confirmation-dialog"
 import { PageWrapper } from "@/components/shared/page-wrapper"
 import { AppLayoutStack } from "@/components/ui/app-layout"
 import { IconButton } from "@/components/ui/button"
-import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { Popover } from "@/components/ui/popover"
 import { Switch } from "@/components/ui/switch"
 import { logger } from "@/lib/helpers/debug"
@@ -26,6 +27,7 @@ import { atomWithStorage } from "jotai/utils"
 import React from "react"
 import { AiOutlineExclamationCircle } from "react-icons/ai"
 import { BiX } from "react-icons/bi"
+import { StreamPageSkeleton } from "../../_components/stream-page-skeleton"
 
 type TorrentStreamPageProps = {
     children?: React.ReactNode
@@ -78,6 +80,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
      */
     const { handleAutoSelectStream, handleStreamSelection, isPending, isUsingNativePlayer } = useHandleStartTorrentStream()
     const { setTorrentstreamAutoplayInfo } = useTorrentstreamAutoplay()
+    const { mutate: deleteBatchHistory, isPending: isDeletingBatchHistory } = useDeleteTorrentstreamBatchHistory()
 
     const { setAutoPlayTorrent } = useAutoPlaySelectedTorrent()
 
@@ -90,6 +93,24 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
     React.useEffect(() => {
         setUsePreviousBatch(!!batchHistory?.torrent?.isBatch)
     }, [batchHistory])
+
+    function handleDisablePreviousBatch() {
+        setUsePreviousBatch(false)
+    }
+
+    function handleDeletePreviousBatch() {
+        handleDisablePreviousBatch()
+        deleteBatchHistory({ mediaId: entry.mediaId })
+    }
+
+    const confirmPreviousBatchAction = useConfirmationDialog({
+        title: "Disable previous torrent",
+        description: "Disable using the saved previous batch for now, or delete the saved history entirely.",
+        actionText: "Delete history",
+        cancelText: "Disable only",
+        onConfirm: handleDeletePreviousBatch,
+        onCancel: handleDisablePreviousBatch,
+    })
 
     // Function to set the torrent stream autoplay info
     // It checks if there is a next episode and if it has aniDBEpisode
@@ -270,7 +291,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
     }, [episodeCollection?.episodes])
 
     if (!entry.media) return null
-    if (isLoading) return <LoadingSpinner />
+    if (isLoading) return <StreamPageSkeleton />
 
     return (
         <>
@@ -280,14 +301,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                 data-anime-entry-page-torrent-stream-view
                 key="torrent-streaming-episodes"
                 className="relative 2xl:order-first pb-10 lg:pt-0"
-                {...{
-                    initial: { opacity: 0, y: 60 },
-                    animate: { opacity: 1, y: 0 },
-                    exit: { opacity: 0, scale: 0.99 },
-                    transition: {
-                        duration: 0.35,
-                    },
-                }}
+                {...ENTRY_VIEW_TRANSITION}
             >
                 <div className="h-10 lg:h-0" />
                 <AppLayoutStack data-torrent-stream-page>
@@ -331,7 +345,8 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                                                 intent="alert-glass"
                                                 icon={<BiX />}
                                                 size="xs"
-                                                onClick={() => setUsePreviousBatch(false)}
+                                                onClick={() => confirmPreviousBatchAction.open()}
+                                                disabled={isDeletingBatchHistory}
                                                 className="rounded-full"
                                             />
                                         </div>
@@ -377,6 +392,7 @@ export function TorrentStreamPage(props: TorrentStreamPageProps) {
                     />
                 </AppLayoutStack>
             </PageWrapper>
+            <ConfirmationDialog {...confirmPreviousBatchAction} />
         </>
     )
 }

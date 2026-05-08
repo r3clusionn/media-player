@@ -524,6 +524,24 @@ func TestCanMutatePrivilegedSettings(t *testing.T) {
 			want: false,
 		},
 		{
+			name:    "rejects untrusted origin when compatible translation endpoint changes",
+			origin:  "https://evil.example",
+			reqHost: "192.168.1.10:43211",
+			nextMedia: &models.MediaPlayerSettings{
+				Default:             "vlc",
+				VlcPath:             "/Applications/VLC.app/Contents/MacOS/VLC",
+				MpvArgs:             "--no-config",
+				VcTranslate:         true,
+				VcTranslateProvider: "openai-compatible",
+				VcTranslateBaseUrl:  "http://localhost:1234/v1",
+			},
+			nextTorrent: &models.TorrentSettings{
+				Default:         "qbittorrent",
+				QBittorrentPath: "/Applications/qBittorrent.app/Contents/MacOS/qbittorrent",
+			},
+			want: false,
+		},
+		{
 			name:           "allows authenticated writes even without trusted origin",
 			origin:         "https://evil.example",
 			reqHost:        "192.168.1.10:43211",

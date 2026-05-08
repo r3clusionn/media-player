@@ -351,6 +351,42 @@ func TestAddBatchHistoryUpdatesExistingRecord(t *testing.T) {
 	require.Equal(t, "5", history.BatchEpisodeFiles.CurrentAniDBEpisode)
 }
 
+func TestDeleteBatchHistoryRemovesRecordAndInvalidatesQueries(t *testing.T) {
+	repo, _, ws := newTorrentstreamTestRepository(t)
+
+	repo.AddBatchHistory(102, &hibiketorrent.AnimeTorrent{
+		Name:     "[Seanime] Example Show - 01-12 (1080p).mkv",
+		InfoHash: "hash-delete",
+		IsBatch:  true,
+	}, &hibiketorrent.BatchEpisodeFiles{CurrentEpisodeNumber: 1, CurrentAniDBEpisode: "1"})
+
+	require.Eventually(t, func() bool {
+		got := repo.GetBatchHistory(102)
+		return got.Torrent != nil && got.Torrent.InfoHash == "hash-delete"
+	}, 2*time.Second, 20*time.Millisecond)
+
+	repo.DeleteBatchHistory(102)
+
+	require.Eventually(t, func() bool {
+		got := repo.GetBatchHistory(102)
+		return got.Torrent == nil && got.Metadata == nil && got.BatchEpisodeFiles == nil
+	}, 2*time.Second, 20*time.Millisecond)
+
+	require.Eventually(t, func() bool {
+		count := 0
+		for _, event := range ws.snapshot() {
+			if event.event != events.InvalidateQueries {
+				continue
+			}
+			payload, ok := event.payload.([]string)
+			if ok && len(payload) == 1 && payload[0] == events.GetTorrentstreamBatchHistoryEndpoint {
+				count++
+			}
+		}
+		return count >= 2
+	}, 2*time.Second, 20*time.Millisecond)
+}
+
 func decodePayloadMap(t *testing.T, payload interface{}) map[string]interface{} {
 	t.Helper()
 	bytes, err := json.Marshal(payload)

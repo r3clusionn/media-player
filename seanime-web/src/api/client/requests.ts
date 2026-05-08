@@ -108,8 +108,10 @@ export async function buildSeaQuery<T, D extends any = any>(
 
     const clientId = getClientId()
     const clientIdProof = getClientIdProof()
-    if (clientId && clientIdProof) {
+    if (clientId) {
         headers["X-Seanime-Client-Id"] = clientId
+    }
+    if (clientIdProof) {
         headers["X-Seanime-Client-Id-Proof"] = clientIdProof
     }
     if (__clientPlatform__) {

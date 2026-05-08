@@ -116,9 +116,18 @@ export const settingsSchema = z.object({
     vcTranslateApiKey: z.string().optional().default(""),
     vcTranslateProvider: z.string().optional().default(""),
     vcTranslateTargetLanguage: z.string().optional().default(""),
+    vcTranslateBaseUrl: z.string().optional().default(""),
+    vcTranslateModel: z.string().optional().default(""),
     scannerUseLegacyMatching: z.boolean().optional().default(false),
     scannerConfig: z.string().optional().default(""),
     updateChannel: z.string().optional().default("github"),
+    enableExtensionSecureMode: z.boolean().optional().default(false),
+    defaultPlaybackSource: z.string().optional().default(""),
+    hideAnimeSpoilers: z.boolean().optional().default(false),
+    hideAnimeSpoilerThumbnails: z.boolean().optional().default(true),
+    hideAnimeSpoilerTitles: z.boolean().optional().default(true),
+    hideAnimeSpoilerDescriptions: z.boolean().optional().default(true),
+    hideAnimeSpoilerSkipNextEpisode: z.boolean().optional().default(false),
 })
 
 export const gettingStartedSchema = _gettingStartedSchema.extend(settingsSchema.shape)
@@ -151,6 +160,8 @@ export const getDefaultSettings = (data: z.infer<typeof gettingStartedSchema>): 
         scannerUseLegacyMatching: false,
         scannerConfig: "",
         updateChannel: "github",
+        enableExtensionSecureMode: false,
+        defaultPlaybackSource: "",
     },
     nakama: {
         enabled: false,
@@ -188,6 +199,8 @@ export const getDefaultSettings = (data: z.infer<typeof gettingStartedSchema>): 
         vcTranslateApiKey: "",
         vcTranslateProvider: "",
         vcTranslateTargetLanguage: "",
+        vcTranslateBaseUrl: "",
+        vcTranslateModel: "",
     },
     discord: {
         enableRichPresence: data.enableRichPresence,

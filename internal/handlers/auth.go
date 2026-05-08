@@ -1,14 +1,6 @@
 package handlers
 
 import (
-	"context"
-	"errors"
-	"seanime/internal/database/models"
-	"seanime/internal/platforms/anilist_platform"
-	"seanime/internal/util"
-	"time"
-
-	"github.com/goccy/go-json"
 	"github.com/labstack/echo/v4"
 )
 
@@ -32,60 +24,12 @@ func (h *Handler) HandleLogin(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	// Set a new AniList client by passing to JWT token
-	h.App.UpdateAnilistClientToken(b.Token)
-
-	// Get viewer data from AniList
-	getViewer, err := h.App.AnilistClientRef.Get().GetViewer(context.Background())
-	if err != nil {
-		h.App.Logger.Error().Msg("Could not authenticate to AniList")
+	if err := h.App.LoginToAnilist(b.Token); err != nil {
 		return h.RespondWithError(c, err)
 	}
-
-	if len(getViewer.Viewer.Name) == 0 {
-		return h.RespondWithError(c, errors.New("could not find user"))
-	}
-
-	// Marshal viewer data
-	bytes, err := json.Marshal(getViewer.Viewer)
-	if err != nil {
-		h.App.Logger.Err(err).Msg("scan: could not save local files")
-	}
-
-	// Save account data in database
-	_, err = h.App.Database.UpsertAccount(&models.Account{
-		BaseModel: models.BaseModel{
-			ID:        1,
-			UpdatedAt: time.Now(),
-		},
-		Username: getViewer.Viewer.Name,
-		Token:    b.Token,
-		Viewer:   bytes,
-	})
-
-	if err != nil {
-		return h.RespondWithError(c, err)
-	}
-
-	h.App.Logger.Info().Msg("app: Authenticated to AniList")
-
-	// Update the platform
-	anilistPlatform := anilist_platform.NewAnilistPlatform(h.App.AnilistClientRef, h.App.ExtensionBankRef, h.App.Logger, h.App.Database, h.App.LogoutFromAnilist)
-	h.App.UpdatePlatform(anilistPlatform)
 
 	// Create a new status
 	status := h.NewStatus(c)
-
-	h.App.InitOrRefreshAnilistData()
-
-	h.App.InitOrRefreshModules()
-
-	go func() {
-		defer util.HandlePanicThen(func() {})
-		h.App.InitOrRefreshTorrentstreamSettings()
-		h.App.InitOrRefreshMediastreamSettings()
-		h.App.InitOrRefreshDebridSettings()
-	}()
 
 	// Return new status
 	return h.RespondWithData(c, status)

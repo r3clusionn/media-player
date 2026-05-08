@@ -178,6 +178,7 @@ function BannerImage({ media, isTransitioning, shouldBlurBanner, showTrailer, tr
                         />
                     </motion.div>}
                     {!__isElectronDesktop__ && <MotionIframe
+                        {...({ credentialless: "true" } as any)}
                         src={`https://www.youtube-nocookie.com/embed/${trailerId}?autoplay=1&controls=0&mute=1&disablekb=1&loop=1&vq=medium&playlist=${trailerId}&cc_lang_pref=ja&enablejsapi=true`}
                         className="w-full h-full absolute left-0 object-cover object-center lg:scale-[1.8] 2xl:scale-[2.5]"
                         allow="autoplay"
@@ -310,8 +311,8 @@ function MediaMetadata({ media, pageType, isTransitioning, onHoverChange }: Medi
                             {(media as AL_BaseAnime).nextAiringEpisode?.episode ? (
                                 <span>
                                     {(media as AL_BaseAnime).nextAiringEpisode?.episode! - 1} episode{(media as AL_BaseAnime).nextAiringEpisode?.episode! - 1 === 1
-                                    ? ""
-                                    : "s"} released
+                                        ? ""
+                                        : "s"} released
                                 </span>
                             ) : (
                                 <span>
@@ -442,10 +443,10 @@ export function DiscoverPageHeader({ playTrailer }: { playTrailer?: boolean }) {
     if (!randomTrending) return <div>
         <Skeleton
             className={cn(
-                "__header lg:h-[28rem] overflow-hidden",
-                ts.hideTopNavbar && "lg:h-[32rem]",
-                ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && "lg:h-[24rem]",
-                (ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && ts.hideTopNavbar) && "lg:h-[28rem]",
+                "lg:h-[35rem] w-full flex-none object-cover object-center absolute top-0 lg-[5rem]",
+                !ts.disableSidebarTransparency && TRANSPARENT_SIDEBAR_BANNER_IMG_STYLE,
+                __isDesktop__ && "top-[-2rem]",
+                ts.mediaPageBannerSize === ThemeMediaPageBannerSize.Small && "lg:h-[30rem]",
             )}
         />
     </div>

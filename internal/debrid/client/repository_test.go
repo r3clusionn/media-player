@@ -2,8 +2,11 @@ package debrid_client
 
 import (
 	"context"
-	"testing"
-
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"seanime/internal/database/models"
 	"seanime/internal/debrid/debrid"
 	"seanime/internal/events"
@@ -11,13 +14,18 @@ import (
 	"seanime/internal/hook_resolver"
 	"seanime/internal/testutil"
 	"seanime/internal/util"
+	"seanime/internal/util/result"
+	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 )
 
 type fakeDebridProvider struct {
-	addTorrent func(opts debrid.AddTorrentOptions) (string, error)
+	addTorrent            func(opts debrid.AddTorrentOptions) (string, error)
+	getTorrent            func(id string) (*debrid.TorrentItem, error)
+	getTorrentDownloadUrl func(opts debrid.DownloadTorrentOptions) (string, error)
 }
 
 func (f *fakeDebridProvider) GetSettings() debrid.Settings {
@@ -40,6 +48,9 @@ func (f *fakeDebridProvider) GetTorrentStreamUrl(ctx context.Context, opts debri
 }
 
 func (f *fakeDebridProvider) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (string, error) {
+	if f.getTorrentDownloadUrl != nil {
+		return f.getTorrentDownloadUrl(opts)
+	}
 	return "", nil
 }
 
@@ -48,6 +59,9 @@ func (f *fakeDebridProvider) GetInstantAvailability(hashes []string) map[string]
 }
 
 func (f *fakeDebridProvider) GetTorrent(id string) (*debrid.TorrentItem, error) {
+	if f.getTorrent != nil {
+		return f.getTorrent(id)
+	}
 	return nil, nil
 }
 
@@ -98,12 +112,12 @@ func TestAddAndQueueTorrentUsesHookOverrideAndQueuesItem(t *testing.T) {
 		event := e.(*DebridAddTorrentEvent)
 		postCalled = true
 		require.Equal(t, "hook-id", event.TorrentItemID)
-		require.Equal(t, 77, event.MediaID)
+		require.Equal(t, 21, event.MediaID)
 		return event.Next()
 	})
 
 	destination := t.TempDir()
-	torrentItemID, err := repo.AddAndQueueTorrent(debrid.AddTorrentOptions{MagnetLink: "magnet:?xt=urn:btih:abc"}, destination, 77)
+	torrentItemID, err := repo.AddAndQueueTorrent(debrid.AddTorrentOptions{MagnetLink: "magnet:?xt=urn:btih:abc"}, destination, 21)
 	require.NoError(t, err)
 	require.Equal(t, "hook-id", torrentItemID)
 	require.Equal(t, 0, addCalls)
@@ -117,7 +131,7 @@ func TestAddAndQueueTorrentUsesHookOverrideAndQueuesItem(t *testing.T) {
 		TorrentItemID: "hook-id",
 		Destination:   destination,
 		Provider:      "fake-provider",
-		MediaId:       77,
+		MediaId:       21,
 	}, items[0])
 }
 
@@ -162,4 +176,164 @@ func TestDownloadLifecycleHooksTrigger(t *testing.T) {
 
 	require.True(t, started)
 	require.True(t, completed)
+}
+
+func TestDownlaoded_KeepItemOnDownloadUrlFailure(t *testing.T) {
+	logger := util.NewLogger()
+	env := testutil.NewTestEnv(t)
+	database := env.MustNewDatabase(logger)
+	ws := events.NewMockWSEventManager(logger)
+	destination := t.TempDir()
+
+	// scenario: the torrent looks ready before requestdl works
+	require.NoError(t, database.InsertDebridTorrentItem(&models.DebridTorrentItem{
+		TorrentItemID: "torrent-1",
+		Destination:   destination,
+		Provider:      "fake-provider",
+		MediaId:       21,
+	}))
+
+	repo := &Repository{
+		provider: mo.Some[debrid.Provider](&fakeDebridProvider{
+			getTorrent: func(id string) (*debrid.TorrentItem, error) {
+				return &debrid.TorrentItem{ID: id, Name: "test", Hash: "ABC", IsReady: true}, nil
+			},
+			getTorrentDownloadUrl: func(opts debrid.DownloadTorrentOptions) (string, error) {
+				return "", errors.New("not ready yet")
+			},
+		}),
+		logger:         logger,
+		db:             database,
+		wsEventManager: ws,
+	}
+
+	repo.processQueuedDownloads(repo.provider.MustGet())
+
+	items, err := database.GetDebridTorrentItems()
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	require.Equal(t, "torrent-1", items[0].TorrentItemID)
+}
+
+func TestDownload_removeItemAfterDownloadCompletes(t *testing.T) {
+	initTestDownload(t, 1, func(int) time.Duration { return 0 })
+	initTestDownloadManager(t)
+
+	logger := util.NewLogger()
+	env := testutil.NewTestEnv(t)
+	database := env.MustNewDatabase(logger)
+	ws := events.NewMockWSEventManager(logger)
+	destination := t.TempDir()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/zip")
+		_, _ = w.Write([]byte("not a zip"))
+	}))
+	t.Cleanup(server.Close)
+
+	// failed local downloads should stay queued for a fresh URL later
+	require.NoError(t, database.InsertDebridTorrentItem(&models.DebridTorrentItem{
+		TorrentItemID: "torrent-1",
+		Destination:   destination,
+		Provider:      "fake-provider",
+		MediaId:       21,
+	}))
+	require.NoError(t, database.InsertAutoDownloaderItem(&models.AutoDownloaderItem{
+		RuleID:      1,
+		MediaID:     21,
+		Episode:     4,
+		Hash:        "abc",
+		TorrentName: "test",
+		Downloaded:  false,
+	}))
+
+	repo := &Repository{
+		provider: mo.Some[debrid.Provider](&fakeDebridProvider{
+			getTorrent: func(id string) (*debrid.TorrentItem, error) {
+				return &debrid.TorrentItem{ID: id, Name: "test", Hash: "ABC", IsReady: true}, nil
+			},
+			getTorrentDownloadUrl: func(opts debrid.DownloadTorrentOptions) (string, error) {
+				return server.URL + "/bad.zip", nil
+			},
+		}),
+		logger:         logger,
+		db:             database,
+		wsEventManager: ws,
+		ctxMap:         result.NewMap[string, context.CancelFunc](),
+	}
+
+	repo.processQueuedDownloads(repo.provider.MustGet())
+	require.Eventually(t, func() bool {
+		return hasDebridDownloadStatus(ws, "cancelled")
+	}, time.Second, 10*time.Millisecond)
+
+	items, err := database.GetDebridTorrentItems()
+	require.NoError(t, err)
+	require.Len(t, items, 1)
+	queued, err := database.GetAutoDownloaderItem(1)
+	require.NoError(t, err)
+	require.False(t, queued.Downloaded)
+}
+
+func TestDownloadedItemsAreRemovedFromQueue(t *testing.T) {
+	logger := util.NewLogger()
+	env := testutil.NewTestEnv(t)
+	database := env.MustNewDatabase(logger)
+	ws := events.NewMockWSEventManager(logger)
+	destination := t.TempDir()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/episode.mkv", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "video/x-matroska")
+		_, _ = w.Write([]byte("episode"))
+	})
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	downloadURL := server.URL + "/episode.mkv"
+
+	// once the file is moved, the debrid retry row is done
+	require.NoError(t, database.InsertDebridTorrentItem(&models.DebridTorrentItem{
+		TorrentItemID: "torrent-1",
+		Destination:   destination,
+		Provider:      "fake-provider",
+		MediaId:       21,
+	}))
+	require.NoError(t, database.InsertAutoDownloaderItem(&models.AutoDownloaderItem{
+		RuleID:      1,
+		MediaID:     21,
+		Episode:     4,
+		Hash:        "abc",
+		TorrentName: "test",
+		Downloaded:  false,
+	}))
+
+	repo := &Repository{
+		provider: mo.Some[debrid.Provider](&fakeDebridProvider{
+			getTorrent: func(id string) (*debrid.TorrentItem, error) {
+				return &debrid.TorrentItem{ID: id, Name: "test", Hash: "ABC", IsReady: true}, nil
+			},
+			getTorrentDownloadUrl: func(opts debrid.DownloadTorrentOptions) (string, error) {
+				return downloadURL, nil
+			},
+		}),
+		logger:         logger,
+		db:             database,
+		wsEventManager: ws,
+		ctxMap:         result.NewMap[string, context.CancelFunc](),
+	}
+
+	repo.processQueuedDownloads(repo.provider.MustGet())
+
+	require.Eventually(t, func() bool {
+		_, err := os.Stat(filepath.Join(destination, "episode.mkv"))
+		return err == nil
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		items, err := database.GetDebridTorrentItems()
+		return err == nil && len(items) == 0
+	}, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool {
+		queued, err := database.GetAutoDownloaderItem(1)
+		return err == nil && queued.Downloaded
+	}, time.Second, 10*time.Millisecond)
 }

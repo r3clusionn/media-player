@@ -397,6 +397,7 @@ function MediastreamPage() {
                                             className="flex-none w-full"
                                             isFiller={episode.episodeMetadata?.isFiller}
                                             episodeNumber={episode.episodeNumber}
+                                            watchedProgress={progress}
                                             progressNumber={episode.episodeNumber}
                                             action={<>
                                                 <MediaEpisodeInfoModal

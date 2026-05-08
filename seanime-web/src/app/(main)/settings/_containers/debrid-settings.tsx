@@ -135,8 +135,8 @@ export function DebridSettings(props: DebridSettingsProps) {
                             <Field.Switch
                                 side="right"
                                 name="includeDebridStreamInLibrary"
-                                label="Include in anime library"
-                                help="Add non-downloaded shows that are in your currently watching list to the anime library."
+                                label="Include streaming in anime lists"
+                                help="Show currently watching streaming titles in your anime lists."
                             />
                         </SettingsCard>
 

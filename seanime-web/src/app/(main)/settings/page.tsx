@@ -1,4 +1,7 @@
+import { useServerMutation } from "@/api/client/requests"
+import { UpdateTheme_Variables } from "@/api/generated/endpoint.types"
 import { API_ENDPOINTS } from "@/api/generated/endpoints"
+import { Models_Theme } from "@/api/generated/types"
 import { useOpenInExplorer } from "@/api/hooks/explorer.hooks"
 import { useAnimeListTorrentProviderExtensions } from "@/api/hooks/extensions.hooks"
 import { useCheckForUpdates } from "@/api/hooks/releases.hooks"
@@ -34,6 +37,7 @@ import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useRouter, useSearchParams } from "@/lib/navigation"
 import { DEFAULT_TORRENT_CLIENT, DEFAULT_TORRENT_PROVIDER, settingsSchema, TORRENT_PROVIDER } from "@/lib/server/settings"
+import { THEME_DEFAULT_VALUES } from "@/lib/theme/theme-hooks"
 import { __isElectronDesktop__ } from "@/types/constants"
 import { useQueryClient } from "@tanstack/react-query"
 import { useSetAtom } from "jotai"
@@ -85,7 +89,7 @@ export default function Page() {
 
     const searchParams = useSearchParams()
 
-    const { mutate, data, isPending } = useSaveSettings()
+    const { mutateAsync: saveSettings, data, isPending } = useSaveSettings()
 
     const [tab, setTab] = useAtom(__settings_tabAtom)
     const formRef = React.useRef<UseFormReturn<any>>(null)
@@ -93,6 +97,15 @@ export default function Page() {
     const { data: torrentProviderExtensions } = useAnimeListTorrentProviderExtensions()
 
     const { data: torrentstreamSettings } = useGetTorrentstreamSettings()
+
+    const { mutateAsync: saveThemeSettings } = useServerMutation<Models_Theme, UpdateTheme_Variables>({
+        endpoint: API_ENDPOINTS.THEME.UpdateTheme.endpoint,
+        method: API_ENDPOINTS.THEME.UpdateTheme.methods[0],
+        mutationKey: [API_ENDPOINTS.THEME.UpdateTheme.key, "settings-page"],
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: [API_ENDPOINTS.STATUS.GetStatus.key] })
+        },
+    })
 
     const { mutate: openInExplorer, isPending: isOpening } = useOpenInExplorer()
 
@@ -188,6 +201,10 @@ export default function Page() {
                                         value="seanime"
                                         className="group"
                                     ><LuWandSparkles className="text-xl mr-3 transition-transform duration-200" /> App</TabsTrigger>
+                                    <TabsTrigger
+                                        value="ui"
+                                        className="group"
+                                    ><MdOutlinePalette className="text-xl mr-3 transition-transform duration-200" /> User Interface</TabsTrigger>
                                     {/* <TabsTrigger
                                      value="local"
                                      className="group"
@@ -196,10 +213,6 @@ export default function Page() {
                                         value="library"
                                         className="group"
                                     ><LuLibrary className="text-xl mr-3 transition-transform duration-200" /> Local Anime Library</TabsTrigger>
-                                    <TabsTrigger
-                                        value="playback"
-                                        className="group"
-                                    ><LuCirclePlay className="text-xl mr-3 transition-transform duration-200" /> Video Playback</TabsTrigger>
                                 </Card>
 
                                 {/*<div className="text-xs lg:text-[--muted] text-center py-1.5 uppercase px-3 border-gray-800 tracking-wide font-medium">*/}
@@ -207,6 +220,10 @@ export default function Page() {
                                 {/*</div>*/}
 
                                 <Card className="lg:p-2 contents lg:block border-0 bg-transparent lg:border lg:bg-gray-950/80">
+                                    <TabsTrigger
+                                        value="playback"
+                                        className="group"
+                                    ><LuCirclePlay className="text-xl mr-3 transition-transform duration-200" /> Video Playback</TabsTrigger>
 
                                     <TabsTrigger
                                         value="media-player"
@@ -282,10 +299,6 @@ export default function Page() {
                                             className="group"
                                         ><LuMonitor className="text-xl mr-3 transition-transform duration-200" /> Denshi</TabsTrigger>
                                     )}
-                                    <TabsTrigger
-                                        value="ui"
-                                        className="group"
-                                    ><MdOutlinePalette className="text-xl mr-3 transition-transform duration-200" /> User Interface</TabsTrigger>
                                     {/* <TabsTrigger
                                      value="cache"
                                      className="group"
@@ -319,8 +332,8 @@ export default function Page() {
                         <Form
                             schema={settingsSchema}
                             mRef={formRef}
-                            onSubmit={data => {
-                                mutate({
+                            onSubmit={async data => {
+                                await saveSettings({
                                     library: {
                                         libraryPath: data.libraryPath,
                                         autoUpdateProgress: data.autoUpdateProgress,
@@ -348,6 +361,8 @@ export default function Page() {
                                         scannerUseLegacyMatching: data.scannerUseLegacyMatching ?? false,
                                         scannerConfig: data.scannerConfig ?? "",
                                         updateChannel: data.updateChannel || "github",
+                                        enableExtensionSecureMode: data.enableExtensionSecureMode ?? false,
+                                        defaultPlaybackSource: data.defaultPlaybackSource === "-" ? "" : data.defaultPlaybackSource,
                                     },
                                     nakama: {
                                         enabled: data.nakamaEnabled ?? false,
@@ -385,6 +400,8 @@ export default function Page() {
                                         vcTranslateApiKey: data.vcTranslateApiKey || "",
                                         vcTranslateProvider: data.vcTranslateProvider || "",
                                         vcTranslateTargetLanguage: data.vcTranslateTargetLanguage || "",
+                                        vcTranslateBaseUrl: data.vcTranslateBaseUrl || "",
+                                        vcTranslateModel: data.vcTranslateModel || "",
                                     },
                                     torrent: {
                                         defaultTorrentClient: data.defaultTorrentClient,
@@ -423,21 +440,38 @@ export default function Page() {
                                         disableAutoDownloaderNotifications: data?.disableAutoDownloaderNotifications ?? false,
                                         disableAutoScannerNotifications: data?.disableAutoScannerNotifications ?? false,
                                     },
-                                }, {
-                                    onSuccess: () => {
-                                        formRef.current?.reset(formRef.current.getValues())
-
-                                        // Sync updateChannel to Denshi
-                                        if (__isElectronDesktop__ && window.electron?.denshiSettings) {
-                                            window.electron.denshiSettings.get().then((denshiSettings) => {
-                                                window.electron!.denshiSettings.set({
-                                                    ...denshiSettings,
-                                                    updateChannel: data.updateChannel || "github",
-                                                })
-                                            })
-                                        }
-                                    },
                                 })
+
+                                const prevTheme = status?.themeSettings ?? { id: 0, ...THEME_DEFAULT_VALUES }
+                                const shouldSaveSpoilerSettings =
+                                    data.hideAnimeSpoilers !== prevTheme.hideAnimeSpoilers
+                                    || data.hideAnimeSpoilerThumbnails !== prevTheme.hideAnimeSpoilerThumbnails
+                                    || data.hideAnimeSpoilerTitles !== prevTheme.hideAnimeSpoilerTitles
+                                    || data.hideAnimeSpoilerDescriptions !== prevTheme.hideAnimeSpoilerDescriptions
+                                    || data.hideAnimeSpoilerSkipNextEpisode !== prevTheme.hideAnimeSpoilerSkipNextEpisode
+
+                                if (shouldSaveSpoilerSettings) {
+                                    await saveThemeSettings({
+                                        theme: {
+                                            ...prevTheme,
+                                            hideAnimeSpoilers: data.hideAnimeSpoilers ?? false,
+                                            hideAnimeSpoilerThumbnails: data.hideAnimeSpoilerThumbnails ?? true,
+                                            hideAnimeSpoilerTitles: data.hideAnimeSpoilerTitles ?? true,
+                                            hideAnimeSpoilerDescriptions: data.hideAnimeSpoilerDescriptions ?? true,
+                                            hideAnimeSpoilerSkipNextEpisode: data.hideAnimeSpoilerSkipNextEpisode ?? false,
+                                        },
+                                    })
+                                }
+
+                                formRef.current?.reset(formRef.current.getValues())
+
+                                if (__isElectronDesktop__ && window.electron?.denshiSettings) {
+                                    const denshiSettings = await window.electron.denshiSettings.get()
+                                    await window.electron.denshiSettings.set({
+                                        ...denshiSettings,
+                                        updateChannel: data.updateChannel || "github",
+                                    })
+                                }
                             }}
                             defaultValues={{
                                 libraryPath: status?.settings?.library?.libraryPath,
@@ -523,9 +557,18 @@ export default function Page() {
                                 vcTranslateApiKey: status?.settings?.mediaPlayer?.vcTranslateApiKey ?? "",
                                 vcTranslateProvider: status?.settings?.mediaPlayer?.vcTranslateProvider ?? "",
                                 vcTranslateTargetLanguage: status?.settings?.mediaPlayer?.vcTranslateTargetLanguage ?? "",
+                                vcTranslateBaseUrl: status?.settings?.mediaPlayer?.vcTranslateBaseUrl ?? "",
+                                vcTranslateModel: status?.settings?.mediaPlayer?.vcTranslateModel ?? "",
                                 scannerUseLegacyMatching: status?.settings?.library?.scannerUseLegacyMatching ?? false,
                                 scannerConfig: status?.settings?.library?.scannerConfig ?? "",
                                 updateChannel: status?.settings?.library?.updateChannel || "github",
+                                enableExtensionSecureMode: status?.settings?.library?.enableExtensionSecureMode ?? false,
+                                defaultPlaybackSource: status?.settings?.library?.defaultPlaybackSource || "-",
+                                hideAnimeSpoilers: status?.themeSettings?.hideAnimeSpoilers ?? THEME_DEFAULT_VALUES.hideAnimeSpoilers,
+                                hideAnimeSpoilerThumbnails: status?.themeSettings?.hideAnimeSpoilerThumbnails ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerThumbnails,
+                                hideAnimeSpoilerTitles: status?.themeSettings?.hideAnimeSpoilerTitles ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerTitles,
+                                hideAnimeSpoilerDescriptions: status?.themeSettings?.hideAnimeSpoilerDescriptions ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerDescriptions,
+                                hideAnimeSpoilerSkipNextEpisode: status?.themeSettings?.hideAnimeSpoilerSkipNextEpisode ?? THEME_DEFAULT_VALUES.hideAnimeSpoilerSkipNextEpisode,
                             }}
                             stackClass="space-y-0 relative"
                         >
@@ -634,20 +677,22 @@ export default function Page() {
                                         />
 
                                         <SettingsCard>
-                                            <Field.Switch
-                                                side="right"
-                                                name="enableOnlinestream"
-                                                label="Enable"
-                                                help="Watch anime episodes from online sources."
-                                            />
+                                            <div data-settings-enable-onlinestream>
+                                                <Field.Switch
+                                                    side="right"
+                                                    name="enableOnlinestream"
+                                                    label="Enable"
+                                                    help="Watch anime episodes from online sources."
+                                                />
+                                            </div>
                                         </SettingsCard>
 
                                         <SettingsCard title="Home Screen">
                                             <Field.Switch
                                                 side="right"
                                                 name="includeOnlineStreamingInLibrary"
-                                                label="Include in anime library"
-                                                help="Add non-downloaded shows that are in your currently watching list to the anime library."
+                                                label="Include streaming in anime lists"
+                                                help="Show currently watching streaming titles in your anime lists."
                                             />
                                         </SettingsCard>
 

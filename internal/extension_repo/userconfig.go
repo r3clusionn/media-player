@@ -96,10 +96,22 @@ func (r *Repository) GetExtensionUserConfig(id string) (ret *ExtensionUserConfig
 
 	ext, found := r.extensionBankRef.Get().Get(id)
 	if !found {
-		return
+		disabledExt, found := r.disabledExtensions.Get(id)
+		if !found {
+			if !isValidExtensionIDString(id) {
+				return
+			}
+			extFromFile, err := extractExtensionFromFile(r.externalExtensionFilepath(id))
+			if err != nil || extFromFile == nil {
+				return
+			}
+			ret.UserConfig = extFromFile.UserConfig
+		} else {
+			ret.UserConfig = disabledExt.UserConfig
+		}
+	} else {
+		ret.UserConfig = ext.GetUserConfig()
 	}
-
-	ret.UserConfig = ext.GetUserConfig()
 
 	bucket := filecache.NewPermanentBucket(getExtensionUserConfigBucketKey(id))
 

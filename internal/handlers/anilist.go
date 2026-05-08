@@ -64,6 +64,8 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 	return h.RespondWithData(c, animeCollection)
 }
 
+var tagsCache *anilist.MediaTagMap
+
 // HandleGetRawAnimeCollectionTags
 //
 //	@summary returns the AniList tags for the user's raw anime collection.
@@ -71,6 +73,14 @@ func (h *Handler) HandleGetRawAnimeCollection(c echo.Context) error {
 //	@returns anilist.MediaTagMap
 //	@route /api/v1/anilist/collection/raw/tags [GET]
 func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
+	h.App.OnRefreshAnilistCollectionFuncs.Set("HandleGetRawAnimeCollectionTags", func() {
+		tagsCache = nil
+	})
+
+	if tagsCache != nil {
+		return h.RespondWithData(c, *tagsCache)
+	}
+
 	userName := h.App.GetUsername()
 	if userName == "" || h.App.GetUser().IsSimulated {
 		return h.RespondWithData(c, anilist.MediaTagMap{})
@@ -81,7 +91,10 @@ func (h *Handler) HandleGetRawAnimeCollectionTags(c echo.Context) error {
 		return h.RespondWithError(c, err)
 	}
 
-	return h.RespondWithData(c, anilist.MediaTagMapFromAnimeCollectionTags(ret))
+	tags := anilist.MediaTagMapFromAnimeCollectionTags(ret)
+	tagsCache = &tags
+
+	return h.RespondWithData(c, tags)
 }
 
 // HandleEditAnilistListEntry

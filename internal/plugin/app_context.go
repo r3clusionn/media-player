@@ -10,6 +10,7 @@ import (
 	discordrpc_presence "seanime/internal/discordrpc/presence"
 	"seanime/internal/events"
 	"seanime/internal/extension"
+	"seanime/internal/extension_repo/prompt"
 	"seanime/internal/library/autodownloader"
 	"seanime/internal/library/autoscanner"
 	"seanime/internal/library/fillermanager"
@@ -60,6 +61,24 @@ type AppContextModules struct {
 	AutoSelect                      *autoselect.AutoSelect
 	OnRefreshAnilistAnimeCollection func()
 	OnRefreshAnilistMangaCollection func()
+	PromptManager                   *prompt.Manager
+	Auth                            AuthActions
+	Settings                        SettingsActions
+	Extensions                      ExtensionActions
+}
+
+type AuthActions struct {
+	Login  func(token string) error
+	Logout func() error
+}
+
+type SettingsActions struct {
+	OnSaved func(settings *models.Settings)
+}
+
+type ExtensionActions struct {
+	SetDisabled func(id string, disabled bool) error
+	GetName     func(id string) string
 }
 
 // AppContext allows plugins to interact with core modules.
@@ -88,7 +107,6 @@ type AppContext interface {
 	BindAnilist(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension)
 	// BindDatabase binds $database to the Goja runtime
 	BindDatabase(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension)
-
 	// BindSystem binds $system to the Goja runtime
 	BindSystem(vm *goja.Runtime, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler)
 
@@ -100,6 +118,15 @@ type AppContext interface {
 
 	// BindCronToContextObj binds 'cron' to the UI context object
 	BindCronToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler) *Cron
+
+	// BindAuthToContextObj binds 'auth' to the UI context object
+	BindAuthToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler)
+
+	// BindAppSettingsToContextObj binds 'appSettings' to the UI context object
+	BindAppSettingsToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler)
+
+	// BindExtensionsToContextObj binds 'extensions' to the UI context object
+	BindExtensionsToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler)
 
 	// BindDownloaderToContextObj binds 'downloader' to the UI context object
 	BindDownloaderToContextObj(vm *goja.Runtime, obj *goja.Object, logger *zerolog.Logger, ext *extension.Extension, scheduler *gojautil.Scheduler)
@@ -195,6 +222,10 @@ type AppContextImpl struct {
 	directStreamManager             mo.Option[*directstream.Manager]
 	isOfflineRef                    *util.Ref[bool]
 	autoSelect                      mo.Option[*autoselect.AutoSelect]
+	promptManager                   mo.Option[*prompt.Manager]
+	auth                            AuthActions
+	settings                        SettingsActions
+	extensions                      ExtensionActions
 }
 
 func NewAppContext() AppContext {
@@ -225,6 +256,7 @@ func NewAppContext() AppContext {
 		directStreamManager:             mo.None[*directstream.Manager](),
 		isOfflineRef:                    util.NewRef(false),
 		autoSelect:                      mo.None[*autoselect.AutoSelect](),
+		promptManager:                   mo.None[*prompt.Manager](),
 	}
 
 	return appCtx
@@ -370,6 +402,28 @@ func (a *AppContextImpl) SetModulesPartial(modules AppContextModules) {
 
 	if modules.DirectStreamManager != nil {
 		a.directStreamManager = mo.Some(modules.DirectStreamManager)
+	}
+
+	if modules.PromptManager != nil {
+		a.promptManager = mo.Some(modules.PromptManager)
+	}
+
+	if modules.Auth.Login != nil {
+		a.auth.Login = modules.Auth.Login
+	}
+	if modules.Auth.Logout != nil {
+		a.auth.Logout = modules.Auth.Logout
+	}
+
+	if modules.Settings.OnSaved != nil {
+		a.settings.OnSaved = modules.Settings.OnSaved
+	}
+
+	if modules.Extensions.SetDisabled != nil {
+		a.extensions.SetDisabled = modules.Extensions.SetDisabled
+	}
+	if modules.Extensions.GetName != nil {
+		a.extensions.GetName = modules.Extensions.GetName
 	}
 }
 

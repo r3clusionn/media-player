@@ -224,12 +224,14 @@ export function ExternalPlayerLinkSettings() {
             />
 
             <SettingsCard>
-                <TextInput
-                    label="Custom scheme"
-                    placeholder="Example: outplayer://{url}"
-                    value={externalPlayerLink}
-                    onValueChange={setExternalPlayerLink}
-                />
+                <div data-settings-external-player-link-scheme>
+                    <TextInput
+                        label="Custom scheme"
+                        placeholder="Example: outplayer://{url}"
+                        value={externalPlayerLink}
+                        onValueChange={setExternalPlayerLink}
+                    />
+                </div>
             </SettingsCard>
 
             <SettingsCard>

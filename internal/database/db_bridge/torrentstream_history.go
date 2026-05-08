@@ -61,3 +61,11 @@ func InsertTorrentstreamHistory(db *db.Database, mId int, torrent *hibiketorrent
 		BatchEpisodeFiles: filesBytes,
 	}).Error
 }
+
+func DeleteTorrentstreamHistory(db *db.Database, mId int) error {
+	if mId == 0 {
+		return nil
+	}
+
+	return db.Gorm().Where("media_id = ?", mId).Delete(&models.TorrentstreamHistory{}).Error
+}

@@ -1,8 +1,14 @@
 import { CommandGroup, CommandItem, CommandShortcut } from "@/components/ui/command"
+import { usePathname, useSearchParams } from "@/lib/navigation"
 import { useSeaCommandContext } from "./sea-command"
 
 // renders when "/" is typed
 export function SeaCommandList() {
+
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const mediaId = Number(searchParams.get("id"))
+    const isAnimePage = (pathname === "/entry" || pathname === "/offline/entry/anime") && Number.isFinite(mediaId) && mediaId > 0
 
     const { input, setInput, select, command: { isCommand, command, args }, scrollToTop } = useSeaCommandContext()
 
@@ -41,6 +47,11 @@ export function SeaCommandList() {
             command: "issue",
             description: "Record an issue",
             show: true,
+        },
+        {
+            command: "spoilers",
+            description: "Toggle spoilers for this anime",
+            show: isAnimePage,
         },
     ]
 
