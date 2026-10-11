@@ -381,13 +381,13 @@ func (t *RealDebrid) GetTorrentStreamUrl(ctx context.Context, opts debrid.Stream
 
 				for idx, f := range files {
 					if strconv.Itoa(f.ID) == opts.FileId {
-						if len(ti.Links) <= idx {
+						if len(ti.Links) == 0 {
 							return "", true, false, nil
 						}
-						resp, _err := t.unrestrictLink(ti.Links[idx])
+						resp, _err := t.unrestrictFileLink(ti.Links, files, idx)
 						if _err != nil {
 							t.logger.Error().Err(_err).Msg("realdebrid: Failed to get download URL")
-							return "", true, false, nil
+							return "", true, false, _err
 						}
 
 						return resp.Download, true, true, nil
@@ -469,21 +469,19 @@ func (t *RealDebrid) GetTorrentDownloadUrl(opts debrid.DownloadTorrentOptions) (
 	downloadUrl = ""
 
 	if opts.FileId != "" {
-		var file *TorrentInfoFile
-		var link string
+		fileIdx := -1
 		for idx, f := range files {
 			if strconv.Itoa(f.ID) == opts.FileId {
-				file = f
-				link = torrentInfo.Links[idx]
+				fileIdx = idx
 				break
 			}
 		}
 
-		if file == nil || link == "" {
+		if fileIdx < 0 || len(torrentInfo.Links) == 0 {
 			return "", fmt.Errorf("realdebrid: File not found")
 		}
 
-		unrestrictLink, err := t.unrestrictLink(link)
+		unrestrictLink, err := t.unrestrictFileLink(torrentInfo.Links, files, fileIdx)
 		if err != nil {
 			return "", fmt.Errorf("realdebrid: Failed to get download URL: %w", err)
 		}
@@ -624,6 +622,7 @@ func (t *RealDebrid) _selectFiles(id string, idStr string) (err error) {
 		return fmt.Errorf("realdebrid: Failed to select files: %w", err)
 	}
 
+	_ = writer.Close() // media-player: write the form's closing boundary
 	_, err = t.doQuery("POST", t.baseUrl+fmt.Sprintf("/torrents/selectFiles/%s", id), &body, writer.FormDataContentType())
 	if err != nil {
 		t.logger.Error().Err(err).Msg("realdebrid: Failed to select files")
@@ -651,6 +650,7 @@ func (t *RealDebrid) addMagnet(magnet string) (ret *addMagnetResponse, err error
 		return nil, fmt.Errorf("torbox: Failed to add torrent: %w", err)
 	}
 
+	_ = writer.Close() // media-player: write the form's closing boundary
 	resp, err := t.doQuery("POST", t.baseUrl+"/torrents/addMagnet", &body, writer.FormDataContentType())
 	if err != nil {
 		t.logger.Error().Err(err).Msg("realdebrid: Failed to add torrent")
@@ -666,6 +666,52 @@ func (t *RealDebrid) addMagnet(magnet string) (ret *addMagnetResponse, err error
 	return ret, nil
 }
 
+// unrestrictFileLink returns the unrestricted link for selected[idx].
+//
+// media-player: Real-Debrid's links usually follow the order of the selected
+// files, but nothing guarantees it, and taking links[idx] on trust plays a
+// different file with no error when they differ. The name (or exact size) RD
+// reports for the link is checked against the file, and the other links are
+// tried when it doesn't match. An archive link (RD packs some torrents into
+// one RAR) matches no file and is an error, not a wrong episode.
+func (t *RealDebrid) unrestrictFileLink(links []string, selected []*TorrentInfoFile, idx int) (*unrestrictLinkResponse, error) {
+	f := selected[idx]
+	want := filepath.Base(strings.ReplaceAll(f.Path, "\\", "/"))
+	matches := func(r *unrestrictLinkResponse) bool {
+		return strings.EqualFold(r.Filename, want) || (f.Bytes > 0 && r.Filesize == f.Bytes)
+	}
+	order := make([]int, 0, len(links))
+	if idx < len(links) {
+		order = append(order, idx)
+	}
+	for i := range links {
+		if i != idx {
+			order = append(order, i)
+		}
+	}
+	for n, i := range order {
+		resp, err := t.unrestrictLink(links[i])
+		if err != nil {
+			if n == 0 {
+				return nil, err
+			}
+			continue
+		}
+		if matches(resp) {
+			if n > 0 {
+				t.logger.Warn().Int("expected", idx).Int("actual", i).Str("file", want).
+					Msg("realdebrid: Link order differs from file order, used the matching link")
+			}
+			return resp, nil
+		}
+		if n == 0 {
+			t.logger.Warn().Str("file", want).Str("link", resp.Filename).
+				Msg("realdebrid: Link at the file's position is another file, checking the other links")
+		}
+	}
+	return nil, fmt.Errorf("realdebrid: no link matches %s", want)
+}
+
 func (t *RealDebrid) unrestrictLink(link string) (ret *unrestrictLinkResponse, err error) {
 
 	var body bytes.Buffer
@@ -677,6 +723,7 @@ func (t *RealDebrid) unrestrictLink(link string) (ret *unrestrictLinkResponse, e
 		return nil, fmt.Errorf("realdebrid: Failed to unrestrict link: %w", err)
 	}
 
+	_ = writer.Close() // media-player: write the form's closing boundary
 	resp, err := t.doQuery("POST", t.baseUrl+"/unrestrict/link", &body, writer.FormDataContentType())
 	if err != nil {
 		t.logger.Error().Err(err).Msg("realdebrid: Failed to unrestrict link")

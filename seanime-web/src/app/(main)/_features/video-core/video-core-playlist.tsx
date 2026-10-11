@@ -218,22 +218,18 @@ export function useVideoCorePlaylist() {
                 }
                 updateTorrentstreamAutoplayInfo(episode)
             } else if (playbackType === "debrid") {
-                let fileIndex: number | undefined = undefined
-                if (autoPlayTorrent?.batchFiles) {
-                    const file = autoPlayTorrent.batchFiles.files?.find(n => n.index === autoPlayTorrent.batchFiles!.current + 1)
-                    if (file) {
-                        fileIndex = file.index
-                    }
-                }
+                // media-player: no file ID here. The server picks the episode's file
+                // by season and episode (internal/episodematch). The saved list has no
+                // episode numbers, and "the file after the previous one" plays the
+                // wrong episode next to openings, specials, other seasons or v2s.
                 handleDebridstreamSelection({
                     mediaId: playlistState.animeEntry.mediaId,
                     episodeNumber: episode.episodeNumber,
                     aniDBEpisode: episode.aniDBEpisode,
                     torrent: autoPlayTorrent.torrent,
-                    chosenFileId: fileIndex !== undefined ? String(fileIndex) : "",
-                    batchEpisodeFiles: (autoPlayTorrent?.batchFiles && fileIndex !== undefined) ? {
+                    chosenFileId: "",
+                    batchEpisodeFiles: autoPlayTorrent?.batchFiles ? {
                         ...autoPlayTorrent.batchFiles,
-                        current: fileIndex,
                         currentEpisodeNumber: episode.episodeNumber,
                         currentAniDBEpisode: episode.aniDBEpisode,
                     } : undefined,
