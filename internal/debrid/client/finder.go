@@ -29,6 +29,18 @@ func (r *Repository) findBestTorrent(ctx context.Context, provider debrid.Provid
 
 	r.logger.Debug().Msgf("debridstream: Finding best torrent for %s, Episode %d", media.GetTitleSafe(), episodeNumber)
 
+	// media-player: resume and next episode keep using the batch the previous
+	// episode came from, instead of searching again and possibly landing on a
+	// release with different numbering. Search only if this episode isn't in it.
+	if prev, _, histErr := db_bridge.GetTorrentstreamHistory(r.db, media.GetID()); histErr == nil && prev != nil && prev.IsBatch {
+		if pt, prevErr := r.findBestTorrentFromManualSelection(provider, prev, media, episodeNumber, nil); prevErr == nil {
+			r.logger.Info().Msgf("debridstream: Using the previous batch %s for episode %d", prev.Name, episodeNumber)
+			return pt, nil
+		} else {
+			r.logger.Debug().Err(prevErr).Msgf("debridstream: Previous batch %s doesn't have episode %d, searching", prev.Name, episodeNumber)
+		}
+	}
+
 	profile, found := db_bridge.FindAutoSelectProfile(r.db)
 	if !found {
 		resolution := r.settings.StreamPreferredResolution
