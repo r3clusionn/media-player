@@ -264,7 +264,7 @@ embeddedfonts=yes sub-ass-override=no   # typeset anime subtitles look exactly a
 
 | Content | Source | Applied |
 |---|---|---|
-| Anime | ≤ 1080p | **Anime4K Mode A+A**: Clamp_Highlights → Restore_CNN_VL → Upscale_CNN_x2_VL → Restore_CNN_M → AutoDownscalePre_x2 → AutoDownscalePre_x4 → Upscale_CNN_x2_M. Plus deband. |
+| Anime | ≤ 1080p | **Anime4K Mode A+A (Fast)**, which is what Seanime's player loads for "A+A" by default: Clamp_Highlights → Restore_CNN_M → Upscale_CNN_x2_M → Restore_CNN_S → AutoDownscalePre_x2 → AutoDownscalePre_x4 → Upscale_CNN_x2_S. Plus deband. 21.5 ms per frame at 2880x1800. The HQ chain (VL shaders) takes 51.3 ms and can't hold 23.976 fps on the 890M; A (HQ) at 35.9 ms is offered as "tight" (docs/phase0.md). |
 | Anime | 1440p | Anime4K Restore_CNN_M + `scale=ewa_lanczossharp` (only 1.25x to 1800p, so a 2x upscaler is wasted work) |
 | Anime | ≥ 2160p | No upscalers. `dscale=mitchell correct-downscaling=yes linear-downscaling=yes` + deband |
 | Live action | any | `scale=ewa_lanczossharp cscale=ewa_lanczossharp`, deband lighter (`threshold=20`), never Anime4K. HDR → SDR: `tone-mapping=spline hdr-compute-peak=yes` |
