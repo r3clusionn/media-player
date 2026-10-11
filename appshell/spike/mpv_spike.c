@@ -177,14 +177,20 @@ int main(void)
 	mpv_set_option_string(mpv, "deband-grain", "4");
 	mpv_set_option_string(mpv, "loop-file", "inf");
 	mpv_set_option_string(mpv, "terminal", "no");
-	if (!strcmp(a4k, "aa")) {
-		/* Anime4K Mode A+A, in the order Anime4K's own mpv config uses. */
-		static const char *chain[] = {
-			"Clamp_Highlights", "Restore_CNN_VL", "Upscale_CNN_x2_VL",
-			"Restore_CNN_M", "AutoDownscalePre_x2", "AutoDownscalePre_x4",
-			"Upscale_CNN_x2_M"};
+	/* Anime4K Mode A+A, HQ ("aa") and Fast ("aafast", Seanime's default),
+	 * in the order Anime4K's own mpv config uses. */
+	static const char *chain_hq[] = {
+		"Clamp_Highlights", "Restore_CNN_VL", "Upscale_CNN_x2_VL",
+		"Restore_CNN_M", "AutoDownscalePre_x2", "AutoDownscalePre_x4",
+		"Upscale_CNN_x2_M"};
+	static const char *chain_fast[] = {
+		"Clamp_Highlights", "Restore_CNN_M", "Upscale_CNN_x2_M",
+		"Restore_CNN_S", "AutoDownscalePre_x2", "AutoDownscalePre_x4",
+		"Upscale_CNN_x2_S"};
+	if (!strcmp(a4k, "aa") || !strcmp(a4k, "aafast")) {
+		const char **chain = !strcmp(a4k, "aa") ? chain_hq : chain_fast;
 		char list[4096] = "";
-		for (size_t i = 0; i < sizeof chain / sizeof *chain; i++) {
+		for (size_t i = 0; i < 7; i++) {
 			char one[600];
 			snprintf(one, sizeof one, "%s%s/Anime4K_%s.glsl", i ? ":" : "", shaders_dir, chain[i]);
 			strncat(list, one, sizeof list - strlen(list) - 1);

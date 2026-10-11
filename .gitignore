@@ -93,3 +93,5 @@ scripts/build.go
 
 # media-player: appshell scripts are part of the source
 !appshell/**/*.sh
+/third_party
+/build/

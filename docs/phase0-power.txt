@@ -1,0 +1,8 @@
+backlight 70%, battery 100%, profile low-power quiet 
+idle (nothing started)             avg  3.61 W  median  3.57 W  (45 samples)
+embedded mpv: plain + deband       avg  7.19 W  median  7.16 W  (45 samples)
+embedded mpv: A+A (Fast) + deband  avg 15.54 W  median 15.53 W  (45 samples)
+embedded mpv: A+A (HQ) + deband    avg 39.26 W  median 39.21 W  (45 samples)
+mpv program: A+A (Fast), gpu-next  avg 16.83 W  median 16.79 W  (45 samples)
+mpv program: plain, your mpv.conf  avg  7.23 W  median  7.30 W  (45 samples)
+CEF window: Seanime Discover       avg  6.45 W  median  5.55 W  (45 samples)
