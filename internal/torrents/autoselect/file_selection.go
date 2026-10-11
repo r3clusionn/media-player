@@ -9,7 +9,6 @@ import (
 	hibiketorrent "seanime/internal/extension/hibike/torrent"
 	torrentanalyzer "seanime/internal/torrents/analyzer"
 	"seanime/internal/util"
-	"strconv"
 
 	"github.com/anacrolix/torrent"
 	"github.com/samber/lo"
@@ -171,11 +170,14 @@ func (s *AutoSelect) selectFileFromTorrentClient(
 		return nil, err
 	}
 
-	analysisFile, found := analysis.GetFileByAniDBEpisode(strconv.Itoa(episodeNumber))
-	if !found {
+	// media-player: pick by season and episode, never by file order.
+	sizes := lo.Map(addedTorrent.Files(), func(f *torrent.File, _ int) int64 { return f.Length() })
+	analysisFile, reason, err := analysis.PickEpisode(episodeNumber, sizes)
+	if err != nil {
 		cancel()
-		return nil, fmt.Errorf("episode not found")
+		return nil, fmt.Errorf("episode %d: %w", episodeNumber, err)
 	}
+	s.logger.Debug().Msgf("autoselect: Episode %d is %s (%s)", episodeNumber, analysisFile.GetPath(), reason)
 
 	// Download the file and unselect the rest
 	for i, f := range addedTorrent.Files() {
@@ -252,10 +254,13 @@ func (s *AutoSelect) selectFileFromDebrid(
 		return nil, err
 	}
 
-	analysisFile, found := analysis.GetFileByAniDBEpisode(strconv.Itoa(episodeNumber))
-	if !found {
-		return nil, fmt.Errorf("episode not found")
+	// media-player: pick by season and episode, never by file order.
+	sizes := lo.Map(info.Files, func(f *debrid.TorrentItemFile, _ int) int64 { return f.Size })
+	analysisFile, reason, err := analysis.PickEpisode(episodeNumber, sizes)
+	if err != nil {
+		return nil, fmt.Errorf("episode %d: %w", episodeNumber, err)
 	}
+	s.logger.Debug().Msgf("autoselect: Episode %d is %s (%s)", episodeNumber, analysisFile.GetPath(), reason)
 
 	tFile := info.Files[analysisFile.GetIndex()]
 	s.logger.Debug().Msgf("autoselect: Selected debrid file %s", tFile.Name)

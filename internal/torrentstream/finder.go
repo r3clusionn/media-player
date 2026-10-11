@@ -11,6 +11,7 @@ import (
 	"seanime/internal/torrents/autoselect"
 	"seanime/internal/util"
 	"seanime/internal/util/torrentutil"
+	"strconv"
 
 	"github.com/anacrolix/torrent"
 	"github.com/samber/lo"
@@ -164,7 +165,21 @@ func (r *Repository) findBestTorrentFromManualSelection(ctx context.Context, t *
 			return nil, err
 		}
 
-		analysisFile, found := analysis.GetFileByAniDBEpisode(aniDbEpisode)
+		// media-player: when the AniDB episode is a plain number, pick by season
+		// and episode instead of the first file claiming that number.
+		var analysisFile *torrentanalyzer.File
+		found := false
+		if n, convErr := strconv.Atoi(aniDbEpisode); convErr == nil {
+			sizes := lo.Map(selectedTorrent.Files(), func(f *torrent.File, _ int) int64 { return f.Length() })
+			if f, reason, pickErr := analysis.PickEpisode(n, sizes); pickErr == nil {
+				analysisFile, found = f, true
+				r.logger.Debug().Msgf("torrentstream: Episode %d is %s (%s)", n, f.GetPath(), reason)
+			} else {
+				r.logger.Warn().Err(pickErr).Msg("torrentstream: Could not tell which file is the episode")
+			}
+		} else {
+			analysisFile, found = analysis.GetFileByAniDBEpisode(aniDbEpisode)
+		}
 		// Check if analyzer found the episode
 		if !found {
 			r.logger.Error().Msgf("torrentstream: Failed to auto-select episode from torrent %s", selectedTorrent.Info().Name)

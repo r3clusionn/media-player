@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"seanime/internal/api/anilist"
 	"seanime/internal/api/metadata_provider"
+	"seanime/internal/episodematch"
 	"seanime/internal/library/anime"
 	"seanime/internal/library/scanner"
 	"seanime/internal/platforms/platform"
@@ -25,6 +26,7 @@ type (
 		logger              *zerolog.Logger
 		metadataProviderRef *util.Ref[metadata_provider.Provider]
 		forceMatch          bool
+		tree                *anilist.CompleteAnimeRelationTree // media-player: kept for PickEpisode
 	}
 
 	// Analysis contains the results of the analysis.
@@ -32,6 +34,7 @@ type (
 		files         []*File // Hydrated after scanFiles is called
 		selectedFiles []*File // Hydrated after findCorrespondingFiles is called
 		media         *anilist.CompleteAnime
+		tree          *anilist.CompleteAnimeRelationTree
 	}
 
 	// File represents a torrent file and contains its metadata.
@@ -82,6 +85,7 @@ func (a *Analyzer) AnalyzeTorrentFiles() (*Analysis, error) {
 	analysis := &Analysis{
 		files: a.files,
 		media: a.media,
+		tree:  a.tree,
 	}
 
 	return analysis, nil
@@ -214,6 +218,7 @@ func (a *Analyzer) scanFiles() error {
 		return err
 	}
 
+	a.tree = tree
 	allMedia := tree.Values()
 
 	mc := scanner.NewMediaContainer(&scanner.MediaContainerOptions{
@@ -293,4 +298,68 @@ func (a *Analyzer) getLocalFiles() []*anime.LocalFile {
 		files[i] = f.localFile
 	}
 	return files
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// media-player: episode picking that doesn't depend on file order.
+
+// EpisodeTarget describes the entry's episode for episodematch: its season
+// among the show's TV seasons and the number of episodes before it, from the
+// prequel chain in the relation tree fetched by AnalyzeTorrentFiles.
+func (a *Analysis) EpisodeTarget(episode int) episodematch.Target {
+	t := episodematch.Target{Episode: episode, EpisodeCount: a.media.GetCurrentEpisodeCount()}
+	if f := a.media.GetFormat(); f != nil {
+		switch *f {
+		case anilist.MediaFormatTv, anilist.MediaFormatTvShort:
+		default:
+			t.SpecialEntry = true
+			return t
+		}
+	}
+	t.Season = 1
+	seen := map[int]bool{a.media.GetID(): true}
+	cur := a.media
+	for cur != nil {
+		var prev *anilist.CompleteAnime
+		for _, e := range cur.GetRelations().GetEdges() {
+			if e.RelationType == nil || *e.RelationType != anilist.MediaRelationPrequel {
+				continue
+			}
+			n := e.GetNode()
+			if n == nil || seen[n.GetID()] || n.GetFormat() == nil ||
+				(*n.GetFormat() != anilist.MediaFormatTv && *n.GetFormat() != anilist.MediaFormatTvShort) {
+				continue
+			}
+			seen[n.GetID()] = true
+			t.Season++
+			t.Offset += n.GetCurrentEpisodeCount()
+			if a.tree != nil {
+				if full, ok := a.tree.Get(n.GetID()); ok {
+					prev = full
+				}
+			}
+			break
+		}
+		cur = prev
+	}
+	return t
+}
+
+// PickEpisode returns the file holding the entry's episode (relative number),
+// or an error wrapping episodematch.ErrNotFound or episodematch.ErrUnsure.
+// sizes, if not nil, holds each file's size by index and breaks ties between
+// copies of the same episode.
+func (a *Analysis) PickEpisode(episode int, sizes []int64) (*File, string, error) {
+	cands := make([]episodematch.Candidate, len(a.files))
+	for i, f := range a.files {
+		cands[i] = episodematch.Candidate{Index: i, Path: f.path, LocalFile: f.localFile}
+		if i < len(sizes) {
+			cands[i].Size = sizes[i]
+		}
+	}
+	choice, err := episodematch.Pick(cands, a.EpisodeTarget(episode))
+	if err != nil {
+		return nil, "", err
+	}
+	return a.files[choice.Index], choice.Reason, nil
 }

@@ -11,7 +11,6 @@ import (
 	torrentanalyzer "seanime/internal/torrents/analyzer"
 	"seanime/internal/torrents/autoselect"
 	"seanime/internal/util"
-	"strconv"
 
 	"github.com/samber/lo"
 )
@@ -177,14 +176,15 @@ func (r *Repository) findBestTorrentFromManualSelection(provider debrid.Provider
 			return nil, err
 		}
 
-		analysisFile, found := analysis.GetFileByAniDBEpisode(strconv.Itoa(episodeNumber))
-		// Check if analyzer found the episode
-		if !found {
-			r.logger.Error().Msgf("debridstream: Failed to auto-select episode from torrent %s", t.Name)
-			return nil, fmt.Errorf("could not find episode %d in torrent", episodeNumber)
+		// media-player: pick by season and episode, never by file order.
+		sizes := lo.Map(info.Files, func(f *debrid.TorrentItemFile, _ int) int64 { return f.Size })
+		analysisFile, reason, err := analysis.PickEpisode(episodeNumber, sizes)
+		if err != nil {
+			r.logger.Error().Err(err).Msgf("debridstream: Could not tell which file is episode %d in %s", episodeNumber, t.Name)
+			return nil, fmt.Errorf("could not tell which file is episode %d in this torrent, please pick it from the list", episodeNumber)
 		}
 
-		r.logger.Debug().Msgf("debridstream: Found corresponding file for episode %s: %s", strconv.Itoa(episodeNumber), analysisFile.GetLocalFile().Name)
+		r.logger.Debug().Msgf("debridstream: Episode %d is %s (%s)", episodeNumber, analysisFile.GetLocalFile().Name, reason)
 
 		fileIndex = analysisFile.GetIndex()
 	}
