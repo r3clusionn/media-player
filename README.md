@@ -2,7 +2,10 @@
 
 An anime and movie player for Linux built on [Seanime](https://github.com/5rahim/seanime): Seanime's interface and features, unchanged, in a standalone window instead of Electron, with mpv playing inside it and a Stremio-style Movies & TV section next to the anime. It is made for one laptop (Ryzen AI 9 HX 475, Radeon 890M, 2880x1800 at 120 Hz, Gentoo with dwm) and tuned for it: no new system packages, nothing running when the window is closed, Anime4K and debanding chosen per video, and Real-Debrid picking the right episode file every time.
 
-**Status:** in development, phase 1 of 7 (see [the plan](docs/PLAN.md)). The code is Seanime 3.10.3 with no changes yet; it builds on the target laptop with the system's Go and Node and runs in web-server mode. None of the features below that differ from upstream exist yet.
+**Status:** in development (see [the plan](docs/PLAN.md)).
+- **Phase 0 (risk checks): done.** Seanime's UI renders through CEF into a plain X11/EGL window with no new packages, and libmpv draws video into the same kind of window ([results](docs/phase0.md)).
+- **Phase 1: the wrong-episode fixes are in.** A new episode matcher, autoplay and resume fixes, and checked Real-Debrid links. Tested with unit tests and live AniList data, not yet in real playback with a Real-Debrid account.
+- **Not yet:** the standalone window (phase 2), Movies & TV, and the tuning. Until then this builds and runs as Seanime's web server.
 
 ![The Discover page of the current build at 2880x1800: a banner for a releasing show with its poster, genres, score and synopsis, the Home, Schedule, My lists and Discover tabs, the icon sidebar on the left, and a Trending Right Now row of cover cards under genre filters](docs/images/discover.png)
 
@@ -67,7 +70,21 @@ Targets for the finished program are in [the plan](docs/PLAN.md#targets-to-be-me
 
 ## Verification
 
-Nothing of this project's own is verified yet. So far: the upstream code builds unchanged with the system toolchain, the server starts, the first-run setup accepts default settings, and the Discover page loads live AniList data (the screenshot above, captured with headless Thorium at 1440x900 and scale 2).
+- **Wrong episode.** `media-player debug pick` runs the episode-file selection with live AniList data and no playback. On the lists in [`internal/debugpick/lists`](internal/debugpick/lists):
+
+  | Pack | Episode | Upstream plays | media-player plays |
+  |---|---|---|---|
+  | Attack on Titan Seasons 1-2, watching Season 2 | 5 | S01E05 | S02E05 |
+  | Frieren with openings, endings and a mini anime | 1 | Mini Anime - 01 | 01 |
+  | Frieren with a v2 | 7 | 07 | 07v2 |
+  | Jujutsu Kaisen S2 in absolute numbers (25-47) | 1, 23 | 25, 47 | 25, 47 |
+
+  The entry's place in the show comes out right from AniList: Attack on Titan Season 2 is season 2 after 25 episodes, Jujutsu Kaisen Season 2 is season 2 after 24.
+- `go test ./internal/episodematch/`: 21 cases. They include seasons in packs, absolute numbering, extras folders and names, v2, multi-episode files, a season AniList splits differently, OVA entries, and every case again with the file order shuffled 50 times (the answer must not change).
+- `go test ./internal/debrid/realdebrid/`: Real-Debrid links in order, out of order, packed into an archive, and renamed, against a fake RD server.
+- Upstream's tests for the packages touched (analyzer, autoselect, debrid client, torrent streaming) still pass.
+- **Phase 0:** see [docs/phase0.md](docs/phase0.md). CEF first frame 307 ms; 0.73 ms per frame to import and draw; Anime4K costs per preset at 2880x1800.
+- **Not verified yet:** real playback with a Real-Debrid account; battery power; frame pacing with the screen on.
 
 ## Limits
 
