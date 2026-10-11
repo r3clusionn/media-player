@@ -1,122 +1,81 @@
-<p align="center">
-<a href="https://seanime.app/">
-<img src="docs/images/seanime-logo.png" alt="preview" width="70px"/>
-</a>
-</p>
+# media-player
 
-<h1 align="center"><b>Seanime</b></h1>
+An anime and movie player for Linux built on [Seanime](https://github.com/5rahim/seanime): Seanime's interface and features, unchanged, in a standalone window instead of Electron, with mpv playing inside it and a Stremio-style Movies & TV section next to the anime. It is made for one laptop (Ryzen AI 9 HX 475, Radeon 890M, 2880x1800 at 120 Hz, Gentoo with dwm) and tuned for it: no new system packages, nothing running when the window is closed, Anime4K and debanding chosen per video, and Real-Debrid picking the right episode file every time.
 
-<p align="center">
-<img src="https://s3.seanime.app/sea/img-20260508-090529-ioc20pjr--sq2.webp" alt="preview" width="100%"/>
-</p>
+**Status:** in development, phase 1 of 7 (see [the plan](docs/PLAN.md)). The code is Seanime 3.10.3 with no changes yet; it builds on the target laptop with the system's Go and Node and runs in web-server mode. None of the features below that differ from upstream exist yet.
 
-<p align="center">
-  <a href="https://seanime.app/docs">Documentation</a> |
-  <a href="https://github.com/5rahim/seanime/releases">Latest release</a> |
-  <a href="https://seanime.app/docs/policies">Copyright</a>
-</p>
-
-<div align="center">
-  <a href="https://github.com/5rahim/seanime/releases">
-    <img src="https://img.shields.io/github/v/release/5rahim/seanime?style=flat-square&color=blue" alt="" />
-  </a>
-  <a href="https://github.com/5rahim/seanime/releases">
-    <img src="https://img.shields.io/github/downloads/5rahim/seanime/total?style=flat-square&color=blue" alt="" />
-  </a>
-	<a href="https://discord.gg/Aruz7wdAaf">
-	  <img src="https://img.shields.io/discord/1224767201551192224?style=flat-square&logo=Discord&color=blue&label=Discord" alt="discord">
-	</a>
-  <a href="https://github.com/sponsors/5rahim">
-    <img src="https://img.shields.io/static/v1?label=Sponsor&style=flat-square&message=%E2%9D%A4&logo=GitHub&color=%23fe8e86" alt="" />
-  </a>
-</div>
-
-
-<h5 align="center">
-Leave a star if you like the project! ⭐️
-</h5>
-
-## About
-
-Seanime is a **media server** with a **web interface** and **desktop app** for managing your local library, streaming anime and reading manga.
-
-> [!IMPORTANT]
->Seanime does not provide, host, or distribute any media content. Users are responsible for obtaining media through legal means and complying with their local laws. Extensions listed on the app are unaffiliated with Seanime and may be removed if they violated copyright laws. </strong>
-
+![The Discover page of the current build at 2880x1800: a banner for a releasing show with its poster, genres, score and synopsis, the Home, Schedule, My lists and Discover tabs, the icon sidebar on the left, and a Trending Right Now row of cover cards under genre filters](docs/images/discover.png)
 
 ## Features
 
-- **Cross-platform**: Web interface and desktop app for Windows, Linux, and macOS, companion and mobile server apps for iOS and Android
-- **Seanime Denshi**: Desktop client with built-in libmpv-based video player (support for SSA/ASS subtitles, shaders, and more)
-- **Seanime Tenji**: Companion app for iOS and Android to browse your library, manage your AniList, stream content, and enjoy offline access. Connect to your existing Seanime server or host your own directly on your mobile device with the Mobile Server app
-- **AniList Integration**: Browse and manage your lists, discover anime and manga
-- **Custom Sources**: Support for adding non-AniList anime and manga series 
-- **Library Management**: Fast and smart scanning of local files without strict naming conventions or folder structures
-- **Torrent Integration**: Built-in torrent search engine via extensions and downloading support with qBittorrent, Transmission, Torbox, Real-Debrid, AllDebrid and Premiumize
-- **Torrent Streaming**: Stream torrents directly to the media player without waiting for downloads (supports Bittorrent, Torbox, Real-Debrid, AllDebrid and Premiumize)
-- **Online Streaming**: Watch anime from online sources directly within the app via extensions
-- **Auto Downloader**: Automatically track and download new episodes with customizable filters and advanced features (prioritization, scoring, delay, etc.)
-- **Extension Marketplace**: In-app repository to install and manage extensions for online streaming, manga sources, and torrent providers
-- **Manga Reader**: Read chapters from your local library or via extensions with a unified interface
-- **Transcoding & Direct Play**: Stream your library to any device web browser with on-the-fly transcoding or direct play
-- **External Player Support**: Seamless integration with MPV, VLC, and MPC-HC on desktop
-- **Mobile Player Integration**: Open files and streams in mobile players (Outplayer, VLC, etc.) via intents or deep links
-- **Playlists**: Create and manage playlists for a seamless binge watching experience
-- **Customizable UI**: Personalize the interface with color themes, background images, and layout options
-- **Discord Rich Presence**: Display your watching activity automatically
-- **Offline Mode**: Access your anime and manga library without an internet connection
-- **Schedule**: Track upcoming releases and missed episodes
+- **Seanime, 1:1.** Every screen and feature of upstream Seanime: AniList and MAL lists, local library and scanner, torrent and debrid streaming, manga, online streaming, extensions, schedule, Nakama, auto-downloader. Nothing is removed; features you do not use are not started.
+- **A standalone window, no Electron.** The React interface runs in Chromium's engine embedded as a library (CEF) in this program, with no browser window, no Node.js at runtime and no separate server process. Closing the window ends everything.
+- **mpv inside the window.** libmpv draws the video and the page is drawn over it, so Seanime's own player controls (VideoCore in mpvcore mode) stay exactly as they are, Anime4K picker included.
+- **Picture quality chosen per video.** Anime4K Mode A+A and debanding for anime up to 1080p, lighter processing for 1440p and 4K sources, no Anime4K on live action, HDR tone mapping, VA-API decoding. The same on battery.
+- **The right episode.** A rewritten episode matcher for debrid batches (see How it works) used by autoplay, resume and manual picks; when it is not sure, it shows the file picker instead of guessing.
+- **Movies & TV.** Stremio add-ons (Torrentio first, Comet as a backup) through Real-Debrid, with catalogs and details from Cinemeta, Continue Watching and Next Up, in pages built from Seanime's own components.
+- **Fast next episode.** The next episode's file is found and its Real-Debrid link resolved at 85% of the current one.
 
-## Get started
+## How to install
 
-Read the installation guide to set up Seanime on your device.
+Requires Go 1.27, Node.js 26 with npm, gcc, pkgconf and libmpv (mpv 0.41). Linux with X11 only.
 
-<p align="center">
-<a href="https://seanime.app/docs" style="font-size:18px;" align="center">
-How to install Seanime
-</a>
-</p>
+```sh
+git clone https://github.com/r3clusionn/media-player
+cd media-player/seanime-web
+npm ci && npm run build
+cd .. && rm -rf web && cp -a seanime-web/out web
+GOAMD64=v4 go build -o media-player -trimpath -ldflags="-s -w" -tags=nosystray
+```
 
-<br>
+This builds the web-server form for now. The standalone window (phase 2) adds the CEF runtime, which is downloaded into `third_party/`, not installed system-wide.
 
-## Goal
+## How to use
 
-This is a one-person project and may not meet every use case. If it doesn’t fully fit your needs, other tools might be a better match.
+Until the standalone window exists:
 
-### Not planned
+```sh
+./media-player --datadir ~/.local/share/media-player --host 127.0.0.1 --port 43211
+```
 
-- Built-in support for other trackers such as MyAnimeList, Trakt, SIMKL, etc.
-- Built-in support for other media players
-- Built-in localization (translations)
+then open `http://127.0.0.1:43211`. Settings, accounts and Real-Debrid are set up in the interface as in Seanime ([its documentation](https://seanime.app/docs)).
 
+| Flag | What it does |
+|---|---|
+| `--datadir DIR` | Where the database, settings, cache and downloads live. |
+| `--host`, `--port` | The address the server listens on (default `127.0.0.1:43211`). |
+| `--password` | Require a password from the interface. |
+| `--disable-features LIST` | Turn named features off. |
 
-Consider sponsoring or sharing the project if you want to see more features implemented.
+## How it works
 
-## Sponsors
+- **The window** is one X11 window with an EGL context. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), which is imported with `EGL_EXT_image_dma_buf_import`; libmpv's render API draws video into the same context underneath, and the page is blended on top. Nothing is redrawn while nothing changes.
+- **The page talks to the player** through the same JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism channels), so the React code is unchanged.
+- **The wrong-episode bug** (debrid streaming, file chosen automatically) has four suspects in the upstream code, documented in [the plan](docs/PLAN.md#44-the-wrong-episode-bug-diagnosis-and-fix): autoplay taking the file after the last one by position and sending that position as the Real-Debrid file ID; resume matching a season's episode number as an absolute one; links taken from Real-Debrid by position; and Real-Debrid's removed cache check. The fix is one order-independent matcher that drops openings, endings and extras, maps season and absolute numbering, checks the name and size Real-Debrid returns, and asks when unsure.
 
-The maintenance of this project is made possible by the sponsors.
+## Measurements
 
-<p align="center">
-<!-- real-sponsors --><a href="https://github.com/aquaryuo"><img src="https:&#x2F;&#x2F;github.com&#x2F;aquaryuo.png" width="60px" alt="User avatar: aquaryuo" /></a><!-- real-sponsors -->
-<!-- real-sponsors --><a href="https://github.com/osayed0001"><img src="https:&#x2F;&#x2F;github.com&#x2F;osayed0001.png" width="60px" alt="User avatar: osayed0001" /></a><!-- real-sponsors -->
-</p>
+The unchanged upstream build on the target laptop (Ryzen AI 9 HX 475, Gentoo, Go 1.27.1, Node 26.3), first run with an empty data directory and no account:
 
-## Tech stack
+| | |
+|---|---|
+| Web interface build (`npm run build`) | 8 s, 16 MB of output |
+| Server build (`go build`, first, modules downloaded) | 68 s, 81 MB binary |
+| Server idle after start | 59.7 MB resident (16.4 MB anonymous), 19 threads |
 
-* Server: [Go](https://go.dev/)
-* Frontend: [React](https://reactjs.org/), [Rsbuild/Rspack](https://rsbuild.rs/), [Tanstack Router](https://tanstack.com/router)
-* Seanime Denshi: [Electron](https://www.electronjs.org/)
+Targets for the finished program are in [the plan](docs/PLAN.md#targets-to-be-measured-not-promised); results go here as they are measured.
 
-## Development and Build
+## Verification
 
-Building from source is straightforward, you'll need [Node.js](https://nodejs.org/en/download) and [Go](https://go.dev/doc/install) installed on your system.
-Development and testing might require additional configuration.
+Nothing of this project's own is verified yet. So far: the upstream code builds unchanged with the system toolchain, the server starts, the first-run setup accepts default settings, and the Discover page loads live AniList data (the screenshot above, captured with headless Thorium at 1440x900 and scale 2).
 
-[Read more here](https://github.com/5rahim/seanime/blob/main/DEVELOPMENT_AND_BUILD.md)
+## Limits
 
-<br>
+- Not usable as a standalone program yet; it is upstream Seanime in web-server mode.
+- Linux with X11 only. Wayland is not a target.
+- Built for one machine: `GOAMD64=v4` binaries need AVX-512.
+- The Movies & TV section needs Real-Debrid; there is no torrent streaming for it.
 
-<br>
+## License
 
-> [!NOTE]
-> For copyright-related requests, please contact the maintainer using the contact information provided on [the website](https://seanime.app/docs/policies).
+GPL-3.0, as Seanime (see `LICENSE`). Seanime is by [5rahim](https://github.com/5rahim) and its contributors; its original README is kept in [docs/SEANIME-README.md](docs/SEANIME-README.md).
