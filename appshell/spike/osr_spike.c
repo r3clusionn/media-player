@@ -597,6 +597,8 @@ int main(int argc, char **argv)
 	snprintf(cache, sizeof cache, "%s/.cache/appshell-spike", getenv("HOME"));
 	st.root_cache_path = str(cache);
 	st.cache_path = str(cache);
+	if (getenv("SPIKE_HELPER"))
+		st.browser_subprocess_path = str(getenv("SPIKE_HELPER"));
 	if (!cef_initialize(&args, &st, &app, NULL)) {
 		fprintf(stderr, "spike: cef_initialize failed\n");
 		return 1;
