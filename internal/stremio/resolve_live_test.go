@@ -19,7 +19,7 @@ func TestLiveResolve(t *testing.T) {
 	}
 	key := strings.TrimSpace(string(b))
 	c := NewClient(func() string { return key })
-	streams, err := c.Streams(context.Background(), "series", "tt10986410:1:2")
+	streams, err := c.Streams(context.Background(), "series", "tt10986410:1:2", "torrentio")
 	if err != nil || len(streams) == 0 {
 		t.Fatal(err, len(streams))
 	}

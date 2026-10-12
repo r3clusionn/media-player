@@ -23,6 +23,8 @@ import { MdOutlineAccessTime, MdOutlineSubtitles, MdSpeed } from "react-icons/md
 import { RiShadowLine } from "react-icons/ri"
 import { TbArrowForwardUp } from "react-icons/tb"
 import { mc_parseCustomMpvConfig, mc_resolveAnime4KProfile } from "./mpv-core"
+import { mpvCore_stateAtom } from "./mpv-core.atoms"
+import { useAtomValue } from "jotai"
 import type { MpvCoreAnime4KQuality, MpvCoreSettings, MpvCoreShaderMode, MpvCoreShaderSettings } from "./mpv-core.atoms"
 
 const mpvSubtitleFontSizeOptions = [
@@ -136,6 +138,8 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
         onRefreshAnime4K,
         onOpenPreferences,
     } = props
+    // media-player: Movies & TV is live action: no Anime4K or debanding there.
+    const isMoviesTv = (useAtomValue(mpvCore_stateAtom)?.playbackInfo?.media?.id ?? 0) < 0
     const serverStatus = useServerStatus()
     const { mutate: patchSetting } = usePatchSetting()
 
@@ -216,6 +220,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                     openSection={openSection}
                     onOpenSectionChange={setOpenSection}
                 />
+                {!isMoviesTv && (
                 <MediaCoreMenuOption
                     title="Shaders"
                     icon={LuSparkles}
@@ -230,6 +235,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                     openSection={openSection}
                     onOpenSectionChange={setOpenSection}
                 />
+                )}
                 <MediaCoreMenuOption
                     title="Subtitle Delay"
                     icon={MdOutlineAccessTime}
@@ -433,6 +439,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         onValueChange={value => setSubtitleDelay(Number(value))}
                     />
                 </MediaCoreMenuOption>
+                {!isMoviesTv && (
                 <MediaCoreMenuOption
                     title="Shaders"
                     icon={LuSparkles}
@@ -570,6 +577,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         </Button>
                     </div>
                 </MediaCoreMenuOption>
+                )}
                 <MediaCoreMenuOption
                     title="Player Appearance"
                     icon={LuPaintbrush}

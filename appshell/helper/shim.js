@@ -194,7 +194,7 @@
     }
 
     // Everything painted under the video must let it through, not only the
-    // player's ancestors: each element next to the player's ancestor chain
+    // player's ancestors: each element before the player's ancestor chain
     // that overlaps the video gets a CSS mask with a hole of the video's shape.
     // The player's own children (its controls) are untouched.
     const savedMask = new WeakMap()
@@ -234,8 +234,16 @@
         const holed = new Set()
         const host = p.el.closest("[data-mpv-prism-video-host]") || p.el.parentElement
         for (let n = host; n && n.parentElement && n !== document.documentElement; n = n.parentElement) {
+            const nz = parseInt(getComputedStyle(n).zIndex)
             for (const s of n.parentElement.children) {
                 if (s === n || s.tagName === "SCRIPT" || s.tagName === "STYLE" || s.tagName === "LINK") continue
+                // Only what is painted beneath the player needs a hole: earlier
+                // siblings. Later ones (the player's menus, popovers, toasts)
+                // are drawn on top of the video and must stay visible; holes in
+                // them made the settings and captions menus invisible.
+                if (n.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) continue
+                const sz = parseInt(getComputedStyle(s).zIndex)
+                if (!isNaN(sz) && !isNaN(nz) && sz > nz) continue
                 const sr = s.getBoundingClientRect()
                 if (!overlaps(sr, hr)) continue
                 setHole(s, hr.left - sr.left, hr.top - sr.top, hr.width, hr.height)

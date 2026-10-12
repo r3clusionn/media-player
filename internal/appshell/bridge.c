@@ -393,6 +393,7 @@ static int clipboard_write(const char *text)
 	}
 	if (pid == 0) {
 		dup2(fds[0], 0);
+		closefrom(3);
 		close(fds[0]);
 		close(fds[1]);
 		execlp("xclip", "xclip", "-selection", "clipboard", "-silent", (char *)NULL);

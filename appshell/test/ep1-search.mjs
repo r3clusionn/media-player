@@ -1,7 +1,7 @@
 // Opens Frieren's debrid streaming tab and clicks episode 1, then lists what
 // the torrent search drawer shows.
 import { connect, sleep } from "./cdp.mjs"
-const page = await connect(9333)
+const page = await connect(Number(process.env.CDP_PORT || 9333))
 const clicked = await page.eval(`(() => {
   const img = [...document.querySelectorAll('img')].find(i => /Episode 1 \\/ /.test(i.parentElement?.parentElement?.textContent || '') && i.getBoundingClientRect().width > 300)
   if (!img) return null

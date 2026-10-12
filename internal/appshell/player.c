@@ -103,16 +103,23 @@ static void ensure_audio(void)
 	AS_LOG("starting audio (audio ensure)\n");
 	pid_t pid = fork();
 	if (pid == 0) {
+		/* PipeWire and WirePlumber are started from here and live on: they
+		 * must not inherit our descriptors (they kept the DevTools socket). */
+		closefrom(3);
 		execl("/usr/local/bin/audio", "audio", "ensure", (char *)NULL);
 		_exit(127);
 	}
 	if (pid > 0)
 		waitpid(pid, NULL, 0);
 	/* The status bar shows the audio state. */
-	if (fork() == 0) {
+	pid_t bar = fork();
+	if (bar == 0) {
+		closefrom(3);
 		execlp("pkill", "pkill", "-USR1", "-x", "dwmstat", (char *)NULL);
 		_exit(127);
 	}
+	if (bar > 0)
+		waitpid(bar, NULL, 0);
 	reload_audio_outputs();
 }
 

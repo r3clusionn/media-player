@@ -1,6 +1,6 @@
 // Clicks the visible button whose text is argv[2], waits argv[3] ms, lists dialog texts.
 import { connect, sleep } from "./cdp.mjs"
-const page = await connect(9333)
+const page = await connect(Number(process.env.CDP_PORT || 9333))
 const label = process.argv[2]
 const pos = await page.eval(`(() => {
   const b = [...document.querySelectorAll('button')].filter(b => b.textContent.trim() === ${JSON.stringify(label)} && b.getBoundingClientRect().width > 0).pop()

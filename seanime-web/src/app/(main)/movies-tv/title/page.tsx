@@ -1,7 +1,7 @@
 // media-player: a movie or series page in the Movies & TV section. Layout
 // follows Seanime's anime entry page: banner, poster and details, then the
 // episodes (season tabs) and a stream list from Torrentio / Comet.
-import { Stremio_Stream, Stremio_Video, useStremioMeta, useStremioPlay, useStremioStreams } from "@/api/hooks/stremio.hooks"
+import { Stremio_Source, Stremio_Stream, Stremio_Video, useStremioMeta, useStremioPlay, useStremioStreams } from "@/api/hooks/stremio.hooks"
 import { clientIdAtom } from "@/app/websocket-provider"
 import { PageWrapper } from "@/components/shared/page-wrapper"
 import { Badge } from "@/components/ui/badge"
@@ -10,11 +10,30 @@ import { cn } from "@/components/ui/core/styling"
 import { Drawer } from "@/components/ui/drawer"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { useSearchParams } from "@/lib/navigation"
-import { useAtomValue } from "jotai"
+import { useAtom, useAtomValue } from "jotai"
+import { atomWithStorage } from "jotai/utils"
 import React from "react"
 import { FaStar } from "react-icons/fa"
 import { LuPlay, LuZap } from "react-icons/lu"
 import { toast } from "sonner"
+
+// The add-on asked first; the other one is the backup when it has nothing cached.
+const streamSourceAtom = atomWithStorage<Stremio_Source>("mp-stremio-source", "torrentio", undefined, { getOnInit: true })
+
+function SourceSwitch() {
+    const [source, setSource] = useAtom(streamSourceAtom)
+    return (
+        <div className="flex items-center gap-2">
+            <span className="text-sm text-[--muted]">Streams from</span>
+            {(["torrentio", "comet"] as const).map(s => (
+                <Button key={s} size="sm" intent={source === s ? "primary" : "gray-subtle"} onClick={() => setSource(s)}>
+                    {s === "torrentio" ? "Torrentio" : "Comet"}
+                </Button>
+            ))}
+            <span className="text-xs text-[--muted]">(the other is the backup)</span>
+        </div>
+    )
+}
 
 function episodeLabel(v: Stremio_Video) {
     return v.name || v.title || `Episode ${v.episode}`
@@ -22,7 +41,8 @@ function episodeLabel(v: Stremio_Video) {
 
 function StreamList(props: { type: string, videoId: string, onPlayed: () => void }) {
     const { type, videoId, onPlayed } = props
-    const { data: streams, isLoading, error } = useStremioStreams(type, videoId)
+    const source = useAtomValue(streamSourceAtom)
+    const { data: streams, isLoading, error } = useStremioStreams(type, videoId, source)
     const play = useStremioPlay()
     const clientId = useAtomValue(clientIdAtom)
     const [playing, setPlaying] = React.useState<string | null>(null)
@@ -38,14 +58,15 @@ function StreamList(props: { type: string, videoId: string, onPlayed: () => void
         })
     }
 
-    if (isLoading) return <LoadingSpinner title="Asking Torrentio and Comet..." />
-    if (error) return <p className="text-red-300">Could not get streams: {String(error.message || error)}</p>
-    if (!streams?.length) return <p className="text-[--muted]">No streams found for this one.</p>
+    if (isLoading) return <div className="space-y-4"><SourceSwitch /><LoadingSpinner title={`Asking ${source === "comet" ? "Comet" : "Torrentio"}...`} /></div>
+    if (error) return <div className="space-y-4"><SourceSwitch /><p className="text-red-300">Could not get streams: {String(error.message || error)}</p></div>
+    if (!streams?.length) return <div className="space-y-4"><SourceSwitch /><p className="text-[--muted]">No streams found for this one.</p></div>
 
     const best = streams.find(s => s.cached) || streams[0]
 
     return (
         <div className="space-y-4">
+            <SourceSwitch />
             <Button
                 intent="primary"
                 leftIcon={<LuPlay />}

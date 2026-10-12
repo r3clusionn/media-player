@@ -118,6 +118,15 @@ func (r *Repository) GetDefaultAnimeProviderExtension() (extension.AnimeTorrentP
 	defer r.mu.Unlock()
 
 	id := r.settings.DefaultAnimeProvider
+	// media-player: with no choice made, SeaDex (best releases), then AnimeTosho.
+	if id == "" {
+		for _, pref := range []string{"seadex", "animetosho"} {
+			if _, ok := r.extensionBankRef.Get().Get(pref); ok {
+				id = pref
+				break
+			}
+		}
+	}
 	// if no selected default provider, get the first one
 	if id == "" {
 		ids := r.GetAllAnimeProviderExtensionIds()
