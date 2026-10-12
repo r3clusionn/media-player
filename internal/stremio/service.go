@@ -50,7 +50,7 @@ func (s *Service) Play(ctx context.Context, req PlayRequest) error {
 	}
 	candidates := []Stream{req.Stream}
 	if req.Fallback {
-		if all, err := s.Client.Streams(ctx, req.Type, req.VideoID); err == nil {
+		if all, err := s.Client.Streams(ctx, req.Type, req.VideoID, req.Stream.Source); err == nil {
 			for _, st := range all {
 				if st.Cached && st.URL != req.Stream.URL && len(candidates) < 4 {
 					candidates = append(candidates, st)
@@ -91,6 +91,7 @@ func (s *Service) Play(ctx context.Context, req PlayRequest) error {
 		MediaID: mediaID, Type: req.Type, ImdbID: titleID, Name: meta.Name,
 		Poster: meta.Poster, Background: meta.Background, VideoID: req.VideoID,
 		Season: season, Episode: episode, BingeGroup: req.Stream.BingeGroup, Quality: req.Stream.Quality,
+		Source: req.Stream.Source,
 	}
 	if video != nil {
 		ref.EpisodeTitle = firstNonEmpty(video.Name, video.Title)
@@ -249,7 +250,7 @@ func (s *Service) PlayNext(ctx context.Context, mediaID int, clientID string) er
 	if !ok {
 		return errors.New("that was the last episode")
 	}
-	streams, err := s.Client.Streams(ctx, "series", next.ID)
+	streams, err := s.Client.Streams(ctx, "series", next.ID, t.Source)
 	if err != nil {
 		return err
 	}

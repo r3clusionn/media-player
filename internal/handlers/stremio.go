@@ -88,10 +88,10 @@ func (h *Handler) HandleStremioMeta(c echo.Context) error {
 
 // HandleStremioStreams
 //
-//	@summary returns Real-Debrid streams from Torrentio (and Comet as a backup).
+//	@summary returns Real-Debrid streams from Torrentio or Comet (?source=), the other as a backup.
 //	@route /api/v1/stremio/streams/{type}/{id} [GET]
 func (h *Handler) HandleStremioStreams(c echo.Context) error {
-	streams, err := h.stremio().Client.Streams(c.Request().Context(), c.Param("type"), c.Param("id"))
+	streams, err := h.stremio().Client.Streams(c.Request().Context(), c.Param("type"), c.Param("id"), c.QueryParam("source"))
 	if err != nil {
 		return h.RespondWithError(c, err)
 	}

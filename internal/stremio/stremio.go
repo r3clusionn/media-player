@@ -319,15 +319,21 @@ func (c *Client) addonStreams(ctx context.Context, source, base, typ, id string)
 	return out, nil
 }
 
-// Streams asks Torrentio, and Comet when Torrentio fails, times out or has
-// nothing cached on Real-Debrid. Cached streams come first, then by quality
+// Streams asks the primary add-on, and the other when it fails, times out
+// or has nothing cached on Real-Debrid. Cached streams come first, then by quality
 // and size.
-func (c *Client) Streams(ctx context.Context, typ, id string) ([]Stream, error) {
+func (c *Client) Streams(ctx context.Context, typ, id, primary string) ([]Stream, error) {
 	if !validType(typ) {
 		return nil, errors.New("type must be movie or series")
 	}
-	tctx, cancel := context.WithTimeout(ctx, 12*time.Second)
-	streams, terr := c.addonStreams(tctx, "torrentio", c.torrentioBase(), typ, id)
+	// The chosen add-on first (Torrentio unless Comet was picked), the other as the backup.
+	first, second := "torrentio", "comet"
+	if primary == "comet" {
+		first, second = second, first
+	}
+	base := map[string]func() string{"torrentio": c.torrentioBase, "comet": c.cometBase}
+	tctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	streams, terr := c.addonStreams(tctx, first, base[first](), typ, id)
 	cancel()
 	anyCached := false
 	for _, s := range streams {
@@ -338,12 +344,12 @@ func (c *Client) Streams(ctx context.Context, typ, id string) ([]Stream, error) 
 	}
 	if terr != nil || !anyCached {
 		cctx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		comet, cerr := c.addonStreams(cctx, "comet", c.cometBase(), typ, id)
+		backup, cerr := c.addonStreams(cctx, second, base[second](), typ, id)
 		cancel()
 		if cerr == nil {
-			streams = append(streams, comet...)
+			streams = append(streams, backup...)
 		} else if terr != nil {
-			return nil, fmt.Errorf("torrentio: %v; comet: %v", terr, cerr)
+			return nil, fmt.Errorf("%s: %v; %s: %v", first, terr, second, cerr)
 		}
 	}
 	sortStreams(typ, streams)

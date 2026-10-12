@@ -1196,9 +1196,11 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
             log.info("Custom config has deband setting, skipping auto deband property set.")
             return
         }
-        log.info("Updating player deband option:", mpvSettings.deband ? "yes" : "no")
-        player.setProperty("deband", mpvSettings.deband ? "yes" : "no").catch(() => undefined)
-    }, [player, state.active, mpvSettings.deband, activeMpvConfig])
+        // media-player: no debanding for Movies & TV (live action, negative media IDs).
+        const deband = mpvSettings.deband && (state.playbackInfo?.media?.id ?? 0) >= 0
+        log.info("Updating player deband option:", deband ? "yes" : "no")
+        player.setProperty("deband", deband ? "yes" : "no").catch(() => undefined)
+    }, [player, state.active, mpvSettings.deband, activeMpvConfig, state.playbackInfo?.media?.id])
 
     React.useEffect(() => {
         if (!player || !state.active) return

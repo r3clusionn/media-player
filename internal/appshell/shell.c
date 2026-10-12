@@ -17,6 +17,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <signal.h>
+#include <sys/wait.h>
 #include <poll.h>
 #include <stdatomic.h>
 #include <stdio.h>
@@ -349,6 +350,7 @@ static void open_external(const char *url)
 	pid_t pid = fork();
 	if (pid == 0) {
 		setsid();
+		closefrom(3); /* the browser must not inherit our sockets */
 		if (fork() == 0) {
 			char path[4096];
 			snprintf(path, sizeof path, "%s/.local/bin/thorium", as_home);
@@ -357,6 +359,8 @@ static void open_external(const char *url)
 		}
 		_exit(0);
 	}
+	if (pid > 0)
+		waitpid(pid, NULL, 0); /* the middle process exits at once */
 }
 
 static int CEF_CALLBACK on_before_popup(cef_life_span_handler_t *self, cef_browser_t *b,

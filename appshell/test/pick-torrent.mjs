@@ -1,7 +1,7 @@
 // In the open torrent drawer, clicks the result whose title contains argv[2],
 // then waits and lists what appears (file picker or player).
 import { connect, sleep } from "./cdp.mjs"
-const page = await connect(9333)
+const page = await connect(Number(process.env.CDP_PORT || 9333))
 const want = process.argv[2]
 const pos = await page.eval(`(() => {
   const el = [...document.querySelectorAll('[role=dialog] *')].filter(e => e.children.length === 0 && e.textContent.includes(${JSON.stringify(want)}))[0]

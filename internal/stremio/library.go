@@ -25,6 +25,7 @@ type TitleRef struct {
 	Thumbnail    string    `json:"thumbnail,omitempty"`
 	BingeGroup   string    `json:"bingeGroup,omitempty"` // release of the last stream, for the next episode
 	Quality      string    `json:"quality,omitempty"`
+	Source       string    `json:"source,omitempty"` // add-on of the last stream: next episodes ask it first
 	UpdatedAt    time.Time `json:"updatedAt"`
 }
 

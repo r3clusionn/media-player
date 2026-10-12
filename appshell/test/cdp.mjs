@@ -7,6 +7,7 @@
 //   await page.eval("document.title")
 
 export async function connect(port, { timeoutMs = 20000 } = {}) {
+    if (process.env.CDP_PORT) port = Number(process.env.CDP_PORT)
     const deadline = Date.now() + timeoutMs
     let target
     while (!target) {

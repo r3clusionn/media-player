@@ -104,11 +104,13 @@ export function useStremioMeta(type: string | undefined, id: string | undefined)
     })
 }
 
-export function useStremioStreams(type: string | undefined, videoId: string | undefined) {
+export type Stremio_Source = "torrentio" | "comet"
+
+export function useStremioStreams(type: string | undefined, videoId: string | undefined, source: Stremio_Source) {
     return useServerQuery<Stremio_Stream[]>({
-        endpoint: `/api/v1/stremio/streams/${type}/${videoId}`,
+        endpoint: `/api/v1/stremio/streams/${type}/${videoId}?source=${source}`,
         method: "GET",
-        queryKey: [KEY, "streams", type, videoId],
+        queryKey: [KEY, "streams", type, videoId, source],
         enabled: !!type && !!videoId,
         staleTime: 10 * 60 * 1000,
     })
