@@ -9,7 +9,7 @@ console.log(await page.eval(`(async () => {
   const r = v && v.getBoundingClientRect()
   const host = v && v.closest('[data-mpv-prism-video-host]')
   const props = {}
-  if (pid) for (const n of ['time-pos','pause','duration','hwdec-current','width','height','glsl-shaders','vid','aid','sid']) props[n] = await window.mpvPrism.getProperty(pid, n).catch(e => 'ERR ' + e.message)
+  if (pid) for (const n of ['time-pos','pause','duration','hwdec-current','width','height','glsl-shaders','vid','aid','sid','frame-drop-count','decoder-frame-drop-count','mistimed-frame-count','estimated-vf-fps','display-fps','video-params/gamma']) props[n] = await window.mpvPrism.getProperty(pid, n).catch(e => 'ERR ' + e.message)
   return JSON.stringify({ pid, video: !!v, rect: r && [r.left, r.top, r.width, r.height].map(Math.round),
     hostBg: host && getComputedStyle(host).backgroundColor, bodyBg: getComputedStyle(document.body).backgroundColor,
     holes: document.querySelectorAll('[style*="mask"]').length, props })

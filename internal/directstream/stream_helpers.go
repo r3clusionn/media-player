@@ -210,3 +210,29 @@ func copyWithFlush(ctx context.Context, w http.ResponseWriter, rdr io.Reader, to
 		}
 	}
 }
+
+// proxyCopy streams a source response to the client, flushing every MiB so
+// the player gets data steadily; it stops when either side closes.
+func proxyCopy(w http.ResponseWriter, src io.Reader) {
+	flusher, _ := w.(http.Flusher)
+	buf := make([]byte, 64*1024)
+	var since int
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			if _, werr := w.Write(buf[:n]); werr != nil {
+				return
+			}
+			if since += n; flusher != nil && since >= 1<<20 {
+				flusher.Flush()
+				since = 0
+			}
+		}
+		if err != nil {
+			if flusher != nil {
+				flusher.Flush()
+			}
+			return
+		}
+	}
+}

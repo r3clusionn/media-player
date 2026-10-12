@@ -167,7 +167,14 @@
             // makes Chromium composite at the display rate (120 paints/s vs ~3).
             "[data-mpv-prism-video],[data-mpv-prism-video-canvas]{display:none!important}" +
             "[data-mpv-prism-video-host]{background:transparent!important}" +
-            ".appshell-see-through{background:transparent!important;background-color:transparent!important}"
+            ".appshell-see-through{background:transparent!important;background-color:transparent!important}" +
+            // Every ancestor of a presented video, by selector rather than by a
+            // class on the element: React rewrites className when the player
+            // re-renders (pause, fullscreen), which dropped the class and left
+            // the player's bg-black box over the video.
+            "html[data-appshell-presenting] :has([data-mpv-prism-video][data-appshell-presented])," +
+            "html[data-appshell-presenting]:has([data-mpv-prism-video][data-appshell-presented])" +
+            "{background:transparent!important;background-color:transparent!important}"
         document.documentElement.appendChild(styleEl)
     }
 
@@ -178,6 +185,9 @@
     }
 
     function seeThrough(el, on) {
+        el.toggleAttribute("data-appshell-presented", on)
+        if (presenters.size || on) document.documentElement.setAttribute("data-appshell-presenting", "")
+        else document.documentElement.removeAttribute("data-appshell-presenting")
         for (let n = el.parentElement; n; n = n.parentElement) {
             n.classList.toggle("appshell-see-through", on)
         }
@@ -263,7 +273,10 @@
             }
             reportRect(p)
             // New page content can appear under the video without it moving.
-            if (++p.ticks % 5 === 0) updateHoles(p)
+            if (++p.ticks % 5 === 0) {
+                if (!p.el.hasAttribute("data-appshell-presented")) seeThrough(p.el, true)
+                updateHoles(p)
+            }
         }, 100)
         presenters.set(presenterId, p)
         reportRect(p)

@@ -29,6 +29,9 @@ import { HoverCard } from "@/components/ui/hover-card"
 import { logger } from "@/lib/helpers/debug"
 import { atom, useAtomValue } from "jotai"
 import { useAtom, useSetAtom } from "jotai/react"
+import { useStremioPlayNext } from "@/api/hooks/stremio.hooks"
+import { mpvCore_stateAtom } from "@/app/(main)/_features/mpv-core/mpv-core.atoms"
+import { clientIdAtom } from "@/app/websocket-provider"
 import React from "react"
 import { useUpdateEffect } from "react-use"
 import { toast } from "sonner"
@@ -120,6 +123,12 @@ export function useVideoCorePlaylistSetup(providedState: VideoCoreLifecycleState
 
 export function useVideoCorePlaylist() {
     const playlistState = useAtomValue(vc_playlistState)
+    // media-player: Movies & TV titles have synthetic negative media IDs and no
+    // AniList entry; their next episode comes from the stremio service.
+    const mpvCoreState = useAtomValue(mpvCore_stateAtom)
+    const stremioMedia = (mpvCoreState?.playbackInfo?.media?.id ?? 0) < 0 ? mpvCoreState?.playbackInfo?.media : undefined
+    const { mutate: stremioPlayNext } = useStremioPlayNext()
+    const stremioClientId = useAtomValue(clientIdAtom)
     const playbackType = playlistState?.type
     const animeEntry = playlistState?.animeEntry
 
@@ -252,6 +261,15 @@ export function useVideoCorePlaylist() {
     const playEpisode = (which: "previous" | "next" | string) => {
         if (isWatchPartyPeer) return
 
+        if (stremioMedia) {
+            if (which === "next" && stremioMedia.format === "TV") {
+                stremioPlayNext({ mediaId: stremioMedia.id, clientId: stremioClientId || undefined }, {
+                    onError: err => toast.error(err.message),
+                })
+            }
+            return
+        }
+
         if (!playlistState) {
             toast.error("Unexpected error: No playlist state")
             return
@@ -335,7 +353,7 @@ export function useVideoCorePlaylist() {
         animeEntry: playlistState?.animeEntry,
         isGlobalPlaylistActive: !!globalCurrentPlaylist,
         hasPreviousEpisode: !!playlistState?.previousEpisode && !isWatchPartyPeer,
-        hasNextEpisode: !!playlistState?.nextEpisode && !isWatchPartyPeer,
+        hasNextEpisode: (stremioMedia ? stremioMedia.format === "TV" : !!playlistState?.nextEpisode) && !isWatchPartyPeer,
         playEpisode,
     }
 }
