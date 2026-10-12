@@ -138,6 +138,19 @@ export function MediaCoreControlBarView(props: MediaCoreControlBarViewProps) {
         }
     }, [containerElement, isMobile, isMiniPlayer])
 
+    // media-player: once the bar has slid away, skip rendering it. The seek bar
+    // updates several times a second during playback; hidden, those updates
+    // still cost style, paint and compositing work (renderer ~12% of a core).
+    const [renderSkipped, setRenderSkipped] = React.useState(false)
+    React.useEffect(() => {
+        if (!hideControlBar) {
+            setRenderSkipped(false)
+            return
+        }
+        const t = window.setTimeout(() => setRenderSkipped(true), 400) // after the 300 ms transition
+        return () => window.clearTimeout(t)
+    }, [hideControlBar])
+
     React.useLayoutEffect(() => {
         if (!containerElement || isMobile) return
         const captionsOverlay = containerElement.querySelector("#video-core-captions-wrapper") as HTMLElement
@@ -204,6 +217,7 @@ export function MediaCoreControlBarView(props: MediaCoreControlBarViewProps) {
                         "absolute bottom-0 w-full",
                         isMobile ? "px-2" : "px-4",
                     )}
+                    style={renderSkipped ? { contentVisibility: "hidden" } : undefined}
                 >
                     {timeRange}
 

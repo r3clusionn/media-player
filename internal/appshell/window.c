@@ -12,6 +12,8 @@
 #include <X11/Xutil.h>
 #include <X11/XKBlib.h>
 #include <X11/cursorfont.h>
+#include <X11/extensions/XInput2.h>
+#include <math.h>
 #include <X11/extensions/dpms.h>
 #include <X11/extensions/scrnsaver.h>
 #include <X11/keysym.h>
@@ -53,6 +55,8 @@ static double xft_scale(void)
 }
 
 /* ---- setup ------------------------------------------------------------ */
+
+static void xi_init(void);
 
 int window_init(void)
 {
@@ -104,6 +108,7 @@ int window_init(void)
 	XClassHint ch = {.res_name = cls, .res_class = cls};
 	XSetClassHint(as_dpy, as_win, &ch);
 	free(cls);
+	xi_init();
 	wm_delete = XInternAtom(as_dpy, "WM_DELETE_WINDOW", False);
 	net_wm_state = XInternAtom(as_dpy, "_NET_WM_STATE", False);
 	net_wm_state_fs = XInternAtom(as_dpy, "_NET_WM_STATE_FULLSCREEN", False);
@@ -446,6 +451,138 @@ static void mouse_event(cef_mouse_event_t *me, int x, int y, unsigned state)
 	me->modifiers = mods_from_state(state);
 }
 
+/* ---- smooth scrolling (XInput 2.1 scroll valuators) -------------------
+ * Touchpads and many mice report scrolling as fine-grained valuator changes;
+ * the core protocol only gets emulated wheel "clicks". Forward the fine
+ * deltas like a browser does, and drop the emulated clicks. */
+
+static int xi_opcode = -1;
+static Time last_smooth;
+
+typedef struct {
+	int dev, number, vertical;
+	double increment, last;
+	int have_last;
+} scroll_axis;
+static scroll_axis axes[32];
+static int naxes;
+
+static void load_scroll_axes(int dev)
+{
+	for (int i = 0; i < naxes;)
+		if (axes[i].dev == dev) axes[i] = axes[--naxes];
+		else i++;
+	int n;
+	XIDeviceInfo *info = XIQueryDevice(as_dpy, dev, &n);
+	if (!info)
+		return;
+	for (int c = 0; c < info->num_classes && naxes < 32; c++) {
+		if (info->classes[c]->type != XIScrollClass)
+			continue;
+		XIScrollClassInfo *sc = (XIScrollClassInfo *)info->classes[c];
+		if (sc->increment == 0)
+			continue;
+		axes[naxes++] = (scroll_axis){dev, sc->number, sc->scroll_type == XIScrollTypeVertical,
+					      sc->increment, 0, 0};
+	}
+	XIFreeDeviceInfo(info);
+}
+
+static void forget_scroll_positions(void)
+{
+	for (int i = 0; i < naxes; i++)
+		axes[i].have_last = 0;
+}
+
+static unsigned xi_state(const XIDeviceEvent *e)
+{
+	unsigned st = (unsigned)e->mods.effective;
+	for (int b = 1; b <= 3; b++)
+		if (b < e->buttons.mask_len * 8 && XIMaskIsSet(e->buttons.mask, b))
+			st |= Button1Mask << (b - 1);
+	return st;
+}
+
+static void handle_xi_motion(XIDeviceEvent *e)
+{
+	cef_browser_host_t *h = host();
+	if (!h)
+		return;
+	cef_mouse_event_t me;
+	mouse_event(&me, (int)e->event_x, (int)e->event_y, xi_state(e));
+
+	int seen = 0;
+	for (int i = 0; i < naxes; i++)
+		if (axes[i].dev == e->sourceid)
+			seen = 1;
+	if (!seen)
+		load_scroll_axes(e->sourceid);
+
+	double dx = 0, dy = 0;
+	int scrolled = 0;
+	double *val = e->valuators.values;
+	for (int v = 0; v < e->valuators.mask_len * 8; v++) {
+		if (!XIMaskIsSet(e->valuators.mask, v))
+			continue;
+		double value = *val++;
+		for (int i = 0; i < naxes; i++) {
+			scroll_axis *a = &axes[i];
+			if (a->dev != e->sourceid || a->number != v)
+				continue;
+			if (a->have_last) {
+				/* One increment is one wheel click: 120 like the core path. */
+				double d = (value - a->last) / a->increment * 120.0;
+				if (a->vertical) dy -= d;
+				else dx -= d;
+				scrolled = 1;
+			}
+			a->last = value;
+			a->have_last = 1;
+		}
+	}
+	if (scrolled) {
+		if (me.modifiers & EVENTFLAG_SHIFT_DOWN && dx == 0) { dx = dy; dy = 0; }
+		int ix = (int)lround(dx), iy = (int)lround(dy);
+		if (ix || iy)
+			h->send_mouse_wheel_event(h, &me, ix, iy);
+		last_smooth = e->time;
+	} else {
+		h->send_mouse_move_event(h, &me, 0);
+	}
+	release_host(h);
+}
+
+static void xi_init(void)
+{
+	int ev, err, major = 2, minor = 2;
+	if (!XQueryExtension(as_dpy, "XInputExtension", &xi_opcode, &ev, &err) ||
+	    XIQueryVersion(as_dpy, &major, &minor) != Success || major < 2 || (major == 2 && minor < 1)) {
+		xi_opcode = -1;
+		return;
+	}
+	unsigned char bits[XIMaskLen(XI_LASTEVENT)] = {0};
+	XISetMask(bits, XI_Motion);
+	XISetMask(bits, XI_Enter);
+	XISetMask(bits, XI_DeviceChanged);
+	XIEventMask m = {.deviceid = XIAllMasterDevices, .mask_len = sizeof bits, .mask = bits};
+	XISelectEvents(as_dpy, as_win, &m, 1);
+}
+
+static void handle_xi(XGenericEventCookie *c)
+{
+	switch (c->evtype) {
+	case XI_Motion:
+		handle_xi_motion(c->data);
+		break;
+	case XI_Enter:
+		forget_scroll_positions();
+		break;
+	case XI_DeviceChanged:
+		load_scroll_axes(((XIDeviceChangedEvent *)c->data)->sourceid);
+		break;
+	}
+}
+
 static void handle_button(XButtonEvent *ev, int press)
 {
 	static Time last_time;
@@ -456,7 +593,9 @@ static void handle_button(XButtonEvent *ev, int press)
 	cef_mouse_event_t me;
 	mouse_event(&me, ev->x, ev->y, ev->state);
 	if (ev->button >= 4 && ev->button <= 7) {
-		if (press) {
+		/* Emulated from a smooth-scrolling device we already handled. */
+		int emulated = last_smooth && ev->time - last_smooth < 250;
+		if (press && !emulated) {
 			int dx = 0, dy = 0;
 			switch (ev->button) {
 			case 4: dy = 120; break;
@@ -584,6 +723,12 @@ void window_handle_events(void)
 		case ClientMessage:
 			if ((Atom)ev.xclient.data.l[0] == wm_delete)
 				as_quit();
+			break;
+		case GenericEvent:
+			if (ev.xcookie.extension == xi_opcode && XGetEventData(as_dpy, &ev.xcookie)) {
+				handle_xi(&ev.xcookie);
+				XFreeEventData(as_dpy, &ev.xcookie);
+			}
 			break;
 		}
 	}

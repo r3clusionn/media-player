@@ -42,6 +42,8 @@ typedef struct appshell_opts {
 
 /* Runs until the window is closed. Returns the process exit status. */
 int appshell_run(const appshell_opts *o);
+/* Thread-safe: close the window and return from appshell_run. */
+void appshell_request_quit(void);
 
 /* ---- shared state (shell.c) ------------------------------------------- */
 

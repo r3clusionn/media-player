@@ -198,14 +198,19 @@
     // that overlaps the video gets a CSS mask with a hole of the video's shape.
     // The player's own children (its controls) are untouched.
     const savedMask = new WeakMap()
+    const lastMask = new WeakMap()
 
     function setHole(el, x, y, w, h) {
         if (!savedMask.has(el)) {
             savedMask.set(el, [el.style.getPropertyValue("-webkit-mask"), el.style.getPropertyValue("-webkit-mask-composite"),
                 el.style.getPropertyValue("mask-composite")])
         }
-        el.style.setProperty("-webkit-mask",
-            `linear-gradient(#000 0 0), linear-gradient(#000 0 0) ${x}px ${y}px / ${w}px ${h}px no-repeat`, "important")
+        // Unchanged: leave the style alone (a write restyles and repaints the
+        // whole element, which is most of the page).
+        const mask = `linear-gradient(#000 0 0), linear-gradient(#000 0 0) ${Math.round(x)}px ${Math.round(y)}px / ${Math.round(w)}px ${Math.round(h)}px no-repeat`
+        if (lastMask.get(el) === mask) return
+        lastMask.set(el, mask)
+        el.style.setProperty("-webkit-mask", mask, "important")
         el.style.setProperty("-webkit-mask-composite", "xor", "important")
         el.style.setProperty("mask-composite", "exclude", "important")
     }
@@ -214,6 +219,7 @@
         const saved = savedMask.get(el)
         if (!saved) return
         savedMask.delete(el)
+        lastMask.delete(el)
         el.style.setProperty("-webkit-mask", saved[0])
         el.style.setProperty("-webkit-mask-composite", saved[1])
         el.style.setProperty("mask-composite", saved[2])
