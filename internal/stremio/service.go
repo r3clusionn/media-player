@@ -35,6 +35,9 @@ type PlayRequest struct {
 	VideoID  string `json:"videoId"` // movie ID or "tt..:s:e"
 	Stream   Stream `json:"stream"`
 	ClientID string `json:"clientId"`
+	// Fallback: if this stream isn't ready or is the wrong episode, try the
+	// next cached streams ("Play best", autoplay).
+	Fallback bool `json:"fallback"`
 }
 
 // Play resolves the stream, checks that a series' file is the requested
@@ -45,14 +48,35 @@ func (s *Service) Play(ctx context.Context, req PlayRequest) error {
 	if err != nil {
 		return fmt.Errorf("loading the title: %w", err)
 	}
-	streamURL, filename, err := s.Client.Resolve(ctx, req.Stream)
-	if err != nil {
-		return err
-	}
-	if req.Type == "series" {
-		if err := checkEpisodeFile(filename, season, episode); err != nil {
-			return err
+	candidates := []Stream{req.Stream}
+	if req.Fallback {
+		if all, err := s.Client.Streams(ctx, req.Type, req.VideoID); err == nil {
+			for _, st := range all {
+				if st.Cached && st.URL != req.Stream.URL && len(candidates) < 4 {
+					candidates = append(candidates, st)
+				}
+			}
 		}
+	}
+	var streamURL, filename string
+	var firstErr error
+	for _, st := range candidates {
+		u, name, err := s.Client.Resolve(ctx, st)
+		if err == nil && req.Type == "series" {
+			err = checkEpisodeFile(name, season, episode)
+		}
+		if err != nil {
+			s.Logger.Warn().Err(err).Str("source", st.Source).Str("filename", st.Filename).Msg("stremio: Stream not playable")
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		streamURL, filename, req.Stream = u, name, st
+		break
+	}
+	if streamURL == "" {
+		return firstErr
 	}
 
 	var video *Video
@@ -250,7 +274,7 @@ func (s *Service) PlayNext(ctx context.Context, mediaID int, clientID string) er
 			}
 		}
 	}
-	return s.Play(ctx, PlayRequest{Type: "series", VideoID: next.ID, Stream: best, ClientID: clientID})
+	return s.Play(ctx, PlayRequest{Type: "series", VideoID: next.ID, Stream: best, ClientID: clientID, Fallback: true})
 }
 
 func firstNonEmpty(v ...string) string {

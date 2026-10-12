@@ -1,75 +1,107 @@
 # media-player
 
-An anime and movie player for Linux built on [Seanime](https://github.com/5rahim/seanime): Seanime's interface and features, unchanged, in a standalone window instead of Electron, with mpv playing inside it and a Stremio-style Movies & TV section next to the anime. It is made for one laptop (Ryzen AI 9 HX 475, Radeon 890M, 2880x1800 at 120 Hz, Gentoo with dwm) and tuned for it: no new system packages, nothing running when the window is closed, Anime4K and debanding chosen per video, and Real-Debrid picking the right episode file every time.
+An anime and movie player for Linux built on [Seanime](https://github.com/5rahim/seanime): Seanime's interface and features, unchanged, in a standalone window instead of Electron, with mpv playing inside it and a Stremio-style Movies & TV section next to the anime. It is made for one laptop (Ryzen AI 9 HX 475, Radeon 890M, 2880x1800 at 120 Hz, Gentoo with dwm) and tuned for it: no new system packages, nothing running when the window is closed, Anime4K and debanding for anime, and Real-Debrid always streaming the episode you asked for.
 
-**Status:** in development (see [the plan](docs/PLAN.md)).
-- **Phase 0 (risk checks): done.** Seanime's UI renders through CEF into a plain X11/EGL window with no new packages, and libmpv draws video into the same kind of window ([results](docs/phase0.md)).
-- **Phase 1: the wrong-episode fixes are in.** A new episode matcher, autoplay and resume fixes, and checked Real-Debrid links. Tested with unit tests and live AniList data, not yet in real playback with a Real-Debrid account.
-- **Not yet:** the standalone window (phase 2), Movies & TV, and the tuning. Until then this builds and runs as Seanime's web server.
+**Status:** working, used on the target laptop. Anime (debrid, torrent and local files), Movies & TV through Torrentio and Comet, autoplay, resume and Anime4K are all tested in the real program with a Real-Debrid account (see Verification). Built and run on that one machine only.
 
-![The Discover page of the current build at 2880x1800: a banner for a releasing show with its poster, genres, score and synopsis, the Home, Schedule, My lists and Discover tabs, the icon sidebar on the left, and a Trending Right Now row of cover cards under genre filters](docs/images/discover.png)
+![The built-in player at 2880x1800 playing Frieren episode 1 with Anime4K Mode A+A and debanding: Fern and Heiter in a lamp-lit town at night with the subtitle "It's nothing.", the show and episode title at the top left, and Seanime's control bar at the bottom with play, next, volume, the time 6:56 / 25:59, and the subtitle, audio, picture-in-picture and fullscreen buttons](docs/images/player.png)
 
 ## Features
 
-- **Seanime, 1:1.** Every screen and feature of upstream Seanime: AniList and MAL lists, local library and scanner, torrent and debrid streaming, manga, online streaming, extensions, schedule, Nakama, auto-downloader. Nothing is removed; features you do not use are not started.
-- **A standalone window, no Electron.** The React interface runs in Chromium's engine embedded as a library (CEF) in this program, with no browser window, no Node.js at runtime and no separate server process. Closing the window ends everything.
-- **mpv inside the window.** libmpv draws the video and the page is drawn over it, so Seanime's own player controls (VideoCore in mpvcore mode) stay exactly as they are, Anime4K picker included.
-- **Picture quality chosen per video.** Anime4K Mode A+A and debanding for anime up to 1080p, lighter processing for 1440p and 4K sources, no Anime4K on live action, HDR tone mapping, VA-API decoding. The same on battery.
-- **The right episode.** A rewritten episode matcher for debrid batches (see How it works) used by autoplay, resume and manual picks; when it is not sure, it shows the file picker instead of guessing.
-- **Movies & TV.** Stremio add-ons (Torrentio first, Comet as a backup) through Real-Debrid, with catalogs and details from Cinemeta, Continue Watching and Next Up, in pages built from Seanime's own components.
-- **Fast next episode.** The next episode's file is found and its Real-Debrid link resolved at 85% of the current one.
+- **Seanime, 1:1.** Every screen and feature of upstream Seanime: AniList and MAL lists, local library and scanner, torrent and debrid streaming, manga, online streaming, extensions, schedule, Nakama, auto-downloader. Nothing is removed, and features you don't use aren't started. The built-in torrent search providers that upstream moved to extensions (AnimeTosho, Nyaa, SeaDex) are back.
+- **A standalone window, no Electron.** The React interface runs in Chromium's engine embedded as a library (CEF) inside this program. There is no browser window and no Node.js at runtime, and the server runs in the same process. Closing the window ends everything.
+- **mpv inside the window.** libmpv draws the video and the page is drawn over it, so Seanime's own player (mpvcore) keeps its controls, menus and Anime4K picker exactly as they are.
+- **Picture quality.** Anime4K (Mode A+A Fast here) and debanding for anime, VA-API decoding and HDR tone mapping for everything. Anime4K never runs on Movies & TV, which is live action. The same settings apply on battery.
+- **The right episode.** A rewritten episode matcher for debrid batches (see How it works) is used by autoplay, resume and manual picks. When it isn't sure, it shows the file picker instead of guessing. Movies & TV refuses a file whose name says another season or episode.
+- **Movies & TV.** Catalogs, search and details from Cinemeta. Real-Debrid streams come from Torrentio, with Comet when Torrentio fails or has nothing cached. You get Continue Watching and Next Up, resume, and next-episode autoplay that stays on the same release. The pages are built from Seanime's own components.
+- **Only one file from big packs.** For an uncached 40 GB season pack, Real-Debrid fetches only the episode being played, so playback starts in seconds. An already-cached or already-added torrent is reused.
 
 ## How to install
 
-Requires Go 1.27, Node.js 26 with npm, gcc, pkgconf and libmpv (mpv 0.41). Linux with X11 only.
+Requires Go 1.27, Node.js 26 with npm, gcc, libmpv (mpv 0.41), yyjson, and the X11 libraries (libX11, libXi, libXss, libXext) with EGL/GLES. Linux with X11 only.
+
+The build also needs three directories in `~/src/third_party` (or `$THIRD_PARTY`), none installed system-wide:
+
+- `cef/`: the CEF 154.0.34 "minimal" Linux x64 build from the [official CEF builds](https://cef-builds.spotifycdn.com/index.html), extracted.
+- `runtime/`: NSS, NSPR and xkbcommon, which CEF needs and this Gentoo install doesn't have (copied from a Chromium-based browser's bundled libraries).
+- `anime4k/`: the [Anime4K](https://github.com/bloc97/Anime4K) v4 GLSL shaders.
 
 ```sh
 git clone https://github.com/r3clusionn/media-player
-cd media-player/seanime-web
-npm ci && npm run build
-cd .. && rm -rf web && cp -a seanime-web/out web
-GOAMD64=v4 go build -o media-player -trimpath -ldflags="-s -w" -tags=nosystray
+cd media-player
+appshell/build.sh --install
 ```
 
-This builds the web-server form for now. The standalone window (phase 2) adds the CEF runtime, which is downloaded into `third_party/`, not installed system-wide.
+This builds the web interface, the helper process and the program into `build/dist`, then copies them to `~/.local/opt/media-player` (444 MB, with CEF stripped of its debug info) and links `~/.local/bin/media-player`. `--skip-web` reuses the last web build.
 
 ## How to use
 
-Until the standalone window exists:
-
 ```sh
-./media-player --datadir ~/.local/share/media-player --host 127.0.0.1 --port 43211
+media-player
 ```
 
-then open `http://127.0.0.1:43211`. Settings, accounts and Real-Debrid are set up in the interface as in Seanime ([its documentation](https://seanime.app/docs)).
+The window opens on Seanime's home screen. Accounts, Real-Debrid and the library are set up in the interface as in Seanime ([its documentation](https://seanime.app/docs)). Data lives in `~/.local/share/media-player`, caches in `~/.cache/media-player`.
 
-| Flag | What it does |
-|---|---|
-| `--datadir DIR` | Where the database, settings, cache and downloads live. |
-| `--host`, `--port` | The address the server listens on (default `127.0.0.1:43211`). |
-| `--password` | Require a password from the interface. |
-| `--disable-features LIST` | Turn named features off. |
+**Movies & TV** is the film icon in the sidebar. Pick a title, then an episode (or Watch for a movie). The drawer lists the streams, with cached ones first. **Play best** plays the highest-quality cached file that streams smoothly over Wi-Fi: remux-sized files (over 30 GB for a movie, 10 GB for an episode) and Dolby-Vision-only files come after the rest. If Real-Debrid isn't ready with that file, it moves on to the next one. Clicking a stream plays exactly that file.
 
-## How it works
+![The Movies & TV page of a series: Ted Lasso's backdrop and poster, its logo, year, runtime, IMDb rating and genres, and the stream drawer open on the right for S1 E1 "Pilot" with a Play best button and a list of cached Torrentio streams tagged with quality, HDR and size, such as Ted.Lasso.S01E01.HDR.2160p.WEB.H265-SKEDADDLE.mkv at 5.41 GB](docs/images/streams.png)
 
-- **The window** is one X11 window with an EGL context. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), which is imported with `EGL_EXT_image_dma_buf_import`; libmpv's render API draws video into the same context underneath, and the page is blended on top. Nothing is redrawn while nothing changes.
-- **The page talks to the player** through the same JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism channels), so the React code is unchanged.
-- **The wrong-episode bug** (debrid streaming, file chosen automatically) has four suspects in the upstream code, documented in [the plan](docs/PLAN.md#44-the-wrong-episode-bug-diagnosis-and-fix): autoplay taking the file after the last one by position and sending that position as the Real-Debrid file ID; resume matching a season's episode number as an absolute one; links taken from Real-Debrid by position; and Real-Debrid's removed cache check. The fix is one order-independent matcher that drops openings, endings and extras, maps season and absolute numbering, checks the name and size Real-Debrid returns, and asks when unsure.
-
-## Measurements
-
-The unchanged upstream build on the target laptop (Ryzen AI 9 HX 475, Gentoo, Go 1.27.1, Node 26.3), first run with an empty data directory and no account:
+**Anime4K and debanding** are in the player's settings menu (Shaders). They are remembered, and Movies & TV ignores Anime4K.
 
 | | |
 |---|---|
-| Web interface build (`npm run build`) | 8 s, 16 MB of output |
-| Server build (`go build`, first, modules downloaded) | 68 s, 81 MB binary |
-| Server idle after start | 59.7 MB resident (16.4 MB anonymous), 19 threads |
+| `media-player` | Open the window. |
+| `media-player --server` | Run only Seanime's web server (open `http://127.0.0.1:43211` in a browser). |
+| `media-player debug pick` | Run the episode-file matcher on saved lists, without playback. |
+| `APPSHELL_DEBUG=1` | Log the page console, mpv warnings, and paint and draw rates to stderr. |
 
-Targets for the finished program are in [the plan](docs/PLAN.md#targets-to-be-measured-not-promised); results go here as they are measured.
+## How it works
+
+- **The window** is one X11 window with an EGL context. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), imported with `EGL_EXT_image_dma_buf_import`. libmpv's render API draws the video into its own texture in the same context. Each frame is the video, then the page blended on top. Nothing is redrawn while nothing changes, and the swap is skipped while the window is hidden.
+- **The page talks to the player** through the JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism calls). A small script injected by the helper process implements it over CEF process messages, so the React code is unchanged. Every mpv request is asynchronous: a synchronous property write from the render thread deadlocks against mpv's video output.
+- **Video under the page.** The player's ancestors are made transparent by a CSS `:has()` rule, not by classes, because React rewrites class names when it re-renders. Anything else painted over the video gets a mask with a hole the video's shape. The hidden control bar is skipped with `content-visibility`, so the page stays idle during playback instead of restyling an invisible seek bar.
+- **The wrong-episode bug** (debrid streaming, file chosen automatically) had four causes upstream, documented in [the plan](docs/PLAN.md#44-the-wrong-episode-bug-diagnosis-and-fix):
+  - Autoplay took the file after the last one by position and sent that position as the Real-Debrid file ID.
+  - Resume matched a season's episode number as an absolute one.
+  - Links were taken from Real-Debrid by position.
+  - It relied on Real-Debrid's cache check, which Real-Debrid has removed.
+
+  The fix is one order-independent matcher. It drops openings, endings and extras, maps season and absolute numbering, checks the name and size Real-Debrid returns, and asks when unsure.
+- **Movies & TV titles** get a negative media ID (a hash of the IMDb ID), so Seanime's watch history gives resume and Continue Watching while AniList is never updated. The add-on's link is followed to the final Real-Debrid file. A link that ends anywhere else is a "still downloading" placeholder clip and is skipped.
+- **Streaming** goes from Real-Debrid through the in-process server to mpv with no disk cache. mpv reads ahead in large bursts (up to 256 MB, 300 s), so the Wi-Fi radio can sleep in between.
+- **Audio** on this laptop is started on demand. The player starts PipeWire when a video opens, and reopens audio by itself if PipeWire is restarted during playback.
+
+## Measurements
+
+On the target laptop on battery, backlight 70%, streaming from Real-Debrid over Wi-Fi, window fullscreen at 2880x1800. Power is the battery's own reading averaged over 20 s, for the whole laptop.
+
+| | |
+|---|---|
+| Laptop idle, nothing started | 3.6 W |
+| media-player open, Movies & TV page, idle | 3.7 W |
+| 4K HDR HEVC episode (Ted Lasso, 5 GB), VA-API, tone mapped | 9.0 W, 0 dropped frames |
+| 1080p anime with Anime4K A+A (Fast) and debanding (Frieren) | 19.1 W, 0 dropped frames |
+| GPU time per frame, A+A (Fast) and debanding, 1080p to 2880x1800 | 23.9 ms (41.7 ms budget at 24 fps) |
+| CPU during A+A playback | main process 10%, page renderer 5%, GPU process under 1% of one core |
+| Server ready after launch | 0.19 s |
+| Memory, all 6 processes, idle | 510 MB PSS |
+| Movies & TV: streams for an episode / start playing | 0.1–0.2 s / 0.6–1.2 s server side |
+| Next episode by autoplay (Movies & TV, same release) | 2.2 s to the new stream |
+| Uncached episode out of a 42 GB season pack | about 11 s to playback |
+
+For comparison, [phase 0](docs/phase0-power.txt) measured a bare embedded mpv with A+A (Fast) and debanding on a local file at 15.5 W. The difference is the network stream and the page.
 
 ## Verification
 
+- **Real playback with Real-Debrid**, driven through the Chrome DevTools Protocol with screenshots of the real window (`appshell/test/`):
+  - Frieren episode 1 from a SubsPlease batch: picture, audio, VA-API, the Anime4K A+A chain (7 shaders), debanding.
+  - Autoplay from episode 1 to 2 picked "- 02" from the same batch.
+  - Mayonaka Heart Tune episode 3 via auto-select (S01E03, whole torrent cached), then autoplay to 4 reusing the torrent.
+  - Ted Lasso S01E01 to E02 by autoplay on the same release; resume at 10:06 after quitting and reopening the program.
+  - The Shawshank Redemption in 4K HDR with a seek to 50:00.
+- `appshell/test/pause-fs-stress.mjs`: 3 pause cycles, then 3 fullscreen off/on cycles with a pause after each. After every step nothing opaque covers the video, and the final screenshot shows the picture.
+- **Audio recovery:** PipeWire stopped and started during playback; audio came back on its own about 2 s later.
+- **Clean exit:** SIGTERM during playback closes the window in 0.2 s and leaves no helper processes.
 - **Wrong episode.** `media-player debug pick` runs the episode-file selection with live AniList data and no playback. On the lists in [`internal/debugpick/lists`](internal/debugpick/lists):
 
   | Pack | Episode | Upstream plays | media-player plays |
@@ -79,19 +111,18 @@ Targets for the finished program are in [the plan](docs/PLAN.md#targets-to-be-me
   | Frieren with a v2 | 7 | 07 | 07v2 |
   | Jujutsu Kaisen S2 in absolute numbers (25-47) | 1, 23 | 25, 47 | 25, 47 |
 
-  The entry's place in the show comes out right from AniList: Attack on Titan Season 2 is season 2 after 25 episodes, Jujutsu Kaisen Season 2 is season 2 after 24.
-- `go test ./internal/episodematch/`: 21 cases. They include seasons in packs, absolute numbering, extras folders and names, v2, multi-episode files, a season AniList splits differently, OVA entries, and every case again with the file order shuffled 50 times (the answer must not change).
-- `go test ./internal/debrid/realdebrid/`: Real-Debrid links in order, out of order, packed into an archive, and renamed, against a fake RD server.
-- Upstream's tests for the packages touched (analyzer, autoselect, debrid client, torrent streaming) still pass.
-- **Phase 0:** see [docs/phase0.md](docs/phase0.md). CEF first frame 307 ms; 0.73 ms per frame to import and draw; Anime4K costs per preset at 2880x1800.
-- **Not verified yet:** real playback with a Real-Debrid account; battery power; frame pacing with the screen on.
+- `go test ./internal/episodematch/`: 21 cases, including seasons in packs, absolute numbering, extras, v2, multi-episode files, OVA entries, and every case again with the file order shuffled 50 times.
+- `go test ./internal/debrid/realdebrid/`: links in order, out of order, packed into an archive and renamed, against a fake Real-Debrid server.
+- `go test ./internal/stremio/`: episode-file checks (another episode or season refused, absolute anime numbering trusted), stream parsing for Torrentio and Comet, the stream order, and placeholder detection. A live test against Torrentio and Real-Debrid runs when `MP_RD_KEY_FILE` is set.
+- **Not verified:** smooth touchpad scrolling. It is implemented with XInput 2.1 scroll valuators, which the touchpad reports, but this kernel has no uinput to simulate a touchpad. Frame pacing was checked only through mpv's drop counters.
 
 ## Limits
 
-- Not usable as a standalone program yet; it is upstream Seanime in web-server mode.
 - Linux with X11 only. Wayland is not a target.
-- Built for one machine: `GOAMD64=v4` binaries need AVX-512.
-- The Movies & TV section needs Real-Debrid; there is no torrent streaming for it.
+- Built for one machine: `GOAMD64=v4` binaries need AVX-512, and the build expects CEF and its libraries in `third_party/`.
+- Movies & TV needs Real-Debrid; there is no torrent streaming for it.
+- Anime4K A+A doubles the playback power draw. That is the price of the picture; turn it off in the player's Shaders menu when battery matters more.
+- CEF is 272 MB of the install and most of the memory use.
 
 ## License
 

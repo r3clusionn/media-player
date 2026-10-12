@@ -1,6 +1,10 @@
 package stremio
 
 import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -77,5 +81,22 @@ func TestStreamOrder(t *testing.T) {
 	want := "web dv 1080 remux uncached"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("order %v, want %s", got, want)
+	}
+}
+
+func TestResolvePlaceholder(t *testing.T) {
+	// An add-on that redirects to its "downloading" clip instead of the file.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/videos/downloading_v3.mp4" {
+			w.Header().Set("Content-Type", "video/mp4")
+			w.Write([]byte{0})
+			return
+		}
+		http.Redirect(w, r, "/videos/downloading_v3.mp4", http.StatusFound)
+	}))
+	defer srv.Close()
+	c := NewClient(func() string { return "key" })
+	if _, _, err := c.Resolve(context.Background(), Stream{URL: srv.URL + "/resolve/x"}); !errors.Is(err, ErrNotReady) {
+		t.Fatalf("placeholder resolved with err=%v, want ErrNotReady", err)
 	}
 }

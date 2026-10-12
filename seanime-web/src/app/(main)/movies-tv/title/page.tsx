@@ -27,9 +27,11 @@ function StreamList(props: { type: string, videoId: string, onPlayed: () => void
     const clientId = useAtomValue(clientIdAtom)
     const [playing, setPlaying] = React.useState<string | null>(null)
 
-    function start(stream: Stremio_Stream) {
+    // "Play best" lets the server move on to the next cached stream when one
+    // isn't ready on Real-Debrid; a stream picked by hand plays exactly that.
+    function start(stream: Stremio_Stream, fallback = false) {
         setPlaying(stream.url)
-        play.mutate({ type, videoId, stream, clientId: clientId || undefined }, {
+        play.mutate({ type, videoId, stream, fallback, clientId: clientId || undefined }, {
             onSuccess: () => onPlayed(),
             onError: err => toast.error(err.message),
             onSettled: () => setPlaying(null),
@@ -48,7 +50,7 @@ function StreamList(props: { type: string, videoId: string, onPlayed: () => void
                 intent="primary"
                 leftIcon={<LuPlay />}
                 loading={play.isPending && playing === best.url}
-                onClick={() => start(best)}
+                onClick={() => start(best, true)}
                 className="w-full"
             >
                 Play best {best.cached ? "(cached)" : ""} · {best.quality || "?"} {best.hdr || ""} {best.size ? `· ${best.size}` : ""}
