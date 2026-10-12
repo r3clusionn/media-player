@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"seanime/internal/appshell"
+	"seanime/internal/core"
 	"seanime/internal/server"
 )
 
@@ -49,6 +50,7 @@ func Run(webFS embed.FS, logo []byte) int {
 
 	// Seanime's flags are parsed from os.Args inside StartServer.
 	os.Args = []string{os.Args[0], "--datadir", appData, "--host", "127.0.0.1", "--port", fmt.Sprint(port)}
+	core.ForceMpvCore = true
 	go server.StartServer(webFS, logo)
 	deadline := time.Now().Add(20 * time.Second)
 	for !listening() {

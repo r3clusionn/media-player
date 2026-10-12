@@ -41,6 +41,16 @@
             else p.resolve(msg.value)
             return
         }
+        if (msg.event === "mpv-prism:events") {
+            // A batch from one player: property changes, then maybe a state event.
+            for (const event of msg.events) {
+                const data = { playerId: msg.playerId, event }
+                for (const l of prismListeners) {
+                    try { l(data) } catch (e) { console.error(e) }
+                }
+            }
+            return
+        }
         if (msg.event === "mpv-prism:event") {
             for (const l of prismListeners) {
                 try { l(msg.data) } catch (e) { console.error(e) }
@@ -153,7 +163,7 @@
         styleEl = document.createElement("style")
         styleEl.id = "appshell-video"
         styleEl.textContent =
-            "[data-mpv-prism-video]{opacity:0!important}" +
+            "[data-mpv-prism-video],[data-mpv-prism-video-canvas]{opacity:0!important}" +
             "[data-mpv-prism-video-host]{background:transparent!important}" +
             ".appshell-see-through{background:transparent!important;background-color:transparent!important}"
         document.documentElement.appendChild(styleEl)
