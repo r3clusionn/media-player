@@ -24,8 +24,9 @@ type httpBaseStream struct {
 	filepath            string
 	requestHeaders      http.Header
 	headResponseHeaders http.Header
-	httpStream          *httputil.FileStream // Shared file-backed cache for multiple readers
-	cacheMu             sync.RWMutex         // Protects httpStream access
+	httpStream          *httputil.FileStream // unused in media-player (see getStreamHandler)
+	streamReady         bool                 // content length fetched
+	cacheMu             sync.RWMutex
 }
 
 var videoProxyClient = &http.Client{
@@ -230,7 +231,10 @@ func (s *httpBaseStream) getStreamHandler(outer Stream) http.Handler {
 			return
 		}
 
-		reader, err := s.getReader()
+		// media-player: thumbnails and range-less requests read straight from
+		// the source; nothing is cached (the old file cache lived in /tmp, which
+		// is RAM here, and filled it with a whole video per stream).
+		reader, err := s.newMetadataReader()
 		if err != nil {
 			s.logger.Error().Err(err).Msg("directstream(http): Failed to create reader for stream url")
 			http.Error(w, "Failed to create reader for stream url", http.StatusInternalServerError)
@@ -247,7 +251,7 @@ func (s *httpBaseStream) getStreamHandler(outer Stream) http.Handler {
 			return
 		}
 
-		ra, ok := handleRange(w, r, reader, s.filename, s.contentLength)
+		_, ok := handleRange(w, r, reader, s.filename, s.contentLength)
 		if !ok {
 			return
 		}
@@ -298,9 +302,7 @@ func (s *httpBaseStream) getStreamHandler(outer Stream) http.Handler {
 		w.Header().Set("Content-Type", s.LoadContentType()) // overwrite the type
 		w.WriteHeader(resp.StatusCode)
 
-		if err := s.httpStream.WriteAndFlush(resp.Body, w, ra.Start); err != nil {
-			s.logger.Warn().Err(err).Str("range", rangeHeader).Msg("directstream(http): WriteAndFlush error")
-		}
+		proxyCopy(w, resp.Body)
 	})
 }
 
@@ -309,7 +311,7 @@ func (s *httpBaseStream) initializeStream() error {
 	s.cacheMu.Lock()
 	defer s.cacheMu.Unlock()
 
-	if s.httpStream != nil {
+	if s.streamReady {
 		return nil // Already initialized
 	}
 
@@ -328,30 +330,7 @@ func (s *httpBaseStream) initializeStream() error {
 
 	s.logger.Debug().Msgf("directstream(http): Initializing FileStream for stream URL: %s", s.streamUrl)
 
-	// Create a file-backed stream with the known content length
-	cache, err := httputil.NewFileStream(s.manager.playbackCtx, s.logger, s.contentLength)
-	if err != nil {
-		return fmt.Errorf("failed to create FileStream: %w", err)
-	}
-
-	s.httpStream = cache
-
-	s.logger.Debug().Msgf("directstream(http): FileStream initialized")
-
+	s.streamReady = true
 	return nil
 }
 
-func (s *httpBaseStream) getReader() (io.ReadSeekCloser, error) {
-	if err := s.initializeStream(); err != nil {
-		return nil, err
-	}
-
-	s.cacheMu.RLock()
-	defer s.cacheMu.RUnlock()
-
-	if s.httpStream == nil {
-		return nil, fmt.Errorf("FileStream not initialized")
-	}
-
-	return s.httpStream.NewReader()
-}

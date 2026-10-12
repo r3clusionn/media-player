@@ -42,6 +42,9 @@ typedef struct player {
 	int nobserved;
 	int paused, idle, loaded;
 	int paused_for_cache;
+	int audio_lost, audio_tries; /* no audio output (PipeWire stopped under us) */
+	double audio_retry_at;
+	char aid[32];                /* last selected audio track */
 	char *buffering_json; /* last cache-buffering-state value */
 	/* Property changes waiting to go to the page: latest JSON value per name. */
 	char *pend_name[MAX_OBSERVED];
@@ -316,6 +319,21 @@ void player_process_events(void)
 					int flag = pr->format == MPV_FORMAT_NODE &&
 						   ((mpv_node *)pr->data)->format == MPV_FORMAT_FLAG &&
 						   ((mpv_node *)pr->data)->u.flag;
+					if (!strcmp(pr->name, "current-ao")) {
+						/* PipeWire can be stopped and started again during
+						 * playback (F2); mpv then gives up on audio for the
+						 * rest of the file. Bring it back. */
+						int none = pr->format != MPV_FORMAT_NODE ||
+							   ((mpv_node *)pr->data)->format != MPV_FORMAT_STRING;
+						if (none && !p->audio_lost) {
+							p->audio_lost = 1;
+							p->audio_tries = 0;
+							p->audio_retry_at = now + 1000;
+						} else if (!none) {
+							p->audio_lost = 0;
+						}
+						break;
+					}
 					if (!strcmp(pr->name, "pause")) p->paused = flag;
 					else if (!strcmp(pr->name, "core-idle")) p->idle = flag;
 					else if (!strcmp(pr->name, "paused-for-cache")) {
@@ -326,6 +344,11 @@ void player_process_events(void)
 					}
 					update_playing();
 					break;
+				}
+				if (!strcmp(pr->name, "aid") && pr->format == MPV_FORMAT_NODE) {
+					mpv_node *n = pr->data;
+					if (n->format == MPV_FORMAT_INT64)
+						snprintf(p->aid, sizeof p->aid, "%lld", (long long)n->u.int64);
 				}
 				yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
 				yyjson_mut_val *v = pr->format == MPV_FORMAT_NODE
@@ -370,11 +393,33 @@ void player_process_events(void)
 			case MPV_EVENT_SHUTDOWN:
 				snprintf(state, sizeof state, "{\"type\":\"shutdown\"}");
 				break;
+			case MPV_EVENT_LOG_MESSAGE: {
+				mpv_event_log_message *m = e->data;
+				AS_LOG("mpv[%s] %s: %s", m->prefix, m->level, m->text);
+				break;
+			}
 			default:
 				break;
 			}
 			if (state[0])
 				flush_events(p, state);
+		}
+		/* Reopen audio once PipeWire is back (F2 turned it off on purpose:
+		 * wait for it rather than starting it again). */
+		if (p->audio_lost && !p->idle && now >= p->audio_retry_at && p->audio_tries < 10) {
+			p->audio_retry_at = now + 2000;
+			char sock[4200];
+			snprintf(sock, sizeof sock, "%s/pipewire-0", as_runtime_dir);
+			if (access(sock, F_OK) == 0) {
+				p->audio_tries++;
+				AS_LOG("%s: no audio output, reopening (%d)\n", p->id, p->audio_tries);
+				/* After a failed open mpv drops the audio chain; selecting
+				 * the track again rebuilds it (ao-reload alone doesn't). */
+				const char *off[] = {"set", "aid", "no", NULL};
+				const char *on[] = {"set", "aid", p->aid[0] ? p->aid : "auto", NULL};
+				mpv_command_async(p->mpv, 0, off);
+				mpv_command_async(p->mpv, 0, on);
+			}
 		}
 		if (p->npend && (urgent || now - p->last_flush >= FLUSH_MS))
 			flush_events(p, NULL);
@@ -406,9 +451,19 @@ int player_any_frame_ready(void)
 void player_draw_all(void)
 {
 	double s = as_scale;
+	static double stat_at;
+	static int n_draw, n_render, n_off;
+	if (as_debug && as_now_ms() - stat_at >= 1000) {
+		if (players)
+			AS_LOG("video: %d draws, %d renders, %d off-screen /s\n", n_draw, n_render, n_off);
+		stat_at = as_now_ms();
+		n_draw = n_render = n_off = 0;
+	}
 	for (player *p = players; p; p = p->next) {
 		p->rendered = 0;
+		n_draw++;
 		if (!on_screen(p)) {
+			n_off++;
 			p->frame_pending = 0;
 			continue;
 		}
@@ -428,6 +483,7 @@ void player_draw_all(void)
 				{0, NULL},
 			};
 			mpv_render_context_render(p->rc, rp);
+			n_render++;
 			p->rendered = 1;
 			p->frame_pending = 0;
 			p->target_valid = 1;
@@ -582,6 +638,8 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 		mpv_set_option_string(m, "glsl-shaders", list);
 	}
 
+	if (as_debug)
+		mpv_request_log_messages(m, "warn");
 	if (mpv_initialize(m) < 0) {
 		mpv_terminate_destroy(m);
 		free(p);
@@ -610,6 +668,7 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_observe_property(m, OBSERVE_INTERNAL, "pause", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "paused-for-cache", MPV_FORMAT_NODE);
+	mpv_observe_property(m, OBSERVE_INTERNAL, "current-ao", MPV_FORMAT_NODE);
 	/* @mpv-prism/core counts these as observed without asking for them: its
 	 * native addon watches them on creation (MpvPrismPlayer.js, 0.1.9). */
 	static const char *const prism_defaults[] = {
@@ -853,11 +912,12 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 		p->presenter = 0;
 		p->has_rect = 0;
 		as_request_redraw();
-	} else if (!strcmp(op, "suspend-video-presenter")) {
-		p->suspended = 1;
-		as_request_redraw();
-	} else if (!strcmp(op, "resume-video-presenter")) {
-		p->suspended = 0;
+	} else if (!strcmp(op, "suspend-video-presenter") || !strcmp(op, "resume-video-presenter")) {
+		/* Ignored: mpv-prism suspends its web presenter when its <video> gets
+		 * no frames for a while ("stall": after a pause or a slow start) and
+		 * resumes only when frames reach it again. We draw natively, so they
+		 * never would and the picture stayed black. Visibility is handled
+		 * here (window_swap, on_screen). */
 		as_request_redraw();
 	} else if (!strcmp(op, "presenter-rect")) {
 		yyjson_val *rect = yyjson_arr_get(args, 2);

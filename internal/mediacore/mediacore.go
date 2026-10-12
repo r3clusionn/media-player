@@ -532,6 +532,9 @@ func (c *Coordinator) updateProgressOnCompletion(state player.PlaybackState) {
 	}
 
 	mediaID := state.PlaybackInfo.Media.GetID()
+	if mediaID <= 0 {
+		return // media-player: Movies & TV titles (synthetic IDs) are not on AniList
+	}
 	progress := state.PlaybackInfo.Episode.GetProgressNumber()
 	total := state.PlaybackInfo.Media.Episodes
 
@@ -572,6 +575,16 @@ func (c *Coordinator) restoreContinuity(info *player.PlaybackInfo) {
 		return
 	}
 
+	// media-player: Movies & TV titles (negative IDs) always resume, like Stremio.
+	if info.Media.GetID() < 0 {
+		h := c.continuityManager.GetWatchHistoryItem(info.Media.GetID())
+		if h != nil && h.Found && h.Item != nil && h.Item.EpisodeNumber == info.Episode.GetEpisodeNumber() &&
+			h.Item.CurrentTime > 0 && (h.Item.Duration <= 0 || h.Item.CurrentTime < h.Item.Duration*0.9) {
+			info.InitialState = &player.InitialState{CurrentTime: new(h.Item.CurrentTime)}
+		}
+		return
+	}
+
 	settings := c.continuityManager.GetSettings()
 	if settings == nil || !settings.WatchContinuityEnabled {
 		return
@@ -603,8 +616,8 @@ func (c *Coordinator) updateContinuityState(state player.PlaybackState, currentT
 		return
 	}
 	settings := c.continuityManager.GetSettings()
-	if settings == nil || !settings.WatchContinuityEnabled {
-		return
+	if (settings == nil || !settings.WatchContinuityEnabled) && state.PlaybackInfo.Media.GetID() >= 0 {
+		return // media-player: Movies & TV titles always keep their position
 	}
 
 	kind := continuity.MediastreamKind

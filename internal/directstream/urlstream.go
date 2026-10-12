@@ -92,3 +92,33 @@ func (m *Manager) PlayUrlStream(ctx context.Context, opts PlayUrlStreamOptions) 
 
 	return nil
 }
+
+// PlayMediaUrlStream plays a URL with a title and episode supplied by the
+// caller instead of an AniList episode collection (media-player's Movies & TV
+// section: titles with synthetic negative media IDs).
+func (m *Manager) PlayMediaUrlStream(ctx context.Context, streamURL, clientID string, media *anilist.BaseAnime, episode *anime.Episode) (err error) {
+	if !m.BeginOpen(clientID, "Loading stream...", nil) {
+		return fmt.Errorf("stream opening was cancelled")
+	}
+	defer func() {
+		if err != nil {
+			m.AbortOpen(clientID, err)
+		}
+	}()
+	stream := &UrlStream{
+		httpBaseStream: httpBaseStream{
+			streamUrl: streamURL,
+			BaseStream: BaseStream{
+				manager:               m,
+				logger:                m.Logger,
+				clientId:              clientID,
+				media:                 media,
+				episode:               episode,
+				subtitleEventCache:    result.NewMap[string, *mkvparser.SubtitleEvent](),
+				activeSubtitleStreams: result.NewMap[string, *SubtitleStream](),
+			},
+		},
+	}
+	go m.loadStream(stream)
+	return nil
+}

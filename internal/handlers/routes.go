@@ -565,6 +565,16 @@ func InitRoutes(app *core.App, e *echo.Echo) {
 	v1.POST("/debrid/torrents/info", h.HandleDebridGetTorrentInfo)
 	v1.POST("/debrid/torrents/file-previews", h.HandleDebridGetTorrentFilePreviews)
 	v1.POST("/debrid/stream/start", h.HandleDebridStartStream)
+
+	// media-player: Movies & TV
+	v1.GET("/stremio/catalog/:type/:id", h.HandleStremioCatalog)
+	v1.GET("/stremio/search", h.HandleStremioSearch)
+	v1.GET("/stremio/meta/:type/:id", h.HandleStremioMeta)
+	v1.GET("/stremio/streams/:type/:id", h.HandleStremioStreams)
+	v1.POST("/stremio/play", h.HandleStremioPlay)
+	v1.POST("/stremio/play-next", h.HandleStremioPlayNext)
+	v1.GET("/stremio/continue", h.HandleStremioContinue)
+	v1.POST("/stremio/forget", h.HandleStremioForget)
 	v1.POST("/debrid/stream/cancel", h.HandleDebridCancelStream)
 
 	//
