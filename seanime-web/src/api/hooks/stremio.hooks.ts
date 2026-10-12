@@ -124,7 +124,7 @@ export function useStremioContinue() {
 }
 
 export function useStremioPlay() {
-    return useServerMutation<boolean, { type: string, videoId: string, stream: Stremio_Stream, clientId?: string }>({
+    return useServerMutation<boolean, { type: string, videoId: string, stream: Stremio_Stream, fallback?: boolean, clientId?: string }>({
         endpoint: "/api/v1/stremio/play",
         method: "POST",
         mutationKey: [KEY, "play"],

@@ -68,6 +68,8 @@ if [ $INSTALL = 1 ]; then
 	OPT=$HOME/.local/opt/media-player
 	mkdir -p "$OPT" "$HOME/.local/bin"
 	cp -a --remove-destination "$DIST"/. "$OPT"/
+	# CEF ships with debug info (1.4 GB); the installed copy doesn't need it.
+	strip --strip-unneeded "$OPT/libcef.so"
 	ln -sfn "$OPT/media-player" "$HOME/.local/bin/media-player"
 	echo "installed: $OPT, linked from ~/.local/bin/media-player"
 fi

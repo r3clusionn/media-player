@@ -389,6 +389,9 @@ func dvOnly(hdr string) bool {
 	return strings.Contains(hdr, "DV") && !strings.Contains(hdr, "HDR")
 }
 
+// ErrNotReady: the add-on answered with a placeholder instead of the file.
+var ErrNotReady = errors.New("Real-Debrid is still preparing this file; pick another stream or try again in a minute")
+
 // Resolve follows an add-on's playback link to the final file URL and name.
 // Torrentio and Comet answer with a redirect to the Real-Debrid download.
 func (c *Client) Resolve(ctx context.Context, s Stream) (finalURL, filename string, err error) {
@@ -408,6 +411,12 @@ func (c *Client) Resolve(ctx context.Context, s Stream) (finalURL, filename stri
 		return "", "", fmt.Errorf("resolving the stream: %s", resp.Status)
 	}
 	finalURL = resp.Request.URL.String()
+	// With Real-Debrid the add-ons redirect to the file on an RD download
+	// host. Anything else is a placeholder clip (Torrentio's
+	// /videos/downloading_v3.mp4 while RD re-fetches a "cached" torrent).
+	if c.RDKey() != "" && !strings.HasSuffix(resp.Request.URL.Hostname(), "real-debrid.com") {
+		return "", "", ErrNotReady
+	}
 	ct := resp.Header.Get("Content-Type")
 	if strings.HasPrefix(ct, "text/") || strings.Contains(ct, "json") {
 		return "", "", errors.New("the add-on returned an error page instead of a video (the torrent may not be ready on Real-Debrid yet)")

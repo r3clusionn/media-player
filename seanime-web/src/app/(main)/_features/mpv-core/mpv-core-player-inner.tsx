@@ -636,7 +636,9 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
     const applyShaderSettings = React.useCallback(async (p: typeof player) => {
         if (!p) return
         try {
-            if (shaderSettings.mode === "off") {
+            // media-player: Movies & TV (synthetic negative media IDs) is live
+            // action; Anime4K is for anime and would only cost power there.
+            if (shaderSettings.mode === "off" || (infoRef.current?.media?.id ?? 0) < 0) {
                 await p.clearShaders()
                 setAnime4kError(null)
                 return
