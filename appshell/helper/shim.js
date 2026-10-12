@@ -163,7 +163,9 @@
         styleEl = document.createElement("style")
         styleEl.id = "appshell-video"
         styleEl.textContent =
-            "[data-mpv-prism-video],[data-mpv-prism-video-canvas]{opacity:0!important}" +
+            // display:none, not opacity:0: a transparent canvas or <video> still
+            // makes Chromium composite at the display rate (120 paints/s vs ~3).
+            "[data-mpv-prism-video],[data-mpv-prism-video-canvas]{display:none!important}" +
             "[data-mpv-prism-video-host]{background:transparent!important}" +
             ".appshell-see-through{background:transparent!important;background-color:transparent!important}"
         document.documentElement.appendChild(styleEl)
@@ -212,7 +214,7 @@
     }
 
     function updateHoles(p) {
-        const hr = p.el.getBoundingClientRect()
+        const hr = p.box.getBoundingClientRect()
         const holed = new Set()
         const host = p.el.closest("[data-mpv-prism-video-host]") || p.el.parentElement
         for (let n = host; n && n.parentElement && n !== document.documentElement; n = n.parentElement) {
@@ -229,7 +231,7 @@
     }
 
     function reportRect(p) {
-        const r = p.el.getBoundingClientRect()
+        const r = p.box.getBoundingClientRect()
         const visible = r.width > 1 && r.height > 1 && document.visibilityState === "visible"
         const key = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)},${visible}`
         if (key === p.lastKey) return
@@ -247,9 +249,11 @@
         if (!el) return
         ensureStyle()
         seeThrough(el, true)
-        const p = { playerId, presenterId, el, lastKey: "", ticks: 0, holed: new Set() }
+        // The video element itself is display:none; its host has the same box.
+        const box = el.closest("[data-mpv-prism-video-host]") || el.parentElement || el
+        const p = { playerId, presenterId, el, box, lastKey: "", ticks: 0, holed: new Set() }
         p.observer = new ResizeObserver(() => reportRect(p))
-        p.observer.observe(el)
+        p.observer.observe(box)
         // Position changes (scrolling, transforms, the mini player moving)
         // don't fire ResizeObserver; a cheap check every 100 ms catches them.
         p.timer = setInterval(() => {

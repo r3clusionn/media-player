@@ -2,13 +2,19 @@
 #ifndef APPSHELL_BRIDGE_H
 #define APPSHELL_BRIDGE_H
 
+#include <stdint.h>
 #include <yyjson.h>
 
 typedef struct reply_t {
 	yyjson_mut_doc *doc;  /* owns value */
 	yyjson_mut_val *value; /* NULL means undefined */
 	char error[256];       /* set => the page's promise rejects */
+	int64_t id;            /* the request's id (0: no reply wanted) */
+	int deferred;          /* the handler replies later with bridge_send_reply */
 } reply_t;
+
+/* A late reply: value_json is a JSON value (NULL = undefined), or error. */
+void bridge_send_reply(int64_t id, const char *value_json, const char *error);
 
 static inline void reply_error(reply_t *r, const char *msg)
 {
