@@ -194,6 +194,31 @@ func (t *RealDebrid) GetInstantAvailability(hashes []string) map[string]debrid.T
 
 	// Devnote: Endpoint doesn't exist anymore
 	//return t.getInstantAvailabilityT(hashes, 3, 100)
+
+	// media-player: RD removed instantAvailability (it answers 404
+	// "unknown_method"), so nothing looked cached and auto-select couldn't prefer
+	// fast releases. A torrent already downloaded on the account is the one cache
+	// that can still be known for sure: one list call marks those hashes cached.
+	want := make(map[string]bool, len(hashes))
+	for _, h := range hashes {
+		want[strings.ToLower(h)] = true
+	}
+	torrents, err := t.getTorrents(false)
+	if err != nil {
+		return availability
+	}
+	for _, tr := range torrents {
+		h := strings.ToLower(tr.Hash)
+		if want[h] && tr.Status == "downloaded" {
+			availability[h] = debrid.TorrentItemInstantAvailability{CachedFiles: map[string]*debrid.CachedFile{}}
+		}
+	}
+	// Callers look hashes up as given.
+	for _, orig := range hashes {
+		if a, ok := availability[strings.ToLower(orig)]; ok {
+			availability[orig] = a
+		}
+	}
 	return availability
 }
 

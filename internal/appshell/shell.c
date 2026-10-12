@@ -245,6 +245,17 @@ static void CEF_CALLBACK on_accelerated_paint(cef_render_handler_t *self, cef_br
 		     as_win_w, as_win_h);
 	}
 	compositor_page_from_dmabuf(type == PET_POPUP, info);
+	if (as_debug) {
+		static long paints;
+		static double since;
+		paints++;
+		if (as_now_ms() - since > 5000) {
+			if (since > 0)
+				DLOG("page paints: %.1f/s\n", paints * 1000.0 / (as_now_ms() - since));
+			since = as_now_ms();
+			paints = 0;
+		}
+	}
 	drop_browser(b);
 }
 
@@ -278,6 +289,35 @@ static int CEF_CALLBACK on_cursor_change(cef_display_handler_t *self, cef_browse
 	window_set_cursor(type);
 	drop_browser(b);
 	return 1;
+}
+
+/* With APPSHELL_DEBUG, the page's console goes to stderr (repeats collapsed). */
+static int CEF_CALLBACK on_console_message(cef_display_handler_t *self, cef_browser_t *b,
+					   cef_log_severity_t level, const cef_string_t *message,
+					   const cef_string_t *source, int line)
+{
+	(void)self; (void)level;
+	if (as_debug) {
+		static char last[512];
+		static int repeats;
+		char *m = utf8(message), *src = utf8(source);
+		char cur[512];
+		snprintf(cur, sizeof cur, "%.400s (%s:%d)", m, strrchr(src, '/') ? strrchr(src, '/') + 1 : src, line);
+		if (!strcmp(cur, last)) {
+			if (++repeats % 100 == 0)
+				fprintf(stderr, "appshell: console: (repeated %d times) %s\n", repeats, cur);
+		} else {
+			if (repeats)
+				fprintf(stderr, "appshell: console: (repeated %d times)\n", repeats);
+			repeats = 0;
+			snprintf(last, sizeof last, "%s", cur);
+			fprintf(stderr, "appshell: console: %s\n", cur);
+		}
+		free(m);
+		free(src);
+	}
+	drop_browser(b);
+	return 0;
 }
 
 static cef_display_handler_t display_handler;
@@ -463,6 +503,7 @@ static void init_objects(void)
 	display_handler.on_title_change = on_title_change;
 	display_handler.on_fullscreen_mode_change = on_fullscreen_mode_change;
 	display_handler.on_cursor_change = on_cursor_change;
+	display_handler.on_console_message = on_console_message;
 
 	init_base(&life_span.base, sizeof life_span);
 	life_span.on_before_popup = on_before_popup;

@@ -194,46 +194,27 @@ export function DebridStreamPage(props: DebridStreamPageProps) {
                     })
                     started = true
                 } else {
-                    // Only auto select the file index if the user is trying to watch the next episode
-                    if (batchHistory?.batchEpisodeFiles && selectedDebridService !== DEBRID_SERVICE.TORBOX) {
-                        let fileIndex: number | undefined = undefined
-
-                        console.log("handleEpisodeClick (batchHistory)",
-                            batchHistory?.batchEpisodeFiles,
-                            episode.aniDBEpisode,
-                            episode.episodeNumber)
-
-                        if (batchHistory?.batchEpisodeFiles.currentAniDBEpisode === episode.aniDBEpisode) {
-                            fileIndex = batchHistory.batchEpisodeFiles.current
-                        } else {
-                            // guess index based on the last selected file
-                            const offset = episode.episodeNumber - batchHistory.batchEpisodeFiles.currentEpisodeNumber
-                            const file = batchHistory.batchEpisodeFiles.files?.find(f => f.index === (batchHistory.batchEpisodeFiles?.current || 0) + offset)
-                            if (file) {
-                                fileIndex = file.index
-                                console.log("handleEpisodeClick (batchHistory) found file", file)
-                            }
-                        }
-
-                        if (fileIndex !== undefined) {
-                            forcePlaybackMethodFn(forcePlaybackMethod, () => {
-                                handleStreamSelection({
-                                    mediaId: entry.mediaId,
-                                    episodeNumber: episode.episodeNumber,
-                                    aniDBEpisode: episode.aniDBEpisode!,
-                                    torrent: batchHistory.torrent!,
-                                    chosenFileId: String(fileIndex),
-                                    batchEpisodeFiles: (batchHistory.batchEpisodeFiles) ? {
-                                        ...batchHistory.batchEpisodeFiles!,
-                                        files: batchHistory.batchEpisodeFiles!.files!,
-                                        current: fileIndex!,
-                                        currentAniDBEpisode: episode.aniDBEpisode!,
-                                        currentEpisodeNumber: episode.episodeNumber,
-                                    } : undefined,
-                                })
+                    // media-player: the previous batch is reused, and the server picks this
+                    // episode's file by season and episode (internal/episodematch). The saved
+                    // list stores positions, not Real-Debrid file IDs, and "previous position
+                    // + offset" lands on extras, other seasons or a nonexistent file ID 0.
+                    if (selectedDebridService !== DEBRID_SERVICE.TORBOX) {
+                        forcePlaybackMethodFn(forcePlaybackMethod, () => {
+                            handleStreamSelection({
+                                mediaId: entry.mediaId,
+                                episodeNumber: episode.episodeNumber,
+                                aniDBEpisode: episode.aniDBEpisode!,
+                                torrent: batchHistory.torrent!,
+                                chosenFileId: "",
+                                batchEpisodeFiles: batchHistory.batchEpisodeFiles ? {
+                                    ...batchHistory.batchEpisodeFiles,
+                                    files: batchHistory.batchEpisodeFiles.files!,
+                                    currentAniDBEpisode: episode.aniDBEpisode!,
+                                    currentEpisodeNumber: episode.episodeNumber,
+                                } : undefined,
                             })
-                            started = true
-                        }
+                        })
+                        started = true
                     }
                 }
             }

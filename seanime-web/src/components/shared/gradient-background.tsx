@@ -92,12 +92,21 @@ export const GradientBackground: React.FC<GradientBackgroundProps> = ({
         let width = startingGap
         let directionWidth = 1
 
-        const animateGradient = () => {
+        // media-player: the loop repainted the whole window at the display rate
+        // (120 Hz) for a slow "breathing" effect; 30 fps looks the same, and a
+        // static gradient needs no loop at all.
+        let lastFrame = 0
+        const animateGradient = (now?: number) => {
+            if (now !== undefined && now - lastFrame < 33) {
+                animationFrame = requestAnimationFrame(animateGradient)
+                return
+            }
+            lastFrame = now ?? 0
             if (width >= startingGap + breathingRange) directionWidth = -1
             if (width <= startingGap - breathingRange) directionWidth = 1
 
             if (!Breathing) directionWidth = 0
-            width += directionWidth * animationSpeed
+            width += directionWidth * animationSpeed * 4 // 4x per frame at 30 fps keeps the old speed
 
             const gradientStopsString = gradientStops
                 .map((stop, index) => `${gradientColors[index]} ${stop}%`)
@@ -109,6 +118,7 @@ export const GradientBackground: React.FC<GradientBackgroundProps> = ({
                 containerRef.current.style.background = gradient
             }
 
+            if (!Breathing) return
             animationFrame = requestAnimationFrame(animateGradient)
         }
 

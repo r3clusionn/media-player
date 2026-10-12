@@ -41,6 +41,8 @@ typedef struct player {
 	char observed[MAX_OBSERVED][64];
 	int nobserved;
 	int paused, idle, loaded;
+	int paused_for_cache;
+	char *buffering_json; /* last cache-buffering-state value */
 	/* Property changes waiting to go to the page: latest JSON value per name. */
 	char *pend_name[MAX_OBSERVED];
 	char *pend_json[MAX_OBSERVED];
@@ -50,6 +52,9 @@ typedef struct player {
 } player;
 
 static player *players;
+
+#define REPLY_BASE 1000 /* reply_userdata of requests; observe ids are 1 and 2 */
+static void answer(uint64_t token, int error, const char *value_json);
 
 static player *find(const char *id)
 {
@@ -286,6 +291,25 @@ void player_process_events(void)
 			char state[512];
 			state[0] = 0;
 			switch (e->event_id) {
+			case MPV_EVENT_COMMAND_REPLY:
+			case MPV_EVENT_SET_PROPERTY_REPLY:
+				if (e->reply_userdata >= REPLY_BASE)
+					answer(e->reply_userdata, e->error, NULL);
+				break;
+			case MPV_EVENT_GET_PROPERTY_REPLY:
+				if (e->reply_userdata >= REPLY_BASE) {
+					mpv_event_property *pr = e->data;
+					char *json = NULL;
+					if (e->error >= 0 && pr->format == MPV_FORMAT_NODE) {
+						yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+						json = yyjson_mut_val_write(node_to_json(d, pr->data), 0, NULL);
+						yyjson_mut_doc_free(d);
+					}
+					/* A missing property reads as null, as before. */
+					answer(e->reply_userdata, 0, json ? json : "null");
+					free(json);
+				}
+				break;
 			case MPV_EVENT_PROPERTY_CHANGE: {
 				mpv_event_property *pr = e->data;
 				if (e->reply_userdata == OBSERVE_INTERNAL) {
@@ -294,6 +318,12 @@ void player_process_events(void)
 						   ((mpv_node *)pr->data)->u.flag;
 					if (!strcmp(pr->name, "pause")) p->paused = flag;
 					else if (!strcmp(pr->name, "core-idle")) p->idle = flag;
+					else if (!strcmp(pr->name, "paused-for-cache")) {
+						p->paused_for_cache = flag;
+						queue_property(p, "cache-buffering-state",
+							       strdup(flag && p->buffering_json ? p->buffering_json : "0"));
+						urgent = 1;
+					}
 					update_playing();
 					break;
 				}
@@ -302,6 +332,14 @@ void player_process_events(void)
 					? node_to_json(d, pr->data) : yyjson_mut_null(d);
 				char *json = yyjson_mut_val_write(v, 0, NULL);
 				yyjson_mut_doc_free(d);
+				/* mpv reports 100 when the cache is full; Seanime's player takes any
+				 * value above 0 as "buffering" and would show its spinner forever.
+				 * Report it only while playback actually waits for the cache. */
+				if (json && !strcmp(pr->name, "cache-buffering-state")) {
+					free(p->buffering_json);
+					p->buffering_json = json;
+					json = strdup(p->paused_for_cache ? p->buffering_json : "0");
+				}
 				if (json)
 					queue_property(p, pr->name, json);
 				if (urgent_property(pr->name))
@@ -461,6 +499,7 @@ static void destroy(player *p)
 		free(p->pend_name[i]);
 		free(p->pend_json[i]);
 	}
+	free(p->buffering_json);
 	free(p);
 	update_playing();
 	as_request_redraw();
@@ -570,6 +609,7 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 
 	mpv_observe_property(m, OBSERVE_INTERNAL, "pause", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
+	mpv_observe_property(m, OBSERVE_INTERNAL, "paused-for-cache", MPV_FORMAT_NODE);
 	/* @mpv-prism/core counts these as observed without asking for them: its
 	 * native addon watches them on creation (MpvPrismPlayer.js, 0.1.9). */
 	static const char *const prism_defaults[] = {
@@ -593,17 +633,72 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	r->value = yyjson_mut_true(r->doc);
 }
 
+/*
+ * Requests run asynchronously. With the render API, some mpv calls (shader,
+ * deband and other video-output changes) wait for the render thread, which is
+ * this thread: a synchronous call from here deadlocked the whole window. The
+ * page's promise is answered when mpv's reply event arrives
+ * (player_process_events).
+ */
+static uint64_t next_token = REPLY_BASE;
+
+typedef struct pending_reply {
+	uint64_t token;
+	int64_t id;
+	char what[64];
+	struct pending_reply *next;
+} pending_reply;
+static pending_reply *pending_replies;
+
+static uint64_t defer(reply_t *r, const char *what)
+{
+	uint64_t token = next_token++;
+	if (r->id > 0) {
+		pending_reply *pr = calloc(1, sizeof *pr);
+		pr->token = token;
+		pr->id = r->id;
+		snprintf(pr->what, sizeof pr->what, "%s", what);
+		pr->next = pending_replies;
+		pending_replies = pr;
+		r->deferred = 1;
+	}
+	return token;
+}
+
+static void answer(uint64_t token, int error, const char *value_json)
+{
+	for (pending_reply **pp = &pending_replies; *pp; pp = &(*pp)->next) {
+		pending_reply *pr = *pp;
+		if (pr->token != token)
+			continue;
+		*pp = pr->next;
+		if (error < 0) {
+			char msg[200];
+			snprintf(msg, sizeof msg, "%s: %s", pr->what, mpv_error_string(error));
+			bridge_send_reply(pr->id, NULL, msg);
+		} else {
+			bridge_send_reply(pr->id, value_json, NULL);
+		}
+		free(pr);
+		return;
+	}
+}
+
 static void command_strings(player *p, reply_t *r, const char **argv)
 {
-	int err = mpv_command(p->mpv, argv);
-	if (err < 0)
+	int err = mpv_command_async(p->mpv, defer(r, argv[0]), argv);
+	if (err < 0) {
+		r->deferred = 0;
 		reply_error(r, mpv_error_string(err));
+	}
 }
 
 static void set_string(player *p, reply_t *r, const char *name, const char *value)
 {
-	int err = mpv_set_property_string(p->mpv, name, value);
+	char *v = (char *)value;
+	int err = mpv_set_property_async(p->mpv, defer(r, name), name, MPV_FORMAT_STRING, &v);
 	if (err < 0) {
+		r->deferred = 0;
 		char msg[200];
 		snprintf(msg, sizeof msg, "%s: %s", name, mpv_error_string(err));
 		reply_error(r, msg);
@@ -720,11 +815,8 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 		}
 	} else if (!strcmp(op, "get-property")) {
 		const char *name = arg_str(args, 1);
-		mpv_node n;
-		if (name && mpv_get_property(p->mpv, name, MPV_FORMAT_NODE, &n) >= 0) {
-			r->value = node_to_json(r->doc, &n);
-			mpv_free_node_contents(&n);
-		} else {
+		if (!name || mpv_get_property_async(p->mpv, defer(r, name), name, MPV_FORMAT_NODE) < 0) {
+			r->deferred = 0;
 			r->value = yyjson_mut_null(r->doc);
 		}
 	} else if (!strcmp(op, "observe-property")) {
@@ -792,7 +884,7 @@ static void reload_audio_outputs(void)
 {
 	for (player *p = players; p; p = p->next) {
 		const char *argv[] = {"ao-reload", NULL};
-		mpv_command(p->mpv, argv);
+		mpv_command_async(p->mpv, 0, argv);
 	}
 }
 

@@ -468,13 +468,13 @@ void bridge_handle_message(const char *json)
 	int64_t id = yyjson_get_sint(yyjson_obj_get(root, "id"));
 	const char *ch = yyjson_get_str(yyjson_obj_get(root, "ch"));
 	yyjson_val *args = yyjson_obj_get(root, "args");
-	reply_t r = {.doc = yyjson_mut_doc_new(NULL)};
+	reply_t r = {.doc = yyjson_mut_doc_new(NULL), .id = id};
 	if (ch)
 		handle(ch, args, &r);
 	else
 		reply_error(&r, "missing channel");
 
-	if (id > 0) {
+	if (id > 0 && !r.deferred) {
 		yyjson_mut_val *out = yyjson_mut_obj(r.doc);
 		yyjson_mut_obj_add_int(r.doc, out, "id", id);
 		if (r.error[0])
@@ -492,6 +492,30 @@ void bridge_handle_message(const char *json)
 	}
 	yyjson_mut_doc_free(r.doc);
 	yyjson_doc_free(doc);
+}
+
+void bridge_send_reply(int64_t id, const char *value_json, const char *error)
+{
+	if (id <= 0)
+		return;
+	yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+	yyjson_mut_val *o = yyjson_mut_obj(d);
+	yyjson_mut_obj_add_int(d, o, "id", id);
+	if (error) {
+		yyjson_mut_obj_add_strcpy(d, o, "error", error);
+	} else if (value_json) {
+		yyjson_doc *v = yyjson_read(value_json, strlen(value_json), 0);
+		if (v)
+			yyjson_mut_obj_add_val(d, o, "value", yyjson_val_mut_copy(d, yyjson_doc_get_root(v)));
+		yyjson_doc_free(v);
+	}
+	yyjson_mut_doc_set_root(d, o);
+	char *s = yyjson_mut_write(d, 0, NULL);
+	if (s) {
+		as_page_send_raw(s);
+		free(s);
+	}
+	yyjson_mut_doc_free(d);
 }
 
 void bridge_send_event(const char *channel, const char *args_json)
