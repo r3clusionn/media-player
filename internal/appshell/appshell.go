@@ -9,7 +9,7 @@ package appshell
 
 /*
 #cgo CFLAGS: -std=gnu11 -O2 -march=native -I${SRCDIR}/../../third_party/cef -I/usr/include/libdrm -Wall -Wno-unused-parameter -Wno-format-truncation
-#cgo LDFLAGS: -L${SRCDIR}/../../third_party/runtime -lcef -lmpv -lX11 -lXss -lXext -lEGL -lGLESv2 -lyyjson
+#cgo LDFLAGS: -L${SRCDIR}/../../third_party/runtime -lcef -lmpv -lX11 -lXss -lXi -lXext -lEGL -lGLESv2 -lyyjson
 #include <stdlib.h>
 #include "appshell.h"
 */
@@ -36,6 +36,9 @@ type Options struct {
 
 // Run opens the window and returns when it is closed. It must be called on
 // the main OS thread (runtime.LockOSThread in the main package's init).
+// Quit closes the window; Run then returns. Safe from any goroutine.
+func Quit() { C.appshell_request_quit() }
+
 func Run(o Options) int {
 	var frees []unsafe.Pointer
 	cs := func(s string) *C.char {

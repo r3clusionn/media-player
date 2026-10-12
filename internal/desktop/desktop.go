@@ -12,9 +12,11 @@ import (
 	"path/filepath"
 	"time"
 
+	"os/signal"
 	"seanime/internal/appshell"
 	"seanime/internal/core"
 	"seanime/internal/server"
+	"syscall"
 )
 
 const port = 43211
@@ -60,6 +62,15 @@ func Run(webFS embed.FS, logo []byte) int {
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
+
+	// SIGTERM/SIGINT/SIGHUP close the window properly (CEF and mpv shut down,
+	// no helper processes left behind) instead of Go's immediate exit.
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGTERM, syscall.SIGINT, syscall.SIGHUP)
+	go func() {
+		<-sigs
+		appshell.Quit()
+	}()
 
 	return appshell.Run(appshell.Options{
 		URL:          fmt.Sprintf("http://127.0.0.1:%d/", port),

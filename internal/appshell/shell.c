@@ -15,6 +15,7 @@
 #include "include/cef_api_hash.h"
 
 #include <errno.h>
+#include <pthread.h>
 #include <signal.h>
 #include <poll.h>
 #include <stdatomic.h>
@@ -34,6 +35,7 @@ int as_debug; /* APPSHELL_DEBUG=1 */
 #define DLOG AS_LOG
 static atomic_llong pump_due = 0; /* ms when CEF's work is next due */
 static int quitting, closed;
+static atomic_int quit_requested; /* appshell_request_quit, any thread */
 static volatile sig_atomic_t shot_requested; /* SIGUSR1 with APPSHELL_SHOT=file.ppm */
 /* Copied before CEF starts: Chromium reuses the environment's memory for the
  * process title, so later getenv() results can read as garbage. */
@@ -85,6 +87,21 @@ void as_wake(void)
 }
 
 void as_request_redraw(void) { redraw = 1; }
+
+void appshell_request_quit(void)
+{
+	atomic_store(&quit_requested, 1);
+	as_wake();
+}
+
+static void *quit_watchdog(void *arg)
+{
+	(void)arg;
+	sleep(3);
+	fprintf(stderr, "appshell: shutdown took over 3 s, exiting\n");
+	_exit(0);
+	return NULL;
+}
 
 void as_quit(void)
 {
@@ -587,6 +604,12 @@ int appshell_run(const appshell_opts *o)
 
 	int xfd = ConnectionNumber(as_dpy);
 	while (!closed) {
+		if (atomic_exchange(&quit_requested, 0) && !quitting) {
+			pthread_t t;
+			if (pthread_create(&t, NULL, quit_watchdog, NULL) == 0)
+				pthread_detach(t);
+			as_quit();
+		}
 		window_handle_events();
 		/* CEF announces most work through on_schedule_message_pump_work, but
 		 * not all of it: like cefclient's external pump, run it at least
