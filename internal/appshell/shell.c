@@ -30,8 +30,8 @@ cef_browser_t *as_browser;
 int as_wake_fd = -1;
 
 static int redraw = 1;
-static int debug_log; /* APPSHELL_DEBUG=1 */
-#define DLOG(...) do { if (debug_log) fprintf(stderr, "appshell: " __VA_ARGS__); } while (0)
+int as_debug; /* APPSHELL_DEBUG=1 */
+#define DLOG AS_LOG
 static atomic_llong pump_due = 0; /* ms when CEF's work is next due */
 static int quitting, closed;
 static volatile sig_atomic_t shot_requested; /* SIGUSR1 with APPSHELL_SHOT=file.ppm */
@@ -489,7 +489,7 @@ static void init_objects(void)
 int appshell_run(const appshell_opts *o)
 {
 	as_opts = o;
-	debug_log = getenv("APPSHELL_DEBUG") != NULL;
+	as_debug = getenv("APPSHELL_DEBUG") != NULL;
 	snprintf(as_home, sizeof as_home, "%s", getenv("HOME") ? getenv("HOME") : "");
 	snprintf(as_runtime_dir, sizeof as_runtime_dir, "%s",
 		 getenv("XDG_RUNTIME_DIR") ? getenv("XDG_RUNTIME_DIR") : "/tmp");

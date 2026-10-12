@@ -55,6 +55,8 @@ double as_now_ms(void);
 /* Copied at startup (see shell.c: Chromium reuses the environment's memory). */
 extern char as_home[4096], as_runtime_dir[4096];
 void as_page_send_raw(const char *json); /* window.__appshellRecv(json) */
+extern int as_debug; /* APPSHELL_DEBUG */
+#define AS_LOG(...) do { if (as_debug) fprintf(stderr, "appshell: " __VA_ARGS__); } while (0)
 
 /* ---- window.c --------------------------------------------------------- */
 

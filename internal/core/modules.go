@@ -53,6 +53,11 @@ import (
 // initModulesOnce will initialize modules that need to persist.
 // This function is called once after the App instance is created.
 // The settings of these modules will be set/refreshed in InitOrRefreshModules.
+
+// ForceMpvCore makes direct streams play in mpvcore whatever the settings say.
+// Set by the standalone desktop mode (internal/desktop) before the server starts.
+var ForceMpvCore bool
+
 func (a *App) initModulesOnce() {
 
 	_, _ = util.InitIOSDocumentsDir()
@@ -478,6 +483,14 @@ func (a *App) InitOrRefreshModules() {
 	}
 
 	a.Settings = settings // Store settings instance in app
+	// media-player: in the standalone window libmpv is the only player that
+	// works (its Chromium can't decode MKV/HEVC), so the UI sees mpvcore on.
+	if ForceMpvCore && settings.MediaPlayer != nil && !settings.MediaPlayer.MpvPrismEnabled {
+		settings.MediaPlayer.MpvPrismEnabled = true
+		if _, err := a.Database.UpsertSettings(settings); err != nil {
+			a.Logger.Warn().Err(err).Msg("app: Could not save mpvPrismEnabled")
+		}
+	}
 	if settings.Library != nil {
 		a.LibraryDir = settings.GetLibrary().LibraryPath
 
@@ -569,7 +582,9 @@ func (a *App) InitOrRefreshModules() {
 		})
 
 		playbackTarget := directstream.PlaybackTargetVideoCore
-		if a.Settings.GetMediaPlayer().MpvPrismEnabled {
+		// media-player: the standalone window always plays through libmpv; its
+		// Chromium can't decode MKV/HEVC for the HTML5 player.
+		if a.Settings.GetMediaPlayer().MpvPrismEnabled || ForceMpvCore {
 			playbackTarget = directstream.PlaybackTargetMpvCore
 		}
 		a.DirectStreamManager.SetPlaybackTarget(playbackTarget)

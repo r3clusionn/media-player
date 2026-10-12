@@ -281,43 +281,122 @@ func (t *RealDebrid) getInstantAvailabilityT(hashes []string, retries int, limit
 }
 
 func (t *RealDebrid) AddTorrent(opts debrid.AddTorrentOptions) (string, error) {
+	if opts.SelectFileId != "" {
+		return t.addTorrentForFile(opts)
+	}
 
 	// Check if the torrent is already added
 	// If it is, return the torrent ID
-	torrentId := ""
 	if opts.InfoHash != "" {
 		torrents, err := t.getTorrents(false)
 		if err == nil {
 			for _, torrent := range torrents {
 				if strings.EqualFold(torrent.Hash, opts.InfoHash) {
 					t.logger.Debug().Str("torrentId", torrent.ID).Msg("realdebrid: Torrent already added")
-					torrentId = torrent.ID
-					break
+					return torrent.ID, nil
 				}
 			}
 		}
-		time.Sleep(1 * time.Second)
 	}
 
-	// If the torrent wasn't already added, add it
-	if torrentId == "" {
-		resp, err := t.addMagnet(opts.MagnetLink)
-		if err != nil {
-			return "", err
+	resp, err := t.addMagnet(opts.MagnetLink)
+	if err != nil {
+		return "", err
+	}
+	return resp.ID, nil
+}
+
+// addTorrentForFile gets one file of a torrent ready to stream.
+//
+// media-player: upstream selected every file of the torrent. For a batch Real-
+// Debrid doesn't have cached, that downloads the whole batch (42 GB for one
+// Frieren season, about 40 minutes at RD's speed) before episode 1 can play.
+// Instead:
+//  1. a torrent already on the account that has the file (ready or coming) is reused;
+//  2. otherwise the whole torrent is requested, and kept only if RD has it
+//     cached (then the next episodes are instant too);
+//  3. otherwise only this file is requested: cached, or a short download.
+func (t *RealDebrid) addTorrentForFile(opts debrid.AddTorrentOptions) (string, error) {
+	want := opts.SelectFileId
+
+	if opts.InfoHash != "" {
+		if torrents, err := t.getTorrents(false); err == nil {
+			for _, torrent := range torrents {
+				if !strings.EqualFold(torrent.Hash, opts.InfoHash) {
+					continue
+				}
+				info, err := t.getTorrentInfo(torrent.ID)
+				if err != nil || !fileSelected(info, want) || isFailedStatus(info.Status) {
+					continue
+				}
+				t.logger.Debug().Str("torrentId", torrent.ID).Str("status", info.Status).
+					Msg("realdebrid: Reusing a torrent on the account that has the file")
+				return torrent.ID, nil
+			}
 		}
-		torrentId = resp.ID
 	}
 
-	// If a file ID is provided, select the file to start downloading it
-	if opts.SelectFileId != "" {
-		// Select the file to download
-		err := t.selectCachedFiles(torrentId, opts.SelectFileId)
-		if err != nil {
-			return "", err
+	// The whole torrent, if RD has it cached.
+	resp, err := t.addMagnet(opts.MagnetLink)
+	if err != nil {
+		return "", err
+	}
+	if err := t._selectFiles(resp.ID, "all"); err == nil {
+		if t.waitDownloaded(resp.ID, 4, 750*time.Millisecond) {
+			t.logger.Debug().Str("torrentId", resp.ID).Msg("realdebrid: Whole torrent is cached")
+			return resp.ID, nil
 		}
 	}
+	_ = t.DeleteTorrent(resp.ID)
 
-	return torrentId, nil
+	// Only this file.
+	resp, err = t.addMagnet(opts.MagnetLink)
+	if err != nil {
+		return "", err
+	}
+	if err := t._selectFiles(resp.ID, want); err != nil {
+		return "", err
+	}
+	cached := t.waitDownloaded(resp.ID, 2, 750*time.Millisecond)
+	t.logger.Debug().Str("torrentId", resp.ID).Bool("cached", cached).
+		Msg("realdebrid: Selected only the file to stream")
+	return resp.ID, nil
+}
+
+func fileSelected(info *TorrentInfo, fileId string) bool {
+	for _, f := range info.Files {
+		if strconv.Itoa(f.ID) == fileId && f.Selected == 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func isFailedStatus(status string) bool {
+	switch status {
+	case "magnet_error", "error", "virus", "dead":
+		return true
+	}
+	return false
+}
+
+// waitDownloaded polls a torrent's status: a cached torrent turns
+// "downloaded" within a second or two of its files being selected.
+func (t *RealDebrid) waitDownloaded(id string, tries int, every time.Duration) bool {
+	for i := 0; i < tries; i++ {
+		time.Sleep(every)
+		info, err := t.getTorrentInfo(id)
+		if err != nil {
+			continue
+		}
+		if info.Status == "downloaded" {
+			return true
+		}
+		if isFailedStatus(info.Status) {
+			return false
+		}
+	}
+	return false
 }
 
 // GetTorrentStreamUrl blocks until the torrent is downloaded and returns the stream URL for the torrent file by calling GetTorrentDownloadUrl.

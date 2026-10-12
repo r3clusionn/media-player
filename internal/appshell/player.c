@@ -15,6 +15,8 @@
 #include <mpv/render_gl.h>
 
 #include <math.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +41,11 @@ typedef struct player {
 	char observed[MAX_OBSERVED][64];
 	int nobserved;
 	int paused, idle, loaded;
+	/* Property changes waiting to go to the page: latest JSON value per name. */
+	char *pend_name[MAX_OBSERVED];
+	char *pend_json[MAX_OBSERVED];
+	int npend;
+	double last_flush;
 	struct player *next;
 } player;
 
@@ -69,6 +76,36 @@ static void on_wakeup(void *ctx)
 {
 	(void)ctx;
 	as_wake();
+}
+
+/*
+ * Audio on this laptop is on demand: PipeWire only runs after F2 or
+ * `audio ensure`, and mpv here has no other audio output. Start it before
+ * playing (the script waits for the default sink) and tell players that are
+ * already open to reopen their audio output.
+ */
+static void reload_audio_outputs(void);
+
+static void ensure_audio(void)
+{
+	char sock[4200];
+	snprintf(sock, sizeof sock, "%s/pipewire-0", as_runtime_dir);
+	if (access(sock, F_OK) == 0 || access("/usr/local/bin/audio", X_OK) != 0)
+		return;
+	AS_LOG("starting audio (audio ensure)\n");
+	pid_t pid = fork();
+	if (pid == 0) {
+		execl("/usr/local/bin/audio", "audio", "ensure", (char *)NULL);
+		_exit(127);
+	}
+	if (pid > 0)
+		waitpid(pid, NULL, 0);
+	/* The status bar shows the audio state. */
+	if (fork() == 0) {
+		execlp("pkill", "pkill", "-USR1", "-x", "dwmstat", (char *)NULL);
+		_exit(127);
+	}
+	reload_audio_outputs();
 }
 
 /* ---- mpv node <-> JSON ------------------------------------------------- */
@@ -121,18 +158,103 @@ static int json_to_option_string(yyjson_val *v, char *out, size_t n)
 
 /* ---- events to the page ------------------------------------------------ */
 
-static void send_event(player *p, yyjson_mut_doc *d, yyjson_mut_val *ev)
+/*
+ * Property changes are batched: one message per player carrying the latest
+ * value of every changed property, at most every 100 ms for values that change
+ * every frame (time-pos, avsync, cache state...). Changes that matter at once
+ * (pause, end of file, tracks) flush immediately, and state events (file
+ * loaded, end of file...) flush pending properties first to keep the order.
+ * Sending each change as its own call kept the page's renderer at 45% CPU.
+ */
+#define FLUSH_MS 100
+
+static int urgent_property(const char *name)
 {
-	yyjson_mut_val *o = yyjson_mut_obj(d);
-	yyjson_mut_obj_add_str(d, o, "event", "mpv-prism:event");
-	yyjson_mut_val *data = yyjson_mut_obj_add_obj(d, o, "data");
-	yyjson_mut_obj_add_strcpy(d, data, "playerId", p->id);
-	yyjson_mut_obj_add_val(d, data, "event", ev);
-	char *s = yyjson_mut_val_write(o, 0, NULL);
-	if (s) {
-		as_page_send_raw(s);
-		free(s);
+	static const char *const list[] = {
+		"pause", "eof-reached", "idle-active", "core-idle", "track-list", "aid", "sid",
+		"vid", "duration", "path", "media-title", "video-params", "sub-text", "sub-start",
+		"sub-end", "sub-visibility", "chapter-list", "speed", "volume", "mute", NULL};
+	for (int i = 0; list[i]; i++)
+		if (!strcmp(name, list[i]))
+			return 1;
+	return 0;
+}
+
+static void str_append(char **buf, size_t *len, size_t *cap, const char *s)
+{
+	size_t n = strlen(s);
+	if (*len + n + 1 > *cap) {
+		*cap = (*len + n + 1) * 2;
+		*buf = realloc(*buf, *cap);
 	}
+	memcpy(*buf + *len, s, n + 1);
+	*len += n;
+}
+
+/* JSON-quoted copy of a plain identifier (player ids and property names are
+ * restricted by mpv-prism to [A-Za-z0-9_.:/-]). */
+static void append_quoted(char **buf, size_t *len, size_t *cap, const char *s)
+{
+	str_append(buf, len, cap, "\"");
+	char one[2] = {0};
+	for (; *s; s++) {
+		if (*s == '"' || *s == '\\' || (unsigned char)*s < 0x20)
+			continue;
+		one[0] = *s;
+		str_append(buf, len, cap, one);
+	}
+	str_append(buf, len, cap, "\"");
+}
+
+/* Sends the pending properties, plus one state event (JSON object) if given. */
+static void flush_events(player *p, const char *state_event_json)
+{
+	if (!p->npend && !state_event_json)
+		return;
+	char *buf = NULL;
+	size_t len = 0, cap = 0;
+	str_append(&buf, &len, &cap, "{\"event\":\"mpv-prism:events\",\"playerId\":");
+	append_quoted(&buf, &len, &cap, p->id);
+	str_append(&buf, &len, &cap, ",\"events\":[");
+	for (int i = 0; i < p->npend; i++) {
+		if (i)
+			str_append(&buf, &len, &cap, ",");
+		str_append(&buf, &len, &cap, "{\"type\":\"property-change\",\"name\":");
+		append_quoted(&buf, &len, &cap, p->pend_name[i]);
+		str_append(&buf, &len, &cap, ",\"value\":");
+		str_append(&buf, &len, &cap, p->pend_json[i]);
+		str_append(&buf, &len, &cap, "}");
+		free(p->pend_name[i]);
+		free(p->pend_json[i]);
+	}
+	if (state_event_json) {
+		if (p->npend)
+			str_append(&buf, &len, &cap, ",");
+		str_append(&buf, &len, &cap, state_event_json);
+	}
+	str_append(&buf, &len, &cap, "]}");
+	p->npend = 0;
+	p->last_flush = as_now_ms();
+	as_page_send_raw(buf);
+	free(buf);
+}
+
+static void queue_property(player *p, const char *name, char *json /* owned */)
+{
+	for (int i = 0; i < p->npend; i++) {
+		if (!strcmp(p->pend_name[i], name)) {
+			free(p->pend_json[i]);
+			p->pend_json[i] = json;
+			return;
+		}
+	}
+	if (p->npend >= MAX_OBSERVED) {
+		free(json);
+		return;
+	}
+	p->pend_name[p->npend] = strdup(name);
+	p->pend_json[p->npend] = json;
+	p->npend++;
 }
 
 static void update_playing(void)
@@ -154,17 +276,15 @@ static const char *end_reason(mpv_end_file_reason r)
 
 void player_process_events(void)
 {
+	double now = as_now_ms();
 	for (player *p = players; p; p = p->next) {
-		/* Latest value per property; sent once per batch (time-pos changes every frame). */
-		yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
-		const char *names[MAX_OBSERVED];
-		yyjson_mut_val *values[MAX_OBSERVED];
-		int nprops = 0;
+		int urgent = 0;
 		for (;;) {
 			mpv_event *e = mpv_wait_event(p->mpv, 0);
 			if (e->event_id == MPV_EVENT_NONE)
 				break;
-			yyjson_mut_val *ev = NULL;
+			char state[512];
+			state[0] = 0;
 			switch (e->event_id) {
 			case MPV_EVENT_PROPERTY_CHANGE: {
 				mpv_event_property *pr = e->data;
@@ -177,68 +297,49 @@ void player_process_events(void)
 					update_playing();
 					break;
 				}
+				yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
 				yyjson_mut_val *v = pr->format == MPV_FORMAT_NODE
 					? node_to_json(d, pr->data) : yyjson_mut_null(d);
-				int i;
-				for (i = 0; i < nprops; i++)
-					if (!strcmp(names[i], pr->name))
-						break;
-				if (i == nprops && nprops < MAX_OBSERVED)
-					names[nprops++] = yyjson_mut_get_str(yyjson_mut_strcpy(d, pr->name));
-				if (i < MAX_OBSERVED)
-					values[i] = v;
+				char *json = yyjson_mut_val_write(v, 0, NULL);
+				yyjson_mut_doc_free(d);
+				if (json)
+					queue_property(p, pr->name, json);
+				if (urgent_property(pr->name))
+					urgent = 1;
 				break;
 			}
 			case MPV_EVENT_FILE_LOADED:
 				p->loaded = 1;
-				ev = yyjson_mut_obj(d);
-				yyjson_mut_obj_add_str(d, ev, "type", "file-loaded");
+				snprintf(state, sizeof state, "{\"type\":\"file-loaded\"}");
 				update_playing();
 				break;
 			case MPV_EVENT_PLAYBACK_RESTART:
-				ev = yyjson_mut_obj(d);
-				yyjson_mut_obj_add_str(d, ev, "type", "playback-restart");
+				snprintf(state, sizeof state, "{\"type\":\"playback-restart\"}");
 				break;
 			case MPV_EVENT_END_FILE: {
 				mpv_event_end_file *ef = e->data;
 				p->loaded = 0;
-				ev = yyjson_mut_obj(d);
-				yyjson_mut_obj_add_str(d, ev, "type", "end-file");
-				yyjson_mut_obj_add_str(d, ev, "reason", end_reason(ef->reason));
-				yyjson_mut_obj_add_int(d, ev, "numericReason", ef->reason);
 				if (ef->reason == MPV_END_FILE_REASON_ERROR)
-					yyjson_mut_obj_add_strcpy(d, ev, "error", mpv_error_string(ef->error));
+					snprintf(state, sizeof state,
+						 "{\"type\":\"end-file\",\"reason\":\"error\",\"numericReason\":%d,\"error\":\"%s\"}",
+						 ef->reason, mpv_error_string(ef->error));
+				else
+					snprintf(state, sizeof state, "{\"type\":\"end-file\",\"reason\":\"%s\",\"numericReason\":%d}",
+						 end_reason(ef->reason), ef->reason);
 				update_playing();
 				break;
 			}
 			case MPV_EVENT_SHUTDOWN:
-				ev = yyjson_mut_obj(d);
-				yyjson_mut_obj_add_str(d, ev, "type", "shutdown");
+				snprintf(state, sizeof state, "{\"type\":\"shutdown\"}");
 				break;
 			default:
 				break;
 			}
-			if (ev) {
-				/* Keep order: flush pending properties before a state event. */
-				for (int i = 0; i < nprops; i++) {
-					yyjson_mut_val *pe = yyjson_mut_obj(d);
-					yyjson_mut_obj_add_str(d, pe, "type", "property-change");
-					yyjson_mut_obj_add_str(d, pe, "name", names[i]);
-					yyjson_mut_obj_add_val(d, pe, "value", values[i]);
-					send_event(p, d, pe);
-				}
-				nprops = 0;
-				send_event(p, d, ev);
-			}
+			if (state[0])
+				flush_events(p, state);
 		}
-		for (int i = 0; i < nprops; i++) {
-			yyjson_mut_val *pe = yyjson_mut_obj(d);
-			yyjson_mut_obj_add_str(d, pe, "type", "property-change");
-			yyjson_mut_obj_add_str(d, pe, "name", names[i]);
-			yyjson_mut_obj_add_val(d, pe, "value", values[i]);
-			send_event(p, d, pe);
-		}
-		yyjson_mut_doc_free(d);
+		if (p->npend && (urgent || now - p->last_flush >= FLUSH_MS))
+			flush_events(p, NULL);
 
 		if (atomic_exchange(&p->update, 0) && p->rc &&
 		    (mpv_render_context_update(p->rc) & MPV_RENDER_UPDATE_FRAME)) {
@@ -356,6 +457,10 @@ static void destroy(player *p)
 		glDeleteTextures(1, &p->target.tex);
 		glDeleteFramebuffers(1, &p->target.fbo);
 	}
+	for (int i = 0; i < p->npend; i++) {
+		free(p->pend_name[i]);
+		free(p->pend_json[i]);
+	}
 	free(p);
 	update_playing();
 	as_request_redraw();
@@ -367,6 +472,7 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 		r->value = yyjson_mut_true(r->doc);
 		return;
 	}
+	ensure_audio();
 	player *p = calloc(1, sizeof *p);
 	snprintf(p->id, sizeof p->id, "%s", id);
 	p->paused = 0;
@@ -384,10 +490,9 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_set_option_string(m, "input-vo-keyboard", "no");
 	mpv_set_option_string(m, "osc", "no");
 	mpv_set_option_string(m, "idle", "yes");
-	mpv_set_option_string(m, "keep-open", "yes");
 	/* Stream in large bursts so the Wi-Fi radio can sleep in between. */
 	mpv_set_option_string(m, "cache", "yes");
-	mpv_set_option_string(m, "demuxer-max-bytes", "512MiB");
+	mpv_set_option_string(m, "demuxer-max-bytes", "256MiB");
 	mpv_set_option_string(m, "demuxer-max-back-bytes", "128MiB");
 	mpv_set_option_string(m, "demuxer-readahead-secs", "300");
 	char cache_dir[4096];
@@ -465,6 +570,17 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 
 	mpv_observe_property(m, OBSERVE_INTERNAL, "pause", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
+	/* @mpv-prism/core counts these as observed without asking for them: its
+	 * native addon watches them on creation (MpvPrismPlayer.js, 0.1.9). */
+	static const char *const prism_defaults[] = {
+		"time-pos", "duration", "pause", "speed", "volume", "mute", "idle-active",
+		"core-idle", "eof-reached", "demuxer-cache-state", "cache-buffering-state",
+		"frame-drop-count", "decoder-frame-drop-count", "mistimed-frame-count",
+		"vo-delayed-frame-count", "track-list", "aid", "sid", "vid", "sub-text",
+		"sub-start", "sub-end", "sub-visibility", "video-params", "audio-params",
+		"path", "media-title", "percent-pos", "avsync", NULL};
+	for (int i = 0; prism_defaults[i]; i++)
+		observe(p, prism_defaults[i]);
 	yyjson_val *obs = yyjson_obj_get(opts, "observe");
 	yyjson_val *s;
 	if (yyjson_is_arr(obs))
@@ -518,6 +634,8 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 		reply_error(r, "invalid player id");
 		return 0;
 	}
+	if (strcmp(op, "get-property") && strcmp(op, "observe-property"))
+		AS_LOG("mpv-prism %s %s\n", op, id);
 	if (!strcmp(op, "create")) {
 		create(id, yyjson_arr_get(args, 1), r);
 		return 0;
@@ -533,6 +651,8 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 		return 0;
 	}
 
+	if (!strcmp(op, "load") || !strcmp(op, "play"))
+		ensure_audio();
 	if (!strcmp(op, "load")) {
 		const char *uri = arg_str(args, 1);
 		const char *argv[] = {"loadfile", uri ? uri : "", "replace", NULL};
@@ -659,11 +779,21 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 			p->rh = yyjson_get_num(yyjson_obj_get(rect, "height"));
 			p->rect_visible = yyjson_get_bool(yyjson_obj_get(rect, "visible"));
 		}
+		AS_LOG("presenter rect %s: has=%d visible=%d %.0f,%.0f %.0fx%.0f presenter=%d suspended=%d\n", p->id,
+		       p->has_rect, p->rect_visible, p->rx, p->ry, p->rw, p->rh, p->presenter, p->suspended);
 		as_request_redraw();
 	} else {
 		reply_error(r, "unknown mpv-prism call");
 	}
 	return 0;
+}
+
+static void reload_audio_outputs(void)
+{
+	for (player *p = players; p; p = p->next) {
+		const char *argv[] = {"ao-reload", NULL};
+		mpv_command(p->mpv, argv);
+	}
 }
 
 void player_destroy_all(void)
