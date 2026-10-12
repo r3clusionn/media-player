@@ -11,9 +11,10 @@ An anime and movie player for Linux built on [Seanime](https://github.com/5rahim
 - **Seanime, 1:1.** Every screen and feature of upstream Seanime: AniList and MAL lists, local library and scanner, torrent and debrid streaming, manga, online streaming, extensions, schedule, Nakama, auto-downloader. Nothing is removed, and features you don't use aren't started. The built-in torrent search providers that upstream moved to extensions (AnimeTosho, Nyaa, SeaDex) are back.
 - **A standalone window, no Electron.** The React interface runs in Chromium's engine embedded as a library (CEF) inside this program. There is no browser window and no Node.js at runtime, and the server runs in the same process. Closing the window ends everything.
 - **mpv inside the window.** libmpv draws the video and the page is drawn over it, so Seanime's own player (mpvcore) keeps its controls, menus and Anime4K picker exactly as they are.
-- **Picture quality.** Anime4K (Mode A+A Fast here) and debanding for anime, VA-API decoding and HDR tone mapping for everything. Anime4K never runs on Movies & TV, which is live action. The same settings apply on battery.
+- **Picture quality.** Anime4K and debanding for anime, chosen in the player's menu (up arrow > Shaders) and off until you pick them, as in Seanime. VA-API decoding and HDR tone mapping for everything. Movies & TV is live action: no Shaders entry, no Anime4K, no debanding.
 - **The right episode.** A rewritten episode matcher for debrid batches (see How it works) is used by autoplay, resume and manual picks. When it isn't sure, it shows the file picker instead of guessing. Movies & TV refuses a file whose name says another season or episode.
-- **Movies & TV.** Catalogs, search and details from Cinemeta. Real-Debrid streams come from Torrentio, with Comet when Torrentio fails or has nothing cached. You get Continue Watching and Next Up, resume, and next-episode autoplay that stays on the same release. The pages are built from Seanime's own components.
+- **Torrent providers.** Anime searches SeaDex by default with AnimeTosho (and Nyaa) one click away in the torrent drawer. Movies & TV asks Torrentio by default or Comet if you pick it, with the other as the backup.
+- **Movies & TV.** Catalogs, search and details from Cinemeta. Real-Debrid streams come from the chosen add-on, and from the other one when it fails or has nothing cached. You get Continue Watching and Next Up, resume, and next-episode autoplay that stays on the same release. The pages are built from Seanime's own components.
 - **Only one file from big packs.** For an uncached 40 GB season pack, Real-Debrid fetches only the episode being played, so playback starts in seconds. An already-cached or already-added torrent is reused.
 
 ## How to install
@@ -42,11 +43,11 @@ media-player
 
 The window opens on Seanime's home screen. Accounts, Real-Debrid and the library are set up in the interface as in Seanime ([its documentation](https://seanime.app/docs)). Data lives in `~/.local/share/media-player`, caches in `~/.cache/media-player`.
 
-**Movies & TV** is the film icon in the sidebar. Pick a title, then an episode (or Watch for a movie). The drawer lists the streams, with cached ones first. **Play best** plays the highest-quality cached file that streams smoothly over Wi-Fi: remux-sized files (over 30 GB for a movie, 10 GB for an episode) and Dolby-Vision-only files come after the rest. If Real-Debrid isn't ready with that file, it moves on to the next one. Clicking a stream plays exactly that file.
+**Movies & TV** is the film icon in the sidebar. Pick a title, then an episode (or Watch for a movie). The drawer lists the streams, with cached ones first; the switch at its top picks Torrentio or Comet (remembered). **Play best** plays the highest-quality cached file that streams smoothly over Wi-Fi: remux-sized files (over 30 GB for a movie, 10 GB for an episode) and Dolby-Vision-only files come after the rest. If Real-Debrid isn't ready with that file, it moves on to the next one. Clicking a stream plays exactly that file.
 
 ![The Movies & TV page of a series: Ted Lasso's backdrop and poster, its logo, year, runtime, IMDb rating and genres, and the stream drawer open on the right for S1 E1 "Pilot" with a Play best button and a list of cached Torrentio streams tagged with quality, HDR and size, such as Ted.Lasso.S01E01.HDR.2160p.WEB.H265-SKEDADDLE.mkv at 5.41 GB](docs/images/streams.png)
 
-**Anime4K and debanding** are in the player's settings menu (Shaders). They are remembered, and Movies & TV ignores Anime4K.
+**Anime4K and debanding** are in the player's settings menu (up arrow > Shaders), off until chosen and then remembered. Movies & TV doesn't offer them.
 
 | | |
 |---|---|
@@ -59,7 +60,7 @@ The window opens on Seanime's home screen. Accounts, Real-Debrid and the library
 
 - **The window** is one X11 window with an EGL context. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), imported with `EGL_EXT_image_dma_buf_import`. libmpv's render API draws the video into its own texture in the same context. Each frame is the video, then the page blended on top. Nothing is redrawn while nothing changes, and the swap is skipped while the window is hidden.
 - **The page talks to the player** through the JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism calls). A small script injected by the helper process implements it over CEF process messages, so the React code is unchanged. Every mpv request is asynchronous: a synchronous property write from the render thread deadlocks against mpv's video output.
-- **Video under the page.** The player's ancestors are made transparent by a CSS `:has()` rule, not by classes, because React rewrites class names when it re-renders. Anything else painted over the video gets a mask with a hole the video's shape. The hidden control bar is skipped with `content-visibility`, so the page stays idle during playback instead of restyling an invisible seek bar.
+- **Video under the page.** The player's ancestors are made transparent by a CSS `:has()` rule, not by classes, because React rewrites class names when it re-renders. Page content painted beneath the player gets a mask with a hole the video's shape; the player's own menus and popovers, painted above it, are left alone. The hidden control bar is skipped with `content-visibility`, so the page stays idle during playback instead of restyling an invisible seek bar.
 - **The wrong-episode bug** (debrid streaming, file chosen automatically) had four causes upstream, documented in [the plan](docs/PLAN.md#44-the-wrong-episode-bug-diagnosis-and-fix):
   - Autoplay took the file after the last one by position and sent that position as the Real-Debrid file ID.
   - Resume matched a season's episode number as an absolute one.
