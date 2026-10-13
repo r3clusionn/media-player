@@ -59,7 +59,7 @@ The window opens on Seanime's home screen. Accounts, Real-Debrid and the library
 
 ## How it works
 
-- **The window** is one X11 window with a desktop OpenGL 4.6 context (EGL), at the screen's depth: 10 bits per channel when X runs at depth 30. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), imported with `EGL_EXT_image_dma_buf_import`. Each frame is the video, then the page blended on top. Nothing is redrawn while nothing changes, and the swap is skipped while the window is hidden.
+- **The window** is one X11 window with a desktop OpenGL 4.6 context (EGL), at the screen's depth: 10 bits per channel when X runs at depth 30. CEF's GPU process uses ANGLE over EGL (`--use-angle=gl-egl`): over GLX it can't bind the page's 8-bit buffers on a depth-30 screen, which has no depth-24 visuals. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), imported with `EGL_EXT_image_dma_buf_import`. Each frame is the video, then the page blended on top. Nothing is redrawn while nothing changes, and the swap is skipped while the window is hidden.
 - **Video on its own thread.** Each player has a render thread with its own OpenGL context, sharing textures with the window's. mpv hands frames over up to 0.1 s early (`video-timing-offset`), and the thread draws each one into a queue of six textures, tagged with the time it should appear. The window's loop shows the newest frame that is due at each swap and never waits for mpv, so a 20–35 ms Anime4K frame doesn't hold up the page or input. The render context runs at low GPU priority, and every shader pass is flushed to the GPU on its own, so the window's small frames are scheduled between mpv's passes. While the video isn't visible, frames are consumed without drawing.
 - **Desktop OpenGL** gives mpv compute shaders (HDR peak detection, faster polar scaling) and runs Anime4K about 8% faster than GLES.
 - **The page talks to the player** through the JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism calls). A small script injected by the helper process implements it over CEF process messages, so the React code is unchanged. Every mpv request is asynchronous, so the window never waits on mpv.
@@ -114,6 +114,7 @@ Anime4K A+A (HQ) takes 45 ms per frame, more than a 24 fps frame lasts, and drop
   - The Shawshank Redemption in 4K HDR with a seek to 50:00.
 - `appshell/test/pause-fs-stress.mjs`: 3 pause cycles, then 3 fullscreen off/on cycles with a pause after each; the final screenshot shows the picture.
 - `appshell/test/bench-playback.mjs`: the table in Measurements, with mpv's drop counters and the window's own frame timing (`appshell:stats`).
+- **X at depth 30:** the window and video run at 10 bits per channel; streaming with A+A (Fast) dropped 0 frames, with the same input and page timing as at depth 24.
 - **Hidden window:** unmapped for 6 s during playback (as when switching dwm tags), the video went on with 0 dropped frames and showed again at 24 fps within a frame of being mapped.
 - **Audio recovery:** PipeWire stopped and started during playback; audio came back on its own about 2 s later.
 - **Clean exit:** SIGTERM during playback closes the window in 0.2 s and leaves no helper processes.
@@ -129,7 +130,7 @@ Anime4K A+A (HQ) takes 45 ms per frame, more than a 24 fps frame lasts, and drop
 - `go test ./internal/episodematch/`: 21 cases, including seasons in packs, absolute numbering, extras, v2, multi-episode files, OVA entries, and every case again with the file order shuffled 50 times.
 - `go test ./internal/debrid/realdebrid/`: links in order, out of order, packed into an archive and renamed, against a fake Real-Debrid server.
 - `go test ./internal/stremio/`: episode-file checks (another episode or season refused, absolute anime numbering trusted), stream parsing for Torrentio and Comet, the stream order, and placeholder detection. A live test against Torrentio and Real-Debrid runs when `MP_RD_KEY_FILE` is set.
-- **Not verified:** smooth touchpad scrolling. It is implemented with XInput 2.1 scroll valuators, which the touchpad reports, but this kernel has no uinput to simulate a touchpad. The 10-bit path (X at depth 30) is implemented but was not run with X at depth 30. The power figures above were measured on battery before video moved to its own thread.
+- **Not verified:** smooth touchpad scrolling. It is implemented with XInput 2.1 scroll valuators, which the touchpad reports, but this kernel has no uinput to simulate a touchpad. The power figures above were measured on battery before video moved to its own thread.
 
 ## Limits
 
