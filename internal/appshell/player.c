@@ -29,6 +29,8 @@
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/shape.h>
 #include <math.h>
+#include <pthread.h>
+#include <stdatomic.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -436,6 +438,8 @@ void player_process_events(void)
 	}
 }
 
+static void reap_players(int wait);
+
 /* ---- the video window ---------------------------------------------------- */
 
 static int damage_event = -1; /* XDamageNotify's event number, once checked */
@@ -551,6 +555,7 @@ int player_handle_xevent(void *xevent)
  * is unmapped (playback and audio go on). Runs every loop iteration. */
 void player_tick(void)
 {
+	reap_players(0);
 	double s = as_scale;
 	for (player *p = players; p; p = p->next) {
 		if (!p->vwin)
@@ -628,16 +633,8 @@ static void observe(player *p, const char *name)
 	mpv_observe_property(p->mpv, OBSERVE_PAGE, name, MPV_FORMAT_NODE);
 }
 
-static void destroy(player *p)
+static void free_player(player *p)
 {
-	player **pp = &players;
-	while (*pp && *pp != p)
-		pp = &(*pp)->next;
-	if (*pp)
-		*pp = p->next;
-	/* mpv first: its video output draws into the window. */
-	if (p->mpv)
-		mpv_terminate_destroy(p->mpv);
 	video_window_destroy(p);
 	for (int i = 0; i < p->npend; i++) {
 		free(p->pend_name[i]);
@@ -645,8 +642,69 @@ static void destroy(player *p)
 	}
 	free(p->buffering_json);
 	free(p);
+}
+
+/*
+ * Players being shut down. mpv can take a long time to quit (a network read
+ * waiting for its timeout after the stream was closed under it), so it quits
+ * on a thread of its own; the window is removed on the main thread once it
+ * has, since mpv draws into it until then. The window stays mapped so mpv's
+ * last frames complete; it is no longer drawn.
+ */
+typedef struct dying {
+	player *p;
+	pthread_t thread;
+	atomic_int done;
+	struct dying *next;
+} dying;
+static dying *dying_players;
+
+static void *terminate_main(void *arg)
+{
+	dying *d = arg;
+	mpv_terminate_destroy(d->p->mpv);
+	atomic_store(&d->done, 1);
+	as_wake();
+	return NULL;
+}
+
+static void reap_players(int wait)
+{
+	for (dying **dd = &dying_players; *dd;) {
+		dying *d = *dd;
+		if (!wait && !atomic_load(&d->done)) {
+			dd = &d->next;
+			continue;
+		}
+		pthread_join(d->thread, NULL);
+		free_player(d->p);
+		*dd = d->next;
+		free(d);
+	}
+}
+
+static void destroy(player *p, int wait)
+{
+	player **pp = &players;
+	while (*pp && *pp != p)
+		pp = &(*pp)->next;
+	if (*pp)
+		*pp = p->next;
 	update_playing();
 	as_request_redraw();
+	dying *d = wait || !p->mpv ? NULL : calloc(1, sizeof *d);
+	if (d) {
+		d->p = p;
+		if (pthread_create(&d->thread, NULL, terminate_main, d) == 0) {
+			d->next = dying_players;
+			dying_players = d;
+			return;
+		}
+		free(d);
+	}
+	if (p->mpv)
+		mpv_terminate_destroy(p->mpv);
+	free_player(p);
 }
 
 static void create(const char *id, yyjson_val *opts, reply_t *r)
@@ -885,7 +943,7 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 	player *p = find(id);
 	if (!strcmp(op, "destroy") || !strcmp(op, "cancel-create")) {
 		if (p)
-			destroy(p);
+			destroy(p, 0);
 		return 0;
 	}
 	if (!p) {
@@ -1039,5 +1097,6 @@ static void reload_audio_outputs(void)
 void player_destroy_all(void)
 {
 	while (players)
-		destroy(players);
+		destroy(players, 1);
+	reap_players(1);
 }

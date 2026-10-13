@@ -12,7 +12,8 @@
 //     video frames shown and skipped.
 //
 //   node bench-playback.mjs [preset] [seconds] [seek]
-//   preset: none, a, aa, c, a-hq, c-hq, aa-hq (Seanime's Fast/HQ chains)
+//   preset: none, a, aa, c, a-hq, c-hq, aa-hq (Seanime's Anime4K Fast/HQ
+//   chains), artcnn, artcnn-ds, artcnn-dn, cfl (the ArtCNN presets)
 import { readFileSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -32,8 +33,15 @@ const chains = {
     "c-hq": ["Clamp_Highlights", "Upscale_Denoise_CNN_x2_VL", ...D, "Upscale_CNN_x2_M"],
     "aa-hq": ["Clamp_Highlights", "Restore_CNN_VL", "Upscale_CNN_x2_VL", "Restore_CNN_M", ...D, "Upscale_CNN_x2_M"],
 }
-if (!chains[preset]) throw new Error(`unknown preset ${preset}`)
-const shaders = chains[preset].map(n => join(dir, `Anime4K_${n}.glsl`))
+// ArtCNN presets (file names without the Anime4K_ prefix).
+const files = {
+    artcnn: ["CfL_Prediction", "ArtCNN_C4F16"],
+    "artcnn-ds": ["CfL_Prediction", "ArtCNN_C4F16_DS"],
+    "artcnn-dn": ["CfL_Prediction", "ArtCNN_C4F16_DN"],
+    cfl: ["CfL_Prediction"],
+}
+if (!chains[preset] && !files[preset]) throw new Error(`unknown preset ${preset}`)
+const shaders = chains[preset] ? chains[preset].map(n => join(dir, `Anime4K_${n}.glsl`)) : files[preset].map(n => join(dir, `${n}.glsl`))
 
 const page = await connect(Number(process.env.CDP_PORT || 9333))
 const pid = await page.eval(`(async () => {
