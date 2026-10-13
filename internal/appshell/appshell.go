@@ -4,12 +4,12 @@
 //
 // Build requirements: the CEF headers and libcef.so under third_party/ (a
 // symlink to ~/src/third_party, set up by appshell/build.sh), plus the system's
-// libmpv, X11, EGL, GLES and yyjson.
+// libmpv, X11, EGL, OpenGL and yyjson.
 package appshell
 
 /*
 #cgo CFLAGS: -std=gnu11 -O2 -march=native -I${SRCDIR}/../../third_party/cef -I/usr/include/libdrm -Wall -Wno-unused-parameter -Wno-format-truncation
-#cgo LDFLAGS: -L${SRCDIR}/../../third_party/runtime -lcef -lmpv -lX11 -lXss -lXi -lXext -lEGL -lGLESv2 -lyyjson
+#cgo LDFLAGS: -L${SRCDIR}/../../third_party/runtime -lcef -lmpv -lX11 -lXss -lXi -lXext -lEGL -lOpenGL -lyyjson
 #include <stdlib.h>
 #include "appshell.h"
 */

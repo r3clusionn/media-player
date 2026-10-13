@@ -15,6 +15,7 @@
 #include "include/cef_api_hash.h"
 
 #include <errno.h>
+#include <math.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -608,6 +609,7 @@ int appshell_run(const appshell_opts *o)
 
 	int xfd = ConnectionNumber(as_dpy);
 	while (!closed) {
+		stats_loop_tick();
 		if (atomic_exchange(&quit_requested, 0) && !quitting) {
 			pthread_t t;
 			if (pthread_create(&t, NULL, quit_watchdog, NULL) == 0)
@@ -625,6 +627,9 @@ int appshell_run(const appshell_opts *o)
 			cef_do_message_loop_work();
 		}
 		player_process_events();
+		double video_due = player_tick();
+		if (video_due == 0)
+			redraw = 1;
 		if (shot_requested && env_shot) {
 			shot_requested = 0;
 			window_sync_surface_size();
@@ -638,7 +643,7 @@ int appshell_run(const appshell_opts *o)
 				DLOG("draw #%ld (%dx%d)\n", frames, as_win_w, as_win_h);
 			compositor_draw();
 			if (window_swap())
-				player_report_swap();
+				stats_swapped();
 			redraw = 0;
 		}
 		if (closed)
@@ -648,8 +653,18 @@ int appshell_run(const appshell_opts *o)
 		int timeout = d > 0 ? (int)d + 1 : 0;
 		if (timeout > 33)
 			timeout = 33;
+		/* Wake for the next video frame (the one just drawn is gone). */
+		video_due = player_tick();
+		if (video_due >= 0 && video_due < timeout)
+			timeout = (int)ceil(video_due);
+		if (video_due == 0)
+			redraw = 1;
 		if (XPending(as_dpy) || (redraw && as_visible))
 			timeout = 0;
+		if (timeout > 0) {
+			stats_loop_tick();
+			stats_loop_idle();
+		}
 		struct pollfd p[2] = {{xfd, POLLIN, 0}, {as_wake_fd, POLLIN, 0}};
 		if (poll(p, 2, timeout) > 0 && (p[1].revents & POLLIN)) {
 			uint64_t v;

@@ -450,6 +450,8 @@ static void handle(const char *ch, yyjson_val *args, reply_t *r)
 		if (power_blocks > 0 && --power_blocks == 0 && !player_any_playing())
 			window_inhibit_screensaver(0);
 		r->value = yyjson_mut_true(r->doc);
+	} else if (!strcmp(ch, "appshell:stats")) {
+		r->value = stats_take(r->doc);
 	} else if (!strcmp(ch, "restart-server") || !strcmp(ch, "macos-activation-policy-accessory") ||
 		   !strcmp(ch, "macos-activation-policy-regular")) {
 		/* not applicable */

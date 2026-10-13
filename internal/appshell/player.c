@@ -1,11 +1,17 @@
 /*
  * player.c: libmpv players behind window.mpvPrism.
  *
- * Each player renders, through libmpv's render API, into an offscreen texture
- * the size of its presenter's rectangle on the page (so mpv's scalers and
- * shaders work at the real display size), which the compositor then draws
- * under the page. Property changes are batched per wakeup and sent to the page
- * as mpv-prism events; the screen saver is held off while anything plays.
+ * Each player renders on its own thread, through libmpv's render API, into a
+ * small queue of textures the size of its presenter's rectangle on the page
+ * (so mpv's scalers and shaders work at the real display size). mpv hands
+ * frames over ahead of time with the time each should appear; the main
+ * thread draws the newest frame that is due under the page at every swap.
+ * So a slow frame (Anime4K takes 20-35 ms of GPU time) never holds up the
+ * window: the page, menus and input keep running at the panel's rate while
+ * the video thread works ahead.
+ *
+ * Property changes are batched per wakeup and sent to the page as mpv-prism
+ * events; the screen saver is held off while anything plays.
  */
 #include "appshell.h"
 #include "bridge.h"
@@ -15,6 +21,7 @@
 #include <mpv/render_gl.h>
 
 #include <math.h>
+#include <pthread.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #include <stdatomic.h>
@@ -26,18 +33,49 @@
 #define OBSERVE_INTERNAL 2 /* ours: pause, core-idle */
 #define MAX_OBSERVED 96
 
+/*
+ * Video frames in flight. 6 covers mpv's render-ahead (video-timing-offset,
+ * 0.1 s: 3 frames at 24 fps) plus the frame on screen and the one being
+ * drawn; at higher frame rates the render thread waits for a free slot.
+ */
+#define NSLOTS 6
+/* A frame is shown this long before its time: the swap reaches the panel at
+ * the next vblank, on average half a refresh (4.2 ms at 120 Hz) later. */
+#define DUE_LEAD_NS 4000000
+
+enum { SLOT_FREE, SLOT_RENDERING, SLOT_QUEUED, SLOT_SHOWN };
+
+typedef struct vslot {
+	GLuint tex, fbo;
+	int w, h;
+	int state;
+	GLsync done;       /* the render thread's drawing finished (on the GPU) */
+	GLsync read;       /* the window's last draw from this texture finished */
+	/* When to show it, in mpv_get_time_ns() time (render.h says
+	 * microseconds, but mpv 0.41 fills target_time in nanoseconds); 0: at once. */
+	int64_t due;
+	uint64_t seq;      /* render order */
+} vslot;
+
 typedef struct player {
 	char id[128];
 	mpv_handle *mpv;
-	mpv_render_context *rc;
-	atomic_int update;    /* set by mpv's render update callback */
-	int frame_pending;    /* mpv has a new frame to show */
-	int rendered;         /* rendered in the current frame (report swap) */
+	mpv_render_context *rc; /* used only on the render thread */
 	int presenter;        /* a presenter is attached */
 	int has_rect, rect_visible, suspended;
 	double rx, ry, rw, rh; /* presenter rectangle, DIP */
-	as_target target;
-	int target_valid;       /* target holds the current frame at its size */
+	/* Render thread. Everything below is under lock. */
+	pthread_t thread;
+	int thread_running;
+	EGLContext gl;
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
+	int started;          /* 1 render context ready, -1 failed */
+	int wake, quit;
+	int want_w, want_h, want_visible; /* what the window shows (pixels) */
+	vslot slots[NSLOTS];
+	int shown;            /* slot on screen, -1 none */
+	uint64_t seq;
 	char observed[MAX_OBSERVED][64];
 	int nobserved;
 	int paused, idle, loaded;
@@ -67,17 +105,54 @@ static player *find(const char *id)
 	return NULL;
 }
 
+/*
+ * mpv's GL calls, with a flush after every draw and compute dispatch: each
+ * shader pass then reaches the GPU as its own submission instead of one
+ * 20-35 ms block per Anime4K frame. The render context has low priority, so
+ * the GPU scheduler runs the window's frames between mpv's passes and the
+ * page stays at the panel's rate while shaders run.
+ */
+static void (*real_draw_arrays)(GLenum, GLint, GLsizei);
+static void (*real_dispatch_compute)(GLuint, GLuint, GLuint);
+static void (*real_flush)(void);
+
+static void flushing_draw_arrays(GLenum mode, GLint first, GLsizei count)
+{
+	real_draw_arrays(mode, first, count);
+	real_flush();
+}
+
+static void flushing_dispatch_compute(GLuint x, GLuint y, GLuint z)
+{
+	real_dispatch_compute(x, y, z);
+	real_flush();
+}
+
 static void *get_proc(void *ctx, const char *name)
 {
 	(void)ctx;
-	return (void *)eglGetProcAddress(name);
+	void *f = (void *)eglGetProcAddress(name);
+	if (!real_flush)
+		real_flush = (void (*)(void))eglGetProcAddress("glFlush");
+	if (f && !strcmp(name, "glDrawArrays")) {
+		real_draw_arrays = f;
+		return (void *)flushing_draw_arrays;
+	}
+	if (f && !strcmp(name, "glDispatchCompute")) {
+		real_dispatch_compute = f;
+		return (void *)flushing_dispatch_compute;
+	}
+	return f;
 }
 
+/* mpv has something to render: wake the player's render thread. */
 static void on_update(void *ctx)
 {
 	player *p = ctx;
-	atomic_store(&p->update, 1);
-	as_wake();
+	pthread_mutex_lock(&p->lock);
+	p->wake = 1;
+	pthread_cond_broadcast(&p->cond);
+	pthread_mutex_unlock(&p->lock);
 }
 
 static void on_wakeup(void *ctx)
@@ -430,82 +505,278 @@ void player_process_events(void)
 		}
 		if (p->npend && (urgent || now - p->last_flush >= FLUSH_MS))
 			flush_events(p, NULL);
+	}
+}
 
-		if (atomic_exchange(&p->update, 0) && p->rc &&
-		    (mpv_render_context_update(p->rc) & MPV_RENDER_UPDATE_FRAME)) {
-			p->frame_pending = 1;
-			as_request_redraw();
+/* ---- render threads ---------------------------------------------------- */
+
+static void slot_size(vslot *v, int w, int h)
+{
+	if (v->tex && v->w == w && v->h == h)
+		return;
+	if (!v->tex) {
+		glGenTextures(1, &v->tex);
+		glGenFramebuffers(1, &v->fbo);
+	}
+	glBindTexture(GL_TEXTURE_2D, v->tex);
+	/* 10 bits per channel when the window has them (X at depth 30): mpv then
+	 * dithers to 10 instead of 8 bits. */
+	if (as_depth >= 10)
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB10_A2, w, h, 0, GL_RGBA,
+			     GL_UNSIGNED_INT_2_10_10_10_REV, NULL);
+	else
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindFramebuffer(GL_FRAMEBUFFER, v->fbo);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, v->tex, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	v->w = w;
+	v->h = h;
+}
+
+static int free_slot(player *p)
+{
+	for (int i = 0; i < NSLOTS; i++)
+		if (p->slots[i].state == SLOT_FREE)
+			return i;
+	return -1;
+}
+
+/*
+ * The render thread: waits for mpv (a new frame, a redraw) or a new size,
+ * renders into a free slot without waiting for the frame's time, and queues
+ * it with that time. While the video isn't visible, frames are consumed
+ * without drawing so playback and audio go on.
+ */
+static void *render_main(void *arg)
+{
+	player *p = arg;
+	eglMakeCurrent(as_egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, p->gl);
+	mpv_opengl_init_params glp = {.get_proc_address = get_proc};
+	int advanced = 1;
+	mpv_render_param params[] = {
+		{MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_OPENGL},
+		{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &glp},
+		{MPV_RENDER_PARAM_X11_DISPLAY, as_dpy},
+		{MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced},
+		{0, NULL},
+	};
+	int ok = mpv_render_context_create(&p->rc, p->mpv, params) >= 0;
+	if (ok)
+		mpv_render_context_set_update_callback(p->rc, on_update, p);
+	pthread_mutex_lock(&p->lock);
+	p->started = ok ? 1 : -1;
+	pthread_cond_broadcast(&p->cond);
+	pthread_mutex_unlock(&p->lock);
+	if (!ok) {
+		eglMakeCurrent(as_egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+		return NULL;
+	}
+
+	int last_w = 0, last_h = 0;
+	for (;;) {
+		pthread_mutex_lock(&p->lock);
+		while (!p->wake && !p->quit)
+			pthread_cond_wait(&p->cond, &p->lock);
+		if (p->quit) {
+			pthread_mutex_unlock(&p->lock);
+			break;
 		}
-	}
-}
+		p->wake = 0;
+		int w = p->want_w, h = p->want_h, vis = p->want_visible && w > 0 && h > 0;
+		pthread_mutex_unlock(&p->lock);
 
-/* ---- rendering ------------------------------------------------------- */
-
-static int on_screen(const player *p)
-{
-	return p->rc && p->presenter && p->has_rect && p->rect_visible && !p->suspended &&
-	       p->rw >= 1 && p->rh >= 1;
-}
-
-int player_any_frame_ready(void)
-{
-	for (player *p = players; p; p = p->next)
-		if (p->frame_pending)
-			return 1;
-	return 0;
-}
-
-void player_draw_all(void)
-{
-	double s = as_scale;
-	static double stat_at;
-	static int n_draw, n_render, n_off;
-	if (as_debug && as_now_ms() - stat_at >= 1000) {
-		if (players)
-			AS_LOG("video: %d draws, %d renders, %d off-screen /s\n", n_draw, n_render, n_off);
-		stat_at = as_now_ms();
-		n_draw = n_render = n_off = 0;
-	}
-	for (player *p = players; p; p = p->next) {
-		p->rendered = 0;
-		n_draw++;
-		if (!on_screen(p)) {
-			n_off++;
-			p->frame_pending = 0;
+		int frame = (mpv_render_context_update(p->rc) & MPV_RENDER_UPDATE_FRAME) != 0;
+		int resized = vis && (w != last_w || h != last_h);
+		if (!frame && !resized)
 			continue;
-		}
-		int x = (int)lround(p->rx * s), y = (int)lround(p->ry * s);
-		int w = (int)lround(p->rw * s), h = (int)lround(p->rh * s);
-		if (p->target.w != w || p->target.h != h)
-			p->target_valid = 0;
-		compositor_target_size(&p->target, w, h);
-		/* Render only for a new frame or a new size: with Anime4K a render
-		 * costs ~20 ms of GPU, and the page repaints far more often. */
-		if (p->frame_pending || !p->target_valid) {
-			mpv_opengl_fbo fbo = {.fbo = (int)p->target.fbo, .w = w, .h = h};
-			int flip = 0; /* texture row 0 = top of the image */
+		int block = 0; /* the main thread shows frames on time */
+		if (!vis) {
+			int skip = 1;
 			mpv_render_param rp[] = {
-				{MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
-				{MPV_RENDER_PARAM_FLIP_Y, &flip},
+				{MPV_RENDER_PARAM_SKIP_RENDERING, &skip},
+				{MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block},
 				{0, NULL},
 			};
 			mpv_render_context_render(p->rc, rp);
-			n_render++;
-			p->rendered = 1;
-			p->frame_pending = 0;
-			p->target_valid = 1;
+			last_w = last_h = 0; /* draw again once visible */
+			continue;
 		}
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-		glViewport(0, 0, as_win_w, as_win_h);
-		compositor_blit_target(&p->target, x, y, w, h);
+		mpv_render_frame_info info = {0};
+		if (frame)
+			mpv_render_context_get_info(p->rc, (mpv_render_param){MPV_RENDER_PARAM_NEXT_FRAME_INFO, &info});
+
+		pthread_mutex_lock(&p->lock);
+		int i;
+		while ((i = free_slot(p)) < 0 && !p->quit)
+			pthread_cond_wait(&p->cond, &p->lock);
+		if (p->quit) {
+			pthread_mutex_unlock(&p->lock);
+			break;
+		}
+		vslot *v = &p->slots[i];
+		GLsync read = v->read;
+		v->read = NULL;
+		v->state = SLOT_RENDERING;
+		pthread_mutex_unlock(&p->lock);
+
+		if (read) { /* the window may still be sampling this texture */
+			glWaitSync(read, 0, GL_TIMEOUT_IGNORED);
+			glDeleteSync(read);
+		}
+		slot_size(v, w, h);
+		mpv_opengl_fbo fbo = {.fbo = (int)v->fbo, .w = w, .h = h,
+				      .internal_format = as_depth >= 10 ? GL_RGB10_A2 : GL_RGBA8};
+		int flip = 0, depth = as_depth;
+		mpv_render_param rp[] = {
+			{MPV_RENDER_PARAM_OPENGL_FBO, &fbo},
+			{MPV_RENDER_PARAM_FLIP_Y, &flip},
+			{MPV_RENDER_PARAM_DEPTH, &depth},
+			{MPV_RENDER_PARAM_BLOCK_FOR_TARGET_TIME, &block},
+			{0, NULL},
+		};
+		mpv_render_context_render(p->rc, rp);
+		GLsync done = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+		glFlush();
+		int now = !(info.flags & MPV_RENDER_FRAME_INFO_PRESENT) ||
+			  (info.flags & MPV_RENDER_FRAME_INFO_REDRAW) || info.target_time <= 0;
+
+		pthread_mutex_lock(&p->lock);
+		v->done = done;
+		v->due = now ? 0 : info.target_time;
+		v->seq = ++p->seq;
+		v->state = SLOT_QUEUED;
+		pthread_mutex_unlock(&p->lock);
+		last_w = w;
+		last_h = h;
+		as_wake();
 	}
+
+	mpv_render_context_free(p->rc);
+	p->rc = NULL;
+	for (int i = 0; i < NSLOTS; i++) {
+		vslot *v = &p->slots[i];
+		if (v->done)
+			glDeleteSync(v->done);
+		if (v->read)
+			glDeleteSync(v->read);
+		if (v->tex) {
+			glDeleteTextures(1, &v->tex);
+			glDeleteFramebuffers(1, &v->fbo);
+		}
+		memset(v, 0, sizeof *v);
+	}
+	glFinish();
+	eglMakeCurrent(as_egl_dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+	return NULL;
 }
 
-void player_report_swap(void)
+/* ---- showing frames (main thread) ------------------------------------- */
+
+static int on_screen(const player *p)
 {
-	for (player *p = players; p; p = p->next)
-		if (p->rendered && p->rc)
-			mpv_render_context_report_swap(p->rc);
+	return p->presenter && p->has_rect && p->rect_visible && !p->suspended &&
+	       p->rw >= 1 && p->rh >= 1;
+}
+
+/*
+ * Tells each render thread what the window shows (size, visibility) and
+ * returns how long until the next queued frame is due: 0 when one is due
+ * now, -1 when none is waiting. Runs every loop iteration.
+ */
+double player_tick(void)
+{
+	double s = as_scale, next = -1;
+	for (player *p = players; p; p = p->next) {
+		if (!p->thread_running)
+			continue;
+		int vis = as_visible && on_screen(p);
+		int w = vis ? (int)lround(p->rw * s) : 0, h = vis ? (int)lround(p->rh * s) : 0;
+		int64_t now = mpv_get_time_ns(p->mpv);
+		pthread_mutex_lock(&p->lock);
+		if (vis != p->want_visible || w != p->want_w || h != p->want_h) {
+			p->want_visible = vis;
+			p->want_w = w;
+			p->want_h = h;
+			p->wake = 1;
+			pthread_cond_broadcast(&p->cond);
+		}
+		for (int i = 0; vis && i < NSLOTS; i++) {
+			vslot *v = &p->slots[i];
+			if (v->state != SLOT_QUEUED)
+				continue;
+			double in = v->due == 0 ? 0 : (v->due - DUE_LEAD_NS - now) / 1e6;
+			if (in < 0)
+				in = 0;
+			if (next < 0 || in < next)
+				next = in;
+		}
+		pthread_mutex_unlock(&p->lock);
+	}
+	return next;
+}
+
+/* Picks the newest due frame (dropping older ones), releases the previous
+ * one, and draws it into the presenter's rectangle. */
+void player_draw_all(void)
+{
+	double s = as_scale;
+	for (player *p = players; p; p = p->next) {
+		if (!p->thread_running || !as_visible || !on_screen(p))
+			continue;
+		int64_t now = mpv_get_time_ns(p->mpv);
+		GLsync wait = NULL;
+		int shown = 0, skipped = 0;
+		pthread_mutex_lock(&p->lock);
+		int best = -1;
+		for (int i = 0; i < NSLOTS; i++) {
+			vslot *v = &p->slots[i];
+			if (v->state == SLOT_QUEUED && (v->due == 0 || v->due - DUE_LEAD_NS <= now) &&
+			    (best < 0 || v->seq > p->slots[best].seq))
+				best = i;
+		}
+		if (best >= 0) {
+			for (int i = 0; i < NSLOTS; i++) {
+				vslot *v = &p->slots[i];
+				if (v->state == SLOT_QUEUED && v->seq < p->slots[best].seq) {
+					glDeleteSync(v->done);
+					v->done = NULL;
+					v->state = SLOT_FREE;
+					skipped++;
+				}
+			}
+			if (p->shown >= 0) {
+				vslot *old = &p->slots[p->shown];
+				/* The render thread waits for this before drawing into it. */
+				old->read = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+				glFlush();
+				old->state = SLOT_FREE;
+			}
+			p->shown = best;
+			p->slots[best].state = SLOT_SHOWN;
+			wait = p->slots[best].done;
+			p->slots[best].done = NULL;
+			shown = 1;
+			pthread_cond_broadcast(&p->cond);
+		}
+		GLuint tex = p->shown >= 0 ? p->slots[p->shown].tex : 0;
+		pthread_mutex_unlock(&p->lock);
+		stats_video(shown, skipped);
+		if (wait) {
+			glWaitSync(wait, 0, GL_TIMEOUT_IGNORED);
+			glDeleteSync(wait);
+		}
+		if (!tex)
+			continue;
+		int x = (int)lround(p->rx * s), y = (int)lround(p->ry * s);
+		int w = (int)lround(p->rw * s), h = (int)lround(p->rh * s);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, as_win_w, as_win_h);
+		compositor_blit_texture(tex, x, y, w, h);
+	}
 }
 
 int player_any_playing(void)
@@ -543,6 +814,25 @@ static void observe(player *p, const char *name)
 	mpv_observe_property(p->mpv, OBSERVE_PAGE, name, MPV_FORMAT_NODE);
 }
 
+/* The render thread frees mpv's render context and the textures. */
+static void stop_render_thread(player *p)
+{
+	if (p->thread_running) {
+		pthread_mutex_lock(&p->lock);
+		p->quit = 1;
+		pthread_cond_broadcast(&p->cond);
+		pthread_mutex_unlock(&p->lock);
+		pthread_join(p->thread, NULL);
+		p->thread_running = 0;
+	}
+	if (p->gl != EGL_NO_CONTEXT) {
+		eglDestroyContext(as_egl_dpy, p->gl);
+		p->gl = EGL_NO_CONTEXT;
+	}
+	pthread_mutex_destroy(&p->lock);
+	pthread_cond_destroy(&p->cond);
+}
+
 static void destroy(player *p)
 {
 	player **pp = &players;
@@ -550,14 +840,9 @@ static void destroy(player *p)
 		pp = &(*pp)->next;
 	if (*pp)
 		*pp = p->next;
-	if (p->rc)
-		mpv_render_context_free(p->rc);
+	stop_render_thread(p);
 	if (p->mpv)
 		mpv_terminate_destroy(p->mpv);
-	if (p->target.tex) {
-		glDeleteTextures(1, &p->target.tex);
-		glDeleteFramebuffers(1, &p->target.fbo);
-	}
 	for (int i = 0; i < p->npend; i++) {
 		free(p->pend_name[i]);
 		free(p->pend_json[i]);
@@ -578,8 +863,13 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	player *p = calloc(1, sizeof *p);
 	snprintf(p->id, sizeof p->id, "%s", id);
 	p->paused = 0;
+	p->shown = -1;
+	p->gl = EGL_NO_CONTEXT;
+	pthread_mutex_init(&p->lock, NULL);
+	pthread_cond_init(&p->cond, NULL);
 	p->mpv = mpv_create();
 	if (!p->mpv) {
+		stop_render_thread(p);
 		free(p);
 		reply_error(r, "mpv_create failed");
 		return;
@@ -592,6 +882,11 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_set_option_string(m, "input-vo-keyboard", "no");
 	mpv_set_option_string(m, "osc", "no");
 	mpv_set_option_string(m, "idle", "yes");
+	/* Frames come to the render thread up to 0.1 s early, so a heavy shader
+	 * chain has time to finish before each frame is due. */
+	mpv_set_option_string(m, "video-timing-offset", "0.1");
+	/* Picture defaults; Seanime's custom mpv config can change them. */
+	mpv_set_option_string(m, "scale", "ewa_lanczossharp");
 	/* Stream in large bursts so the Wi-Fi radio can sleep in between. */
 	mpv_set_option_string(m, "cache", "yes");
 	mpv_set_option_string(m, "demuxer-max-bytes", "256MiB");
@@ -649,28 +944,30 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 		mpv_request_log_messages(m, "warn");
 	if (mpv_initialize(m) < 0) {
 		mpv_terminate_destroy(m);
+		stop_render_thread(p);
 		free(p);
 		reply_error(r, "mpv_initialize failed");
 		return;
 	}
 	mpv_set_wakeup_callback(m, on_wakeup, p);
 
-	mpv_opengl_init_params gl = {.get_proc_address = get_proc};
-	int advanced = 1;
-	mpv_render_param params[] = {
-		{MPV_RENDER_PARAM_API_TYPE, (void *)MPV_RENDER_API_TYPE_OPENGL},
-		{MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl},
-		{MPV_RENDER_PARAM_X11_DISPLAY, as_dpy},
-		{MPV_RENDER_PARAM_ADVANCED_CONTROL, &advanced},
-		{0, NULL},
-	};
-	if (mpv_render_context_create(&p->rc, m, params) < 0) {
+	p->gl = window_create_shared_context();
+	int started = -1;
+	if (p->gl != EGL_NO_CONTEXT && pthread_create(&p->thread, NULL, render_main, p) == 0) {
+		p->thread_running = 1;
+		pthread_mutex_lock(&p->lock);
+		while (!p->started)
+			pthread_cond_wait(&p->cond, &p->lock);
+		started = p->started;
+		pthread_mutex_unlock(&p->lock);
+	}
+	if (started < 0) {
+		stop_render_thread(p);
 		mpv_terminate_destroy(m);
 		free(p);
 		reply_error(r, "mpv render context failed");
 		return;
 	}
-	mpv_render_context_set_update_callback(p->rc, on_update, p);
 
 	mpv_observe_property(m, OBSERVE_INTERNAL, "pause", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
