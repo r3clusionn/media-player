@@ -7,10 +7,9 @@
  * the shim in appshell/helper (window.electron, window.mpvPrism).
  *
  * Everything runs on the process's main thread (CEF's UI thread), except
- * video: each player renders on its own thread into a queue of textures, and
- * the main thread shows each frame when it is due (player.c). The wakeup
- * callbacks (CEF pump scheduling, mpv events and frames) just write to an
- * eventfd.
+ * mpv, which renders on its own threads into an off-screen child window that
+ * the main thread draws under the page (player.c). The wakeup callbacks (CEF
+ * pump scheduling, mpv events) just write to an eventfd.
  */
 #ifndef APPSHELL_H
 #define APPSHELL_H
@@ -82,7 +81,6 @@ void window_minimize(void);
 void window_inhibit_screensaver(int on);
 int window_display_on(void);
 int window_swap(void); /* returns 0 if skipped (not visible) */
-EGLContext window_create_shared_context(void); /* for a render thread */
 void window_sync_surface_size(void);
 void window_destroy(void);
 
@@ -108,10 +106,9 @@ void compositor_destroy(void);
 
 int player_handle_request(const char *ch, void *args /* yyjson_val* */, void *reply /* reply_t* */);
 void player_process_events(void); /* mpv events -> page */
-/* Passes size and visibility to the render threads; returns ms until the next
- * video frame is due (0: now), or -1 when none is waiting. */
-double player_tick(void);
-void player_draw_all(void);       /* due frames, into the current framebuffer */
+void player_tick(void);           /* video windows follow their presenters */
+int player_handle_xevent(void *xevent /* XEvent* */); /* 1: a video frame (Damage) */
+void player_draw_all(void);       /* the videos, into the current framebuffer */
 int player_any_playing(void);
 void player_destroy_all(void);
 

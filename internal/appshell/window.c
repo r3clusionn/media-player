@@ -60,6 +60,16 @@ static double xft_scale(void)
 
 static void xi_init(void);
 
+/* Xlib's default handler exits on any error; a failed request from a video
+ * window (resized or unmapped while a request was in flight) isn't fatal. */
+static int on_x_error(Display *d, XErrorEvent *e)
+{
+	char text[128];
+	XGetErrorText(d, e->error_code, text, sizeof text);
+	AS_LOG("X error: %s (request %d.%d)\n", text, e->request_code, e->minor_code);
+	return 0;
+}
+
 int window_init(void)
 {
 	as_dpy = XOpenDisplay(NULL);
@@ -67,6 +77,7 @@ int window_init(void)
 		fprintf(stderr, "appshell: cannot open the X display\n");
 		return -1;
 	}
+	XSetErrorHandler(on_x_error);
 	XkbSetDetectableAutoRepeat(as_dpy, True, NULL); /* repeat = presses only */
 	as_scale = as_opts->scale > 0 ? as_opts->scale : xft_scale();
 
@@ -165,23 +176,6 @@ int window_init(void)
 	eglSwapInterval(as_egl_dpy, 1);
 	AS_LOG("window: OpenGL %s, %d bits per channel\n", (const char *)glGetString(GL_VERSION), as_depth);
 	return 0;
-}
-
-/*
- * A context sharing textures with the window's, for a video render thread.
- * It has no surface (it draws into textures) and runs at low GPU priority
- * where the driver offers it, so the window's own small frames (the page,
- * menus) are scheduled ahead of a long Anime4K frame.
- */
-EGLContext window_create_shared_context(void)
-{
-	const char *ext = eglQueryString(as_egl_dpy, EGL_EXTENSIONS);
-	int prio = ext && strstr(ext, "EGL_IMG_context_priority");
-	EGLint attr[] = {EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 6,
-			 EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
-			 prio ? 0x3100 /* EGL_CONTEXT_PRIORITY_LEVEL_IMG */ : EGL_NONE,
-			 0x3103 /* EGL_CONTEXT_PRIORITY_LOW_IMG */, EGL_NONE};
-	return eglCreateContext(as_egl_dpy, egl_cfg, egl_ctx, attr);
 }
 
 void window_destroy(void)
@@ -688,7 +682,7 @@ void window_handle_events(void)
 	while (XPending(as_dpy)) {
 		XEvent ev;
 		XNextEvent(as_dpy, &ev);
-		if (XFilterEvent(&ev, None))
+		if (XFilterEvent(&ev, None) || player_handle_xevent(&ev))
 			continue;
 		switch (ev.type) {
 		case ConfigureNotify:
