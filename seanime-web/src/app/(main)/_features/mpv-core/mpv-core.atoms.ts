@@ -74,6 +74,11 @@ export interface MpvCoreSettings {
     subtitleCustomization: MpvCoreSubtitleCustomization
     customMpvConfig: string
     deband: boolean
+    // media-player: deband defaults on for anime; stays as set once the user picks it
+    debandChosen: boolean
+    // media-player: A/B test for near-black. On: mpv encodes for the exact sRGB
+    // curve that colormode decodes (target-trc=srgb, no power-2.2 substitution).
+    exactSrgbGamma: boolean
 }
 
 export const mc_initialSettings: MpvCoreSettings = {
@@ -93,7 +98,9 @@ export const mc_initialSettings: MpvCoreSettings = {
         shadow: 0,
     },
     customMpvConfig: "",
-    deband: false,
+    deband: true,
+    debandChosen: false,
+    exactSrgbGamma: false,
 }
 
 const mc_settingsRaw = atomWithStorage<Partial<MpvCoreSettings>>(
@@ -109,6 +116,8 @@ export const mc_settings = atom(
         return {
             ...mc_initialSettings,
             ...stored,
+            // settings saved before the default changed still hold deband: false
+            deband: stored.debandChosen ? (stored.deband ?? mc_initialSettings.deband) : mc_initialSettings.deband,
             subtitleCustomization: {
                 ...mc_initialSettings.subtitleCustomization,
                 ...(stored.subtitleCustomization ?? {}),
@@ -120,6 +129,7 @@ export const mc_settings = atom(
         const current = {
             ...mc_initialSettings,
             ...stored,
+            deband: stored.debandChosen ? (stored.deband ?? mc_initialSettings.deband) : mc_initialSettings.deband,
             subtitleCustomization: {
                 ...mc_initialSettings.subtitleCustomization,
                 ...(stored.subtitleCustomization ?? {}),

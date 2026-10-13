@@ -1206,6 +1206,18 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
         player.setProperty("deband", deband ? "yes" : "no").catch(() => undefined)
     }, [player, state.active, mpvSettings.deband, activeMpvConfig, state.playbackInfo?.media?.id])
 
+    // media-player: colormode decodes with the piecewise sRGB curve; "exact" makes
+    // mpv encode for that curve instead of passing the video's BT.1886 values through.
+    React.useEffect(() => {
+        if (!player || !state.active) return
+        const { parsed } = mc_parseCustomMpvConfig(activeMpvConfig)
+        if ("target-trc" in parsed) return
+        const exact = mpvSettings.exactSrgbGamma
+        log.info("Updating player target-trc:", exact ? "srgb (exact)" : "auto")
+        player.setProperty("target-trc", exact ? "srgb" : "auto").catch(() => undefined)
+        player.setProperty("treat-srgb-as-power22", exact ? "no" : "auto").catch(() => undefined)
+    }, [player, state.active, mpvSettings.exactSrgbGamma, activeMpvConfig])
+
     React.useEffect(() => {
         if (!player || !state.active) return
         if (inSightOpen) {

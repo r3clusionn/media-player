@@ -746,6 +746,9 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_set_option_string(m, "idle", "yes");
 	/* Picture defaults; Seanime's custom mpv config can change them. */
 	mpv_set_option_string(m, "scale", "ewa_lanczossharp");
+	/* Frames timed to the panel's 120 Hz: 23.976 fps is 5.005 refreshes per
+	 * frame, so plain audio sync holds one frame an extra refresh every ~8 s. */
+	mpv_set_option_string(m, "video-sync", "display-resample");
 	/* The Vulkan swapchain has the window's depth (10 bits at X depth 30),
 	 * but mpv's "auto" assumes 8 bits for Vulkan. */
 	mpv_set_option_string(m, "dither-depth", as_depth >= 10 ? "10" : "8");

@@ -457,7 +457,16 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                             value={debandActive}
                             disabled={hasCustomDeband}
                             help={hasCustomDeband ? "Written in MPV config" : undefined}
-                            onValueChange={checked => setMpvSettings(current => ({ ...current, deband: checked }))}
+                            onValueChange={checked => setMpvSettings(current => ({ ...current, deband: checked, debandChosen: true }))}
+                        />
+                        <Switch
+                            label="Exact sRGB gamma"
+                            side="right"
+                            fieldClass="hover:bg-transparent hover:border-transparent px-0 ml-0 w-full"
+                            size="sm"
+                            value={mpvSettings.exactSrgbGamma}
+                            help="A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)"
+                            onValueChange={checked => setMpvSettings(current => ({ ...current, exactSrgbGamma: checked }))}
                         />
                     </div>
                     <p className="text-[--muted] text-sm mb-2">
