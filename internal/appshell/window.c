@@ -1,5 +1,5 @@
 /*
- * window.c: the X11 window, its EGL/GLES context, and input for CEF.
+ * window.c: the X11 window, its EGL/OpenGL context, and input for CEF.
  *
  * CEF renders off-screen, so it never sees X events: keys, mouse and focus are
  * translated here and sent to the browser host. Coordinates are in DIPs
@@ -28,6 +28,8 @@ Window as_win;
 EGLDisplay as_egl_dpy;
 static EGLSurface egl_surf;
 static EGLContext egl_ctx;
+static EGLConfig egl_cfg;
+int as_depth = 8;
 int as_win_w, as_win_h;
 int as_visible;
 int as_fullscreen;
@@ -73,20 +75,40 @@ int window_init(void)
 		fprintf(stderr, "appshell: eglInitialize failed\n");
 		return -1;
 	}
-	eglBindAPI(EGL_OPENGL_ES_API);
+	/* Desktop OpenGL rather than GLES: mpv gets compute shaders (HDR peak
+	 * detection, faster polar scalers) and runs Anime4K about 8% faster. */
+	eglBindAPI(EGL_OPENGL_API);
+	/* The window takes the screen's depth: 10 bits per channel when X runs
+	 * at depth 30, so the video reaches the panel without being cut to 8. */
+	int want = DefaultDepth(as_dpy, DefaultScreen(as_dpy)) == 30 ? 10 : 8;
 	EGLint cfg_attr[] = {EGL_SURFACE_TYPE, EGL_WINDOW_BIT, EGL_RENDERABLE_TYPE,
-			     EGL_OPENGL_ES3_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
+			     EGL_OPENGL_BIT, EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8,
 			     EGL_BLUE_SIZE, 8, EGL_NONE};
-	EGLConfig cfg;
-	EGLint ncfg = 0, vid;
-	if (!eglChooseConfig(as_egl_dpy, cfg_attr, &cfg, 1, &ncfg) || ncfg < 1) {
+	EGLConfig cfgs[64];
+	EGLint ncfg = 0;
+	if (!eglChooseConfig(as_egl_dpy, cfg_attr, cfgs, 64, &ncfg) || ncfg < 1) {
 		fprintf(stderr, "appshell: no suitable EGL config\n");
 		return -1;
 	}
-	eglGetConfigAttrib(as_egl_dpy, cfg, EGL_NATIVE_VISUAL_ID, &vid);
-	XVisualInfo tmpl = {.visualid = (VisualID)vid}, *vi;
-	int nvi;
-	vi = XGetVisualInfo(as_dpy, VisualIDMask, &tmpl, &nvi);
+	XVisualInfo *vi = NULL;
+	for (int pass = 0; pass < 2 && !vi; pass++) {
+		for (int i = 0; i < ncfg && !vi; i++) {
+			EGLint r = 0, a = 0, id = 0;
+			eglGetConfigAttrib(as_egl_dpy, cfgs[i], EGL_RED_SIZE, &r);
+			eglGetConfigAttrib(as_egl_dpy, cfgs[i], EGL_ALPHA_SIZE, &a);
+			eglGetConfigAttrib(as_egl_dpy, cfgs[i], EGL_NATIVE_VISUAL_ID, &id);
+			/* First pass: the screen's depth without alpha; then anything. */
+			if (pass == 0 && (r != want || a != 0))
+				continue;
+			XVisualInfo tmpl = {.visualid = (VisualID)id};
+			int nvi;
+			vi = XGetVisualInfo(as_dpy, VisualIDMask, &tmpl, &nvi);
+			if (vi) {
+				egl_cfg = cfgs[i];
+				as_depth = r >= 10 ? 10 : 8;
+			}
+		}
+	}
 	if (!vi)
 		return -1;
 
@@ -130,16 +152,36 @@ int window_init(void)
 
 	XMapWindow(as_dpy, as_win);
 
-	EGLint ctx_attr[] = {EGL_CONTEXT_MAJOR_VERSION, 3, EGL_NONE};
-	egl_ctx = eglCreateContext(as_egl_dpy, cfg, EGL_NO_CONTEXT, ctx_attr);
-	egl_surf = eglCreatePlatformWindowSurface(as_egl_dpy, cfg, &as_win, NULL);
+	EGLint ctx_attr[] = {EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 6,
+			     EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+			     EGL_NONE};
+	egl_ctx = eglCreateContext(as_egl_dpy, egl_cfg, EGL_NO_CONTEXT, ctx_attr);
+	egl_surf = eglCreatePlatformWindowSurface(as_egl_dpy, egl_cfg, &as_win, NULL);
 	if (egl_ctx == EGL_NO_CONTEXT || egl_surf == EGL_NO_SURFACE ||
 	    !eglMakeCurrent(as_egl_dpy, egl_surf, egl_surf, egl_ctx)) {
 		fprintf(stderr, "appshell: EGL context failed: 0x%x\n", eglGetError());
 		return -1;
 	}
 	eglSwapInterval(as_egl_dpy, 1);
+	AS_LOG("window: OpenGL %s, %d bits per channel\n", (const char *)glGetString(GL_VERSION), as_depth);
 	return 0;
+}
+
+/*
+ * A context sharing textures with the window's, for a video render thread.
+ * It has no surface (it draws into textures) and runs at low GPU priority
+ * where the driver offers it, so the window's own small frames (the page,
+ * menus) are scheduled ahead of a long Anime4K frame.
+ */
+EGLContext window_create_shared_context(void)
+{
+	const char *ext = eglQueryString(as_egl_dpy, EGL_EXTENSIONS);
+	int prio = ext && strstr(ext, "EGL_IMG_context_priority");
+	EGLint attr[] = {EGL_CONTEXT_MAJOR_VERSION, 4, EGL_CONTEXT_MINOR_VERSION, 6,
+			 EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+			 prio ? 0x3100 /* EGL_CONTEXT_PRIORITY_LEVEL_IMG */ : EGL_NONE,
+			 0x3103 /* EGL_CONTEXT_PRIORITY_LOW_IMG */, EGL_NONE};
+	return eglCreateContext(as_egl_dpy, egl_cfg, egl_ctx, attr);
 }
 
 void window_destroy(void)

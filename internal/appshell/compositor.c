@@ -129,10 +129,10 @@ static void draw_tex(GLuint tex, int x, int y, int w, int h)
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void compositor_blit_target(const as_target *t, int x, int y, int w, int h)
+void compositor_blit_texture(GLuint tex, int x, int y, int w, int h)
 {
 	glDisable(GL_BLEND);
-	draw_tex(t->tex, x, y, w, h);
+	draw_tex(tex, x, y, w, h);
 }
 
 void compositor_page_from_dmabuf(int is_popup, const void *paint_info)
@@ -188,6 +188,7 @@ void compositor_page_from_dmabuf(int is_popup, const void *paint_info)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_BLUE);
 	l->valid = 1;
+	stats_page_painted();
 	as_request_redraw();
 }
 
@@ -201,6 +202,7 @@ void compositor_page_from_pixels(int is_popup, const void *bgra, int w, int h)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_BLUE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
 	l->valid = 1;
+	stats_page_painted();
 	as_request_redraw();
 }
 

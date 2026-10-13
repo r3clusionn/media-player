@@ -2,13 +2,15 @@
  * appshell: a standalone window for a web UI, without a browser or Electron.
  *
  * CEF (Chromium as a library) renders the page off-screen into GPU buffers;
- * an X11 window with an EGL/GLES context imports them and blends them over
+ * an X11 window with an EGL/OpenGL context imports them and blends them over
  * video that libmpv draws underneath. The page reaches native code through
  * the shim in appshell/helper (window.electron, window.mpvPrism).
  *
- * Everything runs on the process's main thread (CEF's UI thread). Only the
- * wakeup callbacks (CEF pump scheduling, mpv events and frames) come from
- * other threads; they just write to an eventfd.
+ * Everything runs on the process's main thread (CEF's UI thread), except
+ * video: each player renders on its own thread into a queue of textures, and
+ * the main thread shows each frame when it is due (player.c). The wakeup
+ * callbacks (CEF pump scheduling, mpv events and frames) just write to an
+ * eventfd.
  */
 #ifndef APPSHELL_H
 #define APPSHELL_H
@@ -68,6 +70,7 @@ extern EGLDisplay as_egl_dpy;
 extern int as_win_w, as_win_h; /* pixels */
 extern int as_visible;         /* mapped, not fully obscured, display on */
 extern int as_fullscreen;
+extern int as_depth;    /* bits per channel of the window: 8, or 10 at X depth 30 */
 extern double as_scale; /* device scale factor: opts->scale, else Xft.dpi / 96 */
 
 int window_init(void);
@@ -79,6 +82,7 @@ void window_minimize(void);
 void window_inhibit_screensaver(int on);
 int window_display_on(void);
 int window_swap(void); /* returns 0 if skipped (not visible) */
+EGLContext window_create_shared_context(void); /* for a render thread */
 void window_sync_surface_size(void);
 void window_destroy(void);
 
@@ -91,24 +95,34 @@ void compositor_page_from_pixels(int popup, const void *bgra, int w, int h);
 void compositor_set_popup(int show, int x, int y, int w, int h); /* DIP */
 /* Draws video rects (via player_draw_all), then the page, then the popup. */
 void compositor_draw(void);
-/* An offscreen RGBA8 target for one video rect, reused between frames. */
+/* An offscreen RGBA8 copy of a page layer, reused between frames. */
 typedef struct as_target {
 	GLuint fbo, tex;
 	int w, h;
 } as_target;
 void compositor_target_size(as_target *t, int w, int h);
-void compositor_blit_target(const as_target *t, int x, int y, int w, int h); /* pixels, top-left origin */
+void compositor_blit_texture(GLuint tex, int x, int y, int w, int h); /* pixels, top-left origin */
 void compositor_destroy(void);
 
 /* ---- player.c --------------------------------------------------------- */
 
 int player_handle_request(const char *ch, void *args /* yyjson_val* */, void *reply /* reply_t* */);
 void player_process_events(void); /* mpv events -> page */
-int player_any_frame_ready(void);
-void player_draw_all(void);       /* into the current framebuffer */
-void player_report_swap(void);
+/* Passes size and visibility to the render threads; returns ms until the next
+ * video frame is due (0: now), or -1 when none is waiting. */
+double player_tick(void);
+void player_draw_all(void);       /* due frames, into the current framebuffer */
 int player_any_playing(void);
 void player_destroy_all(void);
+
+/* ---- stats.c (timing counters for tests) ---------------------------- */
+
+void stats_loop_tick(void);  /* the loop runs */
+void stats_loop_idle(void);  /* the loop is about to sleep */
+void stats_page_painted(void);
+void stats_swapped(void);
+void stats_video(int shown, int skipped);
+void *stats_take(void *doc /* yyjson_mut_doc* */); /* yyjson_mut_val*, resets */
 
 /* ---- bridge.c --------------------------------------------------------- */
 
