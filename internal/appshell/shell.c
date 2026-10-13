@@ -15,7 +15,6 @@
 #include "include/cef_api_hash.h"
 
 #include <errno.h>
-#include <math.h>
 #include <pthread.h>
 #include <signal.h>
 #include <sys/wait.h>
@@ -572,6 +571,19 @@ int appshell_run(const appshell_opts *o)
 
 	if (window_init() != 0 || compositor_init() != 0)
 		return 1;
+	/*
+	 * Every amdgpu context Mesa creates from here on in this process runs at
+	 * low GPU priority: mpv's (Vulkan, created when a video starts). The
+	 * window's own context above was created at normal priority, and the
+	 * helper clears this for CEF's processes, so the page and the window's
+	 * frames are scheduled ahead of a long Anime4K frame. Mesa reads the
+	 * variable each time it creates a context. Set before CEF starts its
+	 * threads; an AMD_PRIORITY from the user is kept.
+	 */
+	if (!getenv("AMD_PRIORITY")) {
+		setenv("AMD_PRIORITY", "-512" /* AMDGPU_CTX_PRIORITY_LOW */, 1);
+		setenv("APPSHELL_AMD_PRIORITY", "1", 1);
+	}
 
 	/* No positional arguments: CEF would treat them as URLs to open. */
 	static char arg0[] = "media-player";
@@ -631,9 +643,7 @@ int appshell_run(const appshell_opts *o)
 			cef_do_message_loop_work();
 		}
 		player_process_events();
-		double video_due = player_tick();
-		if (video_due == 0)
-			redraw = 1;
+		player_tick();
 		if (shot_requested && env_shot) {
 			shot_requested = 0;
 			window_sync_surface_size();
@@ -657,12 +667,6 @@ int appshell_run(const appshell_opts *o)
 		int timeout = d > 0 ? (int)d + 1 : 0;
 		if (timeout > 33)
 			timeout = 33;
-		/* Wake for the next video frame (the one just drawn is gone). */
-		video_due = player_tick();
-		if (video_due >= 0 && video_due < timeout)
-			timeout = (int)ceil(video_due);
-		if (video_due == 0)
-			redraw = 1;
 		if (XPending(as_dpy) || (redraw && as_visible))
 			timeout = 0;
 		if (timeout > 0) {

@@ -18,6 +18,7 @@
 #include "include/capi/cef_v8_capi.h"
 #include "include/cef_api_hash.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 /* shim.js, embedded at build time (SHIM_JS_PATH comes from the build). */
@@ -126,6 +127,11 @@ static cef_app_t app;
 
 int main(int argc, char **argv)
 {
+	/* The main process lowers the GPU priority for mpv only (shell.c). */
+	if (getenv("APPSHELL_AMD_PRIORITY")) {
+		unsetenv("AMD_PRIORITY");
+		unsetenv("APPSHELL_AMD_PRIORITY");
+	}
 	cef_api_hash(CEF_API_VERSION, 0);
 	init_base(&post_handler.base, sizeof post_handler);
 	post_handler.execute = post_execute;
