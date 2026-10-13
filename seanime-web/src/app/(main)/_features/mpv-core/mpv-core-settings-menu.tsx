@@ -22,7 +22,7 @@ import { LuChevronUp, LuHeading, LuPaintbrush, LuPalette, LuSettings2, LuSparkle
 import { MdOutlineAccessTime, MdOutlineSubtitles, MdSpeed } from "react-icons/md"
 import { RiShadowLine } from "react-icons/ri"
 import { TbArrowForwardUp } from "react-icons/tb"
-import { mc_parseCustomMpvConfig, mc_resolveAnime4KProfile } from "./mpv-core"
+import { mc_artcnnLabel, mc_artcnnPresets, mc_parseCustomMpvConfig, mc_resolveAnime4KProfile, mc_resolveArtCNNProfile } from "./mpv-core"
 import { mpvCore_stateAtom } from "./mpv-core.atoms"
 import { useAtomValue } from "jotai"
 import type { MpvCoreAnime4KQuality, MpvCoreSettings, MpvCoreShaderMode, MpvCoreShaderSettings } from "./mpv-core.atoms"
@@ -229,7 +229,9 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         shaderSettings.mode !== "off" && (
                             shaderSettings.mode === "custom"
                                 ? "Custom"
-                                : `${shaderSettings.anime4kMode.replace("mode-", "").toUpperCase()} (${shaderSettings.anime4kQuality.toUpperCase()})`
+                                : shaderSettings.mode === "artcnn"
+                                    ? mc_artcnnLabel(shaderSettings.artcnnPreset)
+                                    : `${shaderSettings.anime4kMode.replace("mode-", "").toUpperCase()} (${shaderSettings.anime4kQuality.toUpperCase()})`
                         ),
                     ].filter(Boolean).join(", ") || "Off"}
                     openSection={openSection}
@@ -465,6 +467,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         options={[
                             { label: "Off", value: "off" },
                             { label: "Anime4K Preset", value: "anime4k", description: "Use Anime4K upscaling presets" },
+                            { label: "ArtCNN Preset", value: "artcnn", description: "Faithful upscaling and sharper colour (ArtCNN, chroma-from-luma)" },
                             { label: "Custom Shaders", value: "custom", description: "Enable individual custom shaders" },
                         ]}
                         value={shaderSettings.mode}
@@ -517,6 +520,22 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         </>
                     )}
 
+                    {shaderSettings.mode === "artcnn" && (
+                        <>
+                            <p className="text-[--muted] text-sm my-2">Preset</p>
+                            <MediaCoreSettingSelect
+                                options={mc_artcnnPresets.map(({ label, value, description }) => ({ label, value, description }))}
+                                value={shaderSettings.artcnnPreset}
+                                onValueChange={value => setShaderSettings(current => ({
+                                    ...current,
+                                    artcnnPreset: String(value),
+                                }))}
+                                isFullscreen={isFullscreen}
+                                containerElement={containerElement}
+                            />
+                        </>
+                    )}
+
                     {shaderSettings.mode === "custom" && (
                         <div className="mt-4 border-t border-gray-800 pt-4 max-h-48 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                             <p className="text-[--muted] text-xs font-semibold uppercase tracking-wider mb-2">Select Shaders</p>
@@ -559,6 +578,11 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                     {shaderSettings.mode === "anime4k" && mc_resolveAnime4KProfile(anime4kDirectory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality).missing.length > 0 && (
                         <p className="text-red-300 text-sm mb-2 break-words">
                             Missing: {mc_resolveAnime4KProfile(anime4kDirectory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality).missing.join(", ")}
+                        </p>
+                    )}
+                    {shaderSettings.mode === "artcnn" && mc_resolveArtCNNProfile(anime4kDirectory, shaderSettings.artcnnPreset).missing.length > 0 && (
+                        <p className="text-red-300 text-sm mb-2 break-words">
+                            Missing: {mc_resolveArtCNNProfile(anime4kDirectory, shaderSettings.artcnnPreset).missing.join(", ")}
                         </p>
                     )}
                     {anime4kError && <p className="text-red-300 text-sm mb-2 break-words">{anime4kError}</p>}

@@ -60,6 +60,7 @@ import {
     mc_formatSubtitleTrack,
     mc_parseCustomMpvConfig,
     mc_resolveAnime4KProfile,
+    mc_resolveArtCNNProfile,
     mc_resolveSource,
     mc_selectPreferredTrack,
     mc_trackKind,
@@ -662,7 +663,9 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
                 return
             }
 
-            const profile = mc_resolveAnime4KProfile(directory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality)
+            const profile = shaderSettings.mode === "artcnn"
+                ? mc_resolveArtCNNProfile(directory, shaderSettings.artcnnPreset)
+                : mc_resolveAnime4KProfile(directory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality)
             if (profile.missing.length) {
                 await p.clearShaders()
                 setAnime4kError(`Missing ${profile.missing.join(", ")}`)
@@ -680,6 +683,7 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
         shaderSettings.mode,
         shaderSettings.anime4kMode,
         shaderSettings.anime4kQuality,
+        shaderSettings.artcnnPreset,
         shaderSettings.customShaders,
         refreshAnime4KDirectory,
     ])
@@ -1296,6 +1300,12 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
             }
             const cycleTrack = async (kind: "audio" | "subtitle", candidates: MpvPrismTrack[]) => {
                 if (!candidates.length) return
+                // media-player: with one audio track there is nothing to switch to;
+                // say so instead of announcing it as if it had changed.
+                if (kind === "audio" && candidates.length === 1) {
+                    showMessage(`Only one audio track: ${mc_trackLabel(candidates[0])}`)
+                    return
+                }
                 const selectedIndex = candidates.findIndex(track => track.selected)
                 if (kind === "subtitle" && selectedIndex === candidates.length - 1) {
                     await player.selectTrack("subtitle", "no")

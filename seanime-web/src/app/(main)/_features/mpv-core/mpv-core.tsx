@@ -325,21 +325,67 @@ export function mc_selectPreferredTrack(
     return undefined
 }
 
-export function mc_resolveAnime4KProfile(
-    directory: MpvCoreAnime4KDirectory | null,
-    anime4kMode: string,
-    quality: MpvCoreAnime4KQuality,
-) {
+function mc_resolveShaderFiles(directory: MpvCoreAnime4KDirectory | null, expected: string[]) {
     const byBasename = new Map(
         (directory?.shaders ?? []).map(shader => [
             shader.name.split("/").pop()?.toLowerCase() ?? shader.name.toLowerCase(),
             shader.path,
         ]),
     )
-    const expected = anime4KProfiles[quality][anime4kMode] || []
     const missing = expected.filter(name => !byBasename.has(name.toLowerCase()))
     const paths = expected.map(name => byBasename.get(name.toLowerCase())).filter((value): value is string => !!value)
     return { paths, missing }
+}
+
+export function mc_resolveAnime4KProfile(
+    directory: MpvCoreAnime4KDirectory | null,
+    anime4kMode: string,
+    quality: MpvCoreAnime4KQuality,
+) {
+    return mc_resolveShaderFiles(directory, anime4KProfiles[quality][anime4kMode] || [])
+}
+
+/*
+ * media-player: ArtCNN (a luma doubler trained on anime) with chroma-from-luma
+ * prediction (CfL), both by Artoriuz. They need mpv's gpu-next renderer. CfL
+ * rebuilds the half-resolution colour of 4:2:0 video from the full-resolution
+ * luma; ArtCNN doubles the luma without Anime4K's restoration (no line
+ * thinning or darkening), and mpv scales the result to the screen.
+ */
+export const mc_artcnnPresets: { value: string, label: string, description: string, files: string[] }[] = [
+    {
+        value: "c4f16",
+        label: "ArtCNN",
+        description: "Faithful 2x upscaling with sharp colour (ArtCNN C4F16 + CfL)",
+        files: ["CfL_Prediction.glsl", "ArtCNN_C4F16.glsl"],
+    },
+    {
+        value: "c4f16-ds",
+        label: "ArtCNN Sharp",
+        description: "Also removes noise and sharpens slightly: soft or older sources (C4F16 DS + CfL)",
+        files: ["CfL_Prediction.glsl", "ArtCNN_C4F16_DS.glsl"],
+    },
+    {
+        value: "c4f16-dn",
+        label: "ArtCNN Denoise",
+        description: "Also removes compression noise: web releases (C4F16 DN + CfL)",
+        files: ["CfL_Prediction.glsl", "ArtCNN_C4F16_DN.glsl"],
+    },
+    {
+        value: "cfl",
+        label: "Chroma only",
+        description: "Only sharper colour edges, almost no GPU cost (CfL)",
+        files: ["CfL_Prediction.glsl"],
+    },
+]
+
+export function mc_resolveArtCNNProfile(directory: MpvCoreAnime4KDirectory | null, preset: string) {
+    const files = (mc_artcnnPresets.find(p => p.value === preset) ?? mc_artcnnPresets[0]).files
+    return mc_resolveShaderFiles(directory, files)
+}
+
+export function mc_artcnnLabel(preset: string) {
+    return (mc_artcnnPresets.find(p => p.value === preset) ?? mc_artcnnPresets[0]).label
 }
 
 export function mc_resolveSource(value: string | undefined) {

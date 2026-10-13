@@ -13,7 +13,7 @@ An anime and movie player for Linux built on [Seanime](https://github.com/5rahim
 - **mpv inside the window.** libmpv draws the video and the page is drawn over it, so Seanime's own player (mpvcore) keeps its controls, menus and Anime4K picker exactly as they are.
 - **mpv's best renderer.** The video is drawn by mpv's `gpu-next` (libplacebo) on Vulkan, the renderer standalone mpv uses, so every mpv shader works, including those written for `gpu-next` only, such as ArtCNN and chroma-from-luma prediction. Video decoding is on the GPU (Vulkan Video or VA-API).
 - **Smooth with shaders.** mpv renders on its own threads at low GPU priority, so the controls, menus and mouse stay at the panel's 120 Hz while Anime4K works: input reaches the page in 11–16 ms during playback, with 0 dropped frames up to Anime4K Mode A (HQ).
-- **Picture quality.** Anime4K and debanding for anime, chosen in the player's menu (up arrow > Shaders) and off until you pick them, as in Seanime. The Shaders menu's custom mode also lists ArtCNN and chroma-from-luma prediction. Without shaders, video is scaled with `ewa_lanczossharp`. HDR tone mapping with peak detection for everything. With X at depth 30 the video reaches the panel in 10 bits per channel. Movies & TV is live action: no Shaders entry, no Anime4K, no debanding.
+- **Picture quality.** Shaders and debanding for anime, chosen in the player's menu (up arrow > Shaders) and off until you pick them. Next to Seanime's Anime4K presets there are ArtCNN presets: ArtCNN, ArtCNN Sharp, ArtCNN Denoise (each with chroma-from-luma prediction for the colour) and Chroma only. ArtCNN gives the closest result to the source in the quality test below and is the recommended choice on this laptop. Without shaders, video is scaled with `ewa_lanczossharp`. HDR tone mapping with peak detection for everything. With X at depth 30 the video reaches the panel in 10 bits per channel. Movies & TV is live action: no Shaders entry, no Anime4K, no debanding.
 - **The right episode.** A rewritten episode matcher for debrid batches (see How it works) is used by autoplay, resume and manual picks. When it isn't sure, it shows the file picker instead of guessing. Movies & TV refuses a file whose name says another season or episode.
 - **Torrent providers.** Anime searches SeaDex by default with AnimeTosho (and Nyaa) one click away in the torrent drawer. Movies & TV asks Torrentio by default or Comet if you pick it, with the other as the backup.
 - **Movies & TV.** Catalogs, search and details from Cinemeta. Real-Debrid streams come from the chosen add-on, and from the other one when it fails or has nothing cached. You get Continue Watching and Next Up, resume, and next-episode autoplay that stays on the same release. The pages are built from Seanime's own components.
@@ -27,7 +27,7 @@ The build also needs three directories in `~/src/third_party` (or `$THIRD_PARTY`
 
 - `cef/`: the CEF 154.0.34 "minimal" Linux x64 build from the [official CEF builds](https://cef-builds.spotifycdn.com/index.html), extracted.
 - `runtime/`: NSS, NSPR and xkbcommon, which CEF needs and this Gentoo install doesn't have (copied from a Chromium-based browser's bundled libraries).
-- `anime4k/`: the [Anime4K](https://github.com/bloc97/Anime4K) v4 GLSL shaders, plus `ArtCNN_C4F16.glsl` and `ArtCNN_C4F16_DS.glsl` from [ArtCNN](https://github.com/Artoriuz/ArtCNN) and `CfL_Prediction.glsl` from [glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction).
+- `anime4k/`: the [Anime4K](https://github.com/bloc97/Anime4K) v4 GLSL shaders, plus `ArtCNN_C4F16.glsl`, `ArtCNN_C4F16_DS.glsl` and `ArtCNN_C4F16_DN.glsl` from [ArtCNN](https://github.com/Artoriuz/ArtCNN) and `CfL_Prediction.glsl` from [glsl-chroma-from-luma-prediction](https://github.com/Artoriuz/glsl-chroma-from-luma-prediction).
 
 ```sh
 git clone https://github.com/r3clusionn/media-player
@@ -62,6 +62,7 @@ The window opens on Seanime's home screen. Accounts, Real-Debrid and the library
 
 - **The window** is one X11 window with a desktop OpenGL 4.6 context (EGL), at the screen's depth: 10 bits per channel when X runs at depth 30. CEF's GPU process uses ANGLE over EGL (`--use-angle=gl-egl`): over GLX it can't bind the page's 8-bit buffers on a depth-30 screen, which has no depth-24 visuals. CEF renders the page off-screen and hands each changed frame over as a GPU buffer (dmabuf), imported with `EGL_EXT_image_dma_buf_import`. Each frame is the video, then the page blended on top. Nothing is redrawn while nothing changes, and the swap is skipped while the window is hidden.
 - **Video through Composite.** libmpv's render API only runs mpv's older `gpu` renderer, so each player is instead a whole mpv with its own `gpu-next` video output, drawing into a child window the size of the player on the page. That window is redirected off-screen (X Composite): X keeps what mpv draws in a pixmap instead of putting it on screen, Damage reports each new frame, and the pixmap is imported as an EGLImage and drawn under the page, without a copy. The window takes no input (an empty input shape), so the page gets the mouse and keyboard. mpv paces its own frames, so a 20–35 ms Anime4K frame never holds up the page or input; while the player isn't visible the window is unmapped and mpv stops drawing, with playback and audio going on.
+- **Closing a player** hides it at once and shuts mpv down on a thread of its own; the window is removed once mpv has finished. mpv can take long to quit (a network read waiting for its timeout after the stream was closed), and the window keeps running meanwhile.
 - **GPU priority.** Mesa creates every GPU context in the process at low priority once the window's own context exists (`AMD_PRIORITY`, set after it and cleared in CEF's helper processes), so mpv runs at low priority and the window's and the page's small frames are scheduled ahead of a long Anime4K frame.
 - **The page talks to the player** through the JavaScript interface Seanime's Electron app provides (`window.electron` and the mpv-prism calls). A small script injected by the helper process implements it over CEF process messages, so the React code is unchanged. Every mpv request is asynchronous, so the window never waits on mpv.
 - **Video under the page.** The player's ancestors are made transparent by a CSS `:has()` rule, not by classes, because React rewrites class names when it re-renders. Page content painted beneath the player gets a mask with a hole the video's shape; the player's own menus and popovers, painted above it, are left alone. The hidden control bar is skipped with `content-visibility`, so the page stays idle during playback instead of restyling an invisible seek bar.
@@ -102,9 +103,29 @@ Playback while using the interface, plugged in on the gaming power plan: Frieren
 | none (`ewa_lanczossharp`) | 2.4 ms | 27% | 0 | 10.9 / 17.2 ms | 8.2 / 8.3 ms |
 | Anime4K A+A (Fast) | 19.7 ms | 69% | 0 | 13.6 / 25.3 ms | 8.2 / 14.5 ms |
 | Anime4K A (HQ) | 33.7 ms | 97% | 0 | 16.2 / 33.9 ms | 8.1 / 24.6 ms |
-| ArtCNN C4F16 with chroma-from-luma | 19 ms | | 0 | | |
+| ArtCNN (C4F16 + chroma-from-luma) | 24.3 ms | 70% | 0 | 12.9 / 25.7 ms | 8.1 / 15.2 ms |
+| Chroma only (chroma-from-luma) | 6.2 ms | 40% | 0 | 11.0 / 23.4 ms | 8.1 / 8.4 ms |
 
-GPU time is mpv's own measurement (`vo-passes`) and includes time its passes wait behind the window's frames. Anime4K A+A (HQ) takes 50 ms per frame, more than a 24 fps frame lasts, and drops frames. While watching without touching anything, every video frame reaches the screen (719 of 719 in 30 s with A+A); while the mouse keeps the controls repainting, about 1 frame in 100 is replaced by the next before it is shown.
+GPU time is mpv's own measurement (`vo-passes`) and includes time its passes wait behind the window's frames; the ArtCNN rows had debanding on. ArtCNN Sharp and Denoise cost the same as ArtCNN. Anime4K A+A (HQ) (50 ms per frame) and ArtCNN C4F32 (53 ms) take longer than a 24 fps frame lasts and drop frames, so C4F32 isn't offered. While watching without touching anything, every video frame reaches the screen (719 of 719 in 30 s with A+A); while the mouse keeps the controls repainting, about 1 frame in 100 is replaced by the next before it is shown.
+
+### Picture quality test
+
+Three frames of Frieren episode 1 (1080p) were halved to 960x540 with Lanczos, then doubled back to 1920x1080 by each method in mpv `gpu-next`, and the result compared with the original frame (higher is closer):
+
+| Method | PSNR | SSIM |
+|---|---|---|
+| ArtCNN (C4F16 + chroma-from-luma) | **37.08 dB** | **0.9700** |
+| ArtCNN Denoise | 37.01 dB | 0.9631 |
+| Anime4K C (HQ) | 36.92 dB | 0.9663 |
+| Lanczos (mpv's default) | 36.70 dB | 0.9663 |
+| `ewa_lanczossharp` with chroma-from-luma | 36.41 dB | 0.9652 |
+| `ewa_lanczossharp` | 36.40 dB | 0.9647 |
+| ArtCNN Sharp | 35.51 dB | 0.9615 |
+| Anime4K A (HQ) | 33.15 dB | 0.9414 |
+| Anime4K A (Fast) | 32.56 dB | 0.9396 |
+| Anime4K A+A (Fast) | 29.99 dB | 0.9197 |
+
+Side by side, ArtCNN keeps the painted texture of backgrounds and gives crisp lines; Anime4K A and A+A draw bolder lines but smooth the background art flat, which is a look some prefer, not more detail. The test favours faithful reconstruction, which is what ArtCNN is trained for.
 
 ## Verification
 
@@ -118,7 +139,8 @@ GPU time is mpv's own measurement (`vo-passes`) and includes time its passes wai
 - `appshell/test/bench-playback.mjs`: the table in Measurements, with mpv's drop counters and the window's own frame timing (`appshell:stats`).
 - **X at depth 30:** the window and mpv's Vulkan swapchain are 10 bits per channel (mpv dithers to 10); every measurement above was taken at depth 30.
 - **Hidden window:** unmapped for 6 s during playback (as when switching dwm tags), the video went on with 0 dropped frames and showed again at 24 fps after being mapped.
-- **`gpu-next` shaders:** ArtCNN C4F16 (and its DS variant) with chroma-from-luma prediction loaded through the player's shader call and ran.
+- **ArtCNN presets:** choosing ArtCNN in the Shaders menu loaded `CfL_Prediction.glsl` and `ArtCNN_C4F16.glsl` into mpv; every preset played with 0 dropped frames.
+- **Closing during playback:** destroying a player returns in 2 ms whether its video is visible or hidden; closing from the mini player and starting another episode afterwards left one mpv video thread running.
 - **A new player in the same window:** starting the episode again replaced the player; the new one showed 24 frames a second with 0 dropped.
 - **Audio recovery:** PipeWire stopped and started during playback; audio came back on its own about 2 s later.
 - **Clean exit:** SIGTERM during playback closes the window in 0.2 s and leaves no helper processes.
