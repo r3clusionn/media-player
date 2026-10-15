@@ -194,7 +194,9 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
             "keep-open": "yes",
         }
         if (!("hwdec" in parsed)) {
-            options["hwdec"] = "auto-safe"
+            // media-player: the same decoder as player.c (VA-API). "auto-safe" left the
+            // choice to mpv's probe order, so the path in use could change with mpv updates.
+            options["hwdec"] = "vaapi"
         }
         if (!("deband" in parsed)) {
             options["deband"] = initialDeband ? "yes" : "no"
