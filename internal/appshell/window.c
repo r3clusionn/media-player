@@ -41,6 +41,7 @@ unsigned as_hdr_gen;
 
 static int mapped, obscured, hdr_video;
 static Atom wm_delete, net_wm_state, net_wm_state_fs, net_wm_name, utf8_string;
+static Atom clipboard_atom, paste_prop;
 static Atom hdr_video_atom, hdr_output_atom;
 static XIM xim;
 static XIC xic;
@@ -153,6 +154,8 @@ int window_init(void)
 	net_wm_state_fs = XInternAtom(as_dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	net_wm_name = XInternAtom(as_dpy, "_NET_WM_NAME", False);
 	utf8_string = XInternAtom(as_dpy, "UTF8_STRING", False);
+	clipboard_atom = XInternAtom(as_dpy, "CLIPBOARD", False);
+	paste_prop = XInternAtom(as_dpy, "_APPSHELL_PASTE", False);
 	hdr_video_atom = XInternAtom(as_dpy, "_COLORMODE_HDR_VIDEO", False);
 	hdr_output_atom = XInternAtom(as_dpy, "_COLORMODE_HDR_OUTPUT", False);
 	XSetWMProtocols(as_dpy, as_win, &wm_delete, 1);
@@ -491,12 +494,42 @@ static char16_t utf16_of(const char *s, int n)
 	return 0;
 }
 
+/* Paste is ours, never Chromium's (see bridge_paste_text): ask the selection
+ * owner for CLIPBOARD as UTF-8 on our connection; SelectionNotify brings it. */
+static void paste_request(Time t)
+{
+	XConvertSelection(as_dpy, clipboard_atom, utf8_string, paste_prop, as_win, t);
+}
+
+static void paste_finish(void)
+{
+	Atom type;
+	int format;
+	unsigned long n, left;
+	unsigned char *data = NULL;
+	if (XGetWindowProperty(as_dpy, as_win, paste_prop, 0, 1 << 24, True, AnyPropertyType,
+			       &type, &format, &n, &left, &data) == Success &&
+	    data && type == utf8_string && format == 8)
+		bridge_paste_text((const char *)data, n);
+	if (data)
+		XFree(data);
+}
+
 static void handle_key(XKeyEvent *ev, int press)
 {
 	cef_browser_host_t *h = host();
 	if (!h)
 		return;
 	KeySym base_sym = XLookupKeysym(ev, 0);
+	/* Ctrl+V, Ctrl+Shift+V, Shift+Insert: Chromium never sees these keys. */
+	unsigned ctrl = ev->state & ControlMask, shift = ev->state & ShiftMask;
+	if ((ctrl && !(ev->state & Mod1Mask) && base_sym == XK_v) ||
+	    (shift && !ctrl && base_sym == XK_Insert)) {
+		if (press)
+			paste_request(ev->time);
+		release_host(h);
+		return;
+	}
 	char text[16] = {0};
 	KeySym sym = NoSymbol;
 	int n = 0;
@@ -707,7 +740,10 @@ static void handle_button(XButtonEvent *ev, int press)
 	cef_mouse_button_type_t bt;
 	switch (ev->button) {
 	case 1: bt = MBT_LEFT; break;
-	case 2: bt = MBT_MIDDLE; break;
+	case 2:
+		/* Dropped: Chromium would paste PRIMARY and hang like Ctrl+V did. */
+		release_host(h);
+		return;
 	case 3: bt = MBT_RIGHT; break;
 	case 8: case 9:
 		/* Back/forward buttons: history navigation, as in a browser. */
@@ -819,6 +855,10 @@ void window_handle_events(void)
 			}
 			break;
 		}
+		case SelectionNotify:
+			if (ev.xselection.property == paste_prop)
+				paste_finish();
+			break;
 		case ClientMessage:
 			if ((Atom)ev.xclient.data.l[0] == wm_delete)
 				as_quit();
