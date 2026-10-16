@@ -820,6 +820,11 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_set_option_string(m, "input-vo-keyboard", "no");
 	mpv_set_option_string(m, "osc", "no");
 	mpv_set_option_string(m, "idle", "yes");
+	/* mpv's X11 clipboard backend fetches every new clipboard and can't finish
+	 * an INCR transfer: a big screenshot left xclip waiting on us forever, and
+	 * every other app's paste (Thorium's) hung behind it. The page owns the
+	 * clipboard here. */
+	mpv_set_option_string(m, "clipboard-backends", "");
 	/* Picture defaults; Seanime's custom mpv config can change them. */
 	mpv_set_option_string(m, "scale", "ewa_lanczossharp");
 	/* Frames timed to the panel's 120 Hz: 23.976 fps is 5.005 refreshes per
