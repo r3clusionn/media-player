@@ -39,7 +39,10 @@
 
 #define OBSERVE_PAGE 1     /* reply_userdata of properties the page observes */
 #define OBSERVE_INTERNAL 2 /* ours: pause, core-idle */
+#define OBSERVE_GAMMA 3    /* ours: video-params/gamma (HDR video or not) */
+#define OBSERVE_HDR_OPT 4  /* ours: the options an HDR screen changes */
 #define MAX_OBSERVED 96
+#define NHDR_OPTS 5
 
 typedef struct player {
 	char id[128];
@@ -69,12 +72,21 @@ typedef struct player {
 	char *pend_json[MAX_OBSERVED];
 	int npend;
 	double last_flush;
+	/* HDR (see window_set_hdr_video): the file is HDR; mpv renders PQ for an
+	 * HDR screen; the as_hdr_gen it last followed; the options' current
+	 * values and those from before PQ. */
+	int hdr_video, pq;
+	unsigned hdr_gen;
+	char *opt_cur[NHDR_OPTS], *opt_saved[NHDR_OPTS];
 	struct player *next;
 } player;
 
 static player *players;
 
-#define REPLY_BASE 1000 /* reply_userdata of requests; observe ids are 1 and 2 */
+static const char *const hdr_opts[NHDR_OPTS] = {"target-trc", "target-prim", "target-peak",
+						"hdr-reference-white", "target-colorspace-hint"};
+
+#define REPLY_BASE 1000 /* reply_userdata of requests; observe ids are 1 to 4 */
 static void answer(uint64_t token, int error, const char *value_json);
 
 static player *find(const char *id)
@@ -327,6 +339,19 @@ void player_process_events(void)
 				break;
 			case MPV_EVENT_PROPERTY_CHANGE: {
 				mpv_event_property *pr = e->data;
+				const char *str = pr->format == MPV_FORMAT_STRING ? *(char **)pr->data : NULL;
+				if (e->reply_userdata == OBSERVE_GAMMA) {
+					p->hdr_video = str && (!strcmp(str, "pq") || !strcmp(str, "hlg"));
+					break;
+				}
+				if (e->reply_userdata == OBSERVE_HDR_OPT) {
+					for (int i = 0; i < NHDR_OPTS; i++)
+						if (!strcmp(pr->name, hdr_opts[i])) {
+							free(p->opt_cur[i]);
+							p->opt_cur[i] = str ? strdup(str) : NULL;
+						}
+					break;
+				}
 				if (e->reply_userdata == OBSERVE_INTERNAL) {
 					int flag = pr->format == MPV_FORMAT_NODE &&
 						   ((mpv_node *)pr->data)->format == MPV_FORMAT_FLAG &&
@@ -550,6 +575,45 @@ int player_handle_xevent(void *xevent)
 	return 1;
 }
 
+static void set_async(player *p, const char *name, const char *value)
+{
+	mpv_set_property_async(p->mpv, 0, name, MPV_FORMAT_STRING, &value);
+}
+
+/*
+ * While the screen is in HDR mode every player renders PQ (an SDR file too:
+ * mpv puts its white at the SDR white), tone mapped to the panel's peak; when
+ * it is back to SDR, the options are as they were. Asynchronous, so a busy
+ * mpv (opening a stream) can't hold up the window.
+ */
+static void hdr_follow(player *p)
+{
+	p->hdr_gen = as_hdr_gen;
+	if (as_hdr) {
+		char white[32], peak[32];
+		if (!p->pq)
+			for (int i = 0; i < NHDR_OPTS; i++) {
+				free(p->opt_saved[i]);
+				p->opt_saved[i] = strdup(p->opt_cur[i] ? p->opt_cur[i] : "auto");
+			}
+		snprintf(white, sizeof white, "%.0f", as_hdr_white);
+		snprintf(peak, sizeof peak, "%.0f", as_hdr_peak);
+		/* No swapchain hint: on X the swapchain is plain sRGB 10-bit, and
+		 * the target options decide what goes into it. */
+		set_async(p, "target-colorspace-hint", "no");
+		set_async(p, "target-trc", "pq");
+		set_async(p, "target-prim", as_hdr_p3 ? "display-p3" : "bt.2020");
+		set_async(p, "target-peak", peak);
+		set_async(p, "hdr-reference-white", white);
+		p->pq = 1;
+	} else if (p->pq) {
+		for (int i = 0; i < NHDR_OPTS; i++)
+			if (p->opt_saved[i])
+				set_async(p, hdr_opts[i], p->opt_saved[i]);
+		p->pq = 0;
+	}
+}
+
 /* Keeps each video window on its presenter's rectangle, mapped while the
  * video is visible. mpv follows its window's size and stops drawing while it
  * is unmapped (playback and audio go on). Runs every loop iteration. */
@@ -557,6 +621,14 @@ void player_tick(void)
 {
 	reap_players(0);
 	double s = as_scale;
+	int hdr_video = 0;
+	for (player *p = players; p; p = p->next) {
+		if (p->hdr_video && p->loaded && on_screen(p))
+			hdr_video = 1;
+		if (p->mpv && p->hdr_gen != as_hdr_gen)
+			hdr_follow(p);
+	}
+	window_set_hdr_video(hdr_video);
 	for (player *p = players; p; p = p->next) {
 		if (!p->vwin)
 			continue;
@@ -639,6 +711,10 @@ static void free_player(player *p)
 	for (int i = 0; i < p->npend; i++) {
 		free(p->pend_name[i]);
 		free(p->pend_json[i]);
+	}
+	for (int i = 0; i < NHDR_OPTS; i++) {
+		free(p->opt_cur[i]);
+		free(p->opt_saved[i]);
 	}
 	free(p->buffering_json);
 	free(p);
@@ -816,6 +892,9 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	}
 	mpv_set_wakeup_callback(m, on_wakeup, p);
 
+	mpv_observe_property(m, OBSERVE_GAMMA, "video-params/gamma", MPV_FORMAT_STRING);
+	for (int i = 0; i < NHDR_OPTS; i++)
+		mpv_observe_property(m, OBSERVE_HDR_OPT, hdr_opts[i], MPV_FORMAT_STRING);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "pause", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "paused-for-cache", MPV_FORMAT_NODE);

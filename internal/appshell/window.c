@@ -34,9 +34,14 @@ int as_win_w, as_win_h;
 int as_visible;
 int as_fullscreen;
 double as_scale = 1.0;
+int as_hdr;
+double as_hdr_white = 203, as_hdr_peak = 1000;
+int as_hdr_p3;
+unsigned as_hdr_gen;
 
-static int mapped, obscured;
+static int mapped, obscured, hdr_video;
 static Atom wm_delete, net_wm_state, net_wm_state_fs, net_wm_name, utf8_string;
+static Atom hdr_video_atom, hdr_output_atom;
 static XIM xim;
 static XIC xic;
 static Cursor cursors[80]; /* by X cursor font shape / 2 */
@@ -130,7 +135,8 @@ int window_init(void)
 		.background_pixel = 0,
 		.event_mask = StructureNotifyMask | ExposureMask | VisibilityChangeMask |
 			      KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
-			      PointerMotionMask | EnterWindowMask | LeaveWindowMask | FocusChangeMask,
+			      PointerMotionMask | EnterWindowMask | LeaveWindowMask | FocusChangeMask |
+			      PropertyChangeMask,
 	};
 	as_win = XCreateWindow(as_dpy, DefaultRootWindow(as_dpy), 0, 0, as_win_w, as_win_h, 0,
 			       vi->depth, InputOutput, vi->visual,
@@ -147,6 +153,8 @@ int window_init(void)
 	net_wm_state_fs = XInternAtom(as_dpy, "_NET_WM_STATE_FULLSCREEN", False);
 	net_wm_name = XInternAtom(as_dpy, "_NET_WM_NAME", False);
 	utf8_string = XInternAtom(as_dpy, "UTF8_STRING", False);
+	hdr_video_atom = XInternAtom(as_dpy, "_COLORMODE_HDR_VIDEO", False);
+	hdr_output_atom = XInternAtom(as_dpy, "_COLORMODE_HDR_OUTPUT", False);
 	XSetWMProtocols(as_dpy, as_win, &wm_delete, 1);
 	window_set_title(as_opts->title ? as_opts->title : "appshell");
 
@@ -222,6 +230,57 @@ void window_set_fullscreen(int on)
 	XFlush(as_dpy);
 	as_fullscreen = on;
 	bridge_send_event("window:fullscreen", on ? "[true]" : "[false]");
+}
+
+/* `colormode watch` (scripts repo): the window says it shows HDR video in
+ * _COLORMODE_HDR_VIDEO, with a client message to the root window. */
+void window_set_hdr_video(int on)
+{
+	if (on == hdr_video)
+		return;
+	hdr_video = on;
+	if (on) {
+		long one = 1;
+		XChangeProperty(as_dpy, as_win, hdr_video_atom, XA_CARDINAL, 32, PropModeReplace,
+				(unsigned char *)&one, 1);
+		XEvent ev = {0};
+		ev.xclient.type = ClientMessage;
+		ev.xclient.window = as_win;
+		ev.xclient.message_type = hdr_video_atom;
+		ev.xclient.format = 32;
+		ev.xclient.data.l[0] = 1;
+		XSendEvent(as_dpy, DefaultRootWindow(as_dpy), False, SubstructureNotifyMask, &ev);
+	} else {
+		XDeleteProperty(as_dpy, as_win, hdr_video_atom);
+	}
+	XFlush(as_dpy);
+}
+
+/* ... and colormode answers in _COLORMODE_HDR_OUTPUT: on, SDR white (nits),
+ * peak (nits), primaries (0 BT.2020, 1 Display P3). */
+static void read_hdr_output(void)
+{
+	Atom type;
+	int fmt;
+	unsigned long n = 0, after;
+	unsigned char *data = NULL;
+	long v[4] = {0, 203, 1000, 0};
+	if (XGetWindowProperty(as_dpy, as_win, hdr_output_atom, 0, 4, False, XA_CARDINAL, &type,
+			       &fmt, &n, &after, &data) == Success && data && fmt == 32)
+		for (unsigned long i = 0; i < n && i < 4; i++)
+			v[i] = ((long *)data)[i];
+	XFree(data);
+	int on = v[0] == 1, p3 = v[3] == 1;
+	double white = v[1] >= 10 ? (double)v[1] : 203, peak = v[2] >= 10 ? (double)v[2] : 1000;
+	if (on == as_hdr && (!on || (white == as_hdr_white && peak == as_hdr_peak && p3 == as_hdr_p3)))
+		return;
+	as_hdr = on;
+	as_hdr_white = white;
+	as_hdr_peak = peak;
+	as_hdr_p3 = p3;
+	as_hdr_gen++;
+	AS_LOG("window: the screen is %s (SDR white %.0f nits)\n", on ? "HDR" : "SDR", white);
+	as_request_redraw();
 }
 
 void window_minimize(void)
@@ -711,6 +770,10 @@ void window_handle_events(void)
 			break;
 		case Expose:
 			as_request_redraw();
+			break;
+		case PropertyNotify:
+			if (ev.xproperty.window == as_win && ev.xproperty.atom == hdr_output_atom)
+				read_hdr_output();
 			break;
 		case FocusIn:
 		case FocusOut: {
