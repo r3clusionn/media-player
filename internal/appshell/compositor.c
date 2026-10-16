@@ -6,6 +6,10 @@
  * <select> list) if one is open. CEF's GPU buffers are only valid during its
  * paint callback, so each page frame is copied into a texture of our own
  * there, and drawn whenever anything changes.
+ *
+ * While the screen is in HDR mode (as_hdr), the videos arrive as PQ (mpv
+ * renders them so) and the page and popup, which are sRGB, are turned into PQ
+ * light at the screen's SDR white as they are drawn.
  */
 #include "appshell.h"
 
@@ -21,6 +25,7 @@ static PFNEGLDESTROYIMAGEKHRPROC destroy_image;
 static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture;
 
 static GLuint prog, vao, u_rect, u_tex, import_tex, import_fbo;
+static GLuint prog_pq, u_rect_pq, u_tex_pq, u_white_pq, u_to_pq;
 
 typedef struct layer {
 	as_target t;
@@ -45,6 +50,27 @@ static const char *fs_src =
 	"in vec2 uv; out vec4 color;\n"
 	"uniform sampler2D tex;\n"
 	"void main() { color = texture(tex, uv); }\n";
+
+/* Premultiplied sRGB in, premultiplied PQ out. */
+static const char *fs_pq_src =
+	"#version 300 es\n"
+	"precision highp float;\n"
+	"in vec2 uv; out vec4 color;\n"
+	"uniform sampler2D tex;\n"
+	"uniform float white;\n"    /* the SDR white over PQ's 10000 nits */
+	"uniform mat3 to_target;\n" /* linear sRGB -> BT.2020 or Display P3 */
+	"vec3 eotf(vec3 v) {\n"
+	"  return mix(v / 12.92, pow((v + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), v));\n"
+	"}\n"
+	"vec3 pq(vec3 y) {\n"
+	"  vec3 p = pow(max(y, 0.0), vec3(0.1593017578125));\n"
+	"  return pow((0.8359375 + 18.8515625 * p) / (1.0 + 18.6875 * p), vec3(78.84375));\n"
+	"}\n"
+	"void main() {\n"
+	"  vec4 c = texture(tex, uv);\n"
+	"  vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);\n"
+	"  color = vec4(pq(to_target * eotf(rgb) * white) * c.a, c.a);\n"
+	"}\n";
 
 static GLuint compile(GLenum type, const char *src)
 {
@@ -77,6 +103,14 @@ int compositor_init(void)
 	glLinkProgram(prog);
 	u_rect = (GLuint)glGetUniformLocation(prog, "rect");
 	u_tex = (GLuint)glGetUniformLocation(prog, "tex");
+	prog_pq = glCreateProgram();
+	glAttachShader(prog_pq, compile(GL_VERTEX_SHADER, vs_src));
+	glAttachShader(prog_pq, compile(GL_FRAGMENT_SHADER, fs_pq_src));
+	glLinkProgram(prog_pq);
+	u_rect_pq = (GLuint)glGetUniformLocation(prog_pq, "rect");
+	u_tex_pq = (GLuint)glGetUniformLocation(prog_pq, "tex");
+	u_white_pq = (GLuint)glGetUniformLocation(prog_pq, "white");
+	u_to_pq = (GLuint)glGetUniformLocation(prog_pq, "to_target");
 	glGenVertexArrays(1, &vao);
 	glGenTextures(1, &import_tex);
 	glGenFramebuffers(1, &import_fbo);
@@ -115,24 +149,35 @@ static void free_target(as_target *t)
 	memset(t, 0, sizeof *t);
 }
 
-/* Draws texture tex over the pixel rectangle (top-left origin). */
-static void draw_tex(GLuint tex, int x, int y, int w, int h)
+/* Draws texture tex over the pixel rectangle (top-left origin); srgb: an sRGB
+ * layer, turned into PQ while the screen is in HDR mode. */
+static void draw_tex(GLuint tex, int x, int y, int w, int h, int srgb)
 {
+	/* Linear sRGB -> BT.2020 and -> Display P3, rows. */
+	static const float to2020[9] = {0.627404f, 0.329283f, 0.043313f, 0.069097f, 0.919540f,
+					0.011362f, 0.016391f, 0.088013f, 0.895595f};
+	static const float top3[9] = {0.822462f, 0.177538f, 0.0f, 0.033194f, 0.966806f,
+				      0.0f, 0.017083f, 0.072397f, 0.910520f};
 	float W = (float)as_win_w, H = (float)as_win_h;
-	glUseProgram(prog);
+	int pq = srgb && as_hdr;
+	glUseProgram(pq ? prog_pq : prog);
 	glBindVertexArray(vao);
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, tex);
-	glUniform1i((GLint)u_tex, 0);
-	glUniform4f((GLint)u_rect, 2.0f * x / W - 1.0f, 1.0f - 2.0f * (y + h) / H,
+	glUniform1i((GLint)(pq ? u_tex_pq : u_tex), 0);
+	glUniform4f((GLint)(pq ? u_rect_pq : u_rect), 2.0f * x / W - 1.0f, 1.0f - 2.0f * (y + h) / H,
 		    2.0f * w / W, 2.0f * h / H);
+	if (pq) {
+		glUniform1f((GLint)u_white_pq, (float)(as_hdr_white / 10000.0));
+		glUniformMatrix3fv((GLint)u_to_pq, 1, GL_TRUE, as_hdr_p3 ? top3 : to2020);
+	}
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
 void compositor_blit_texture(GLuint tex, int x, int y, int w, int h)
 {
 	glDisable(GL_BLEND);
-	draw_tex(tex, x, y, w, h);
+	draw_tex(tex, x, y, w, h, 0);
 }
 
 void compositor_page_from_dmabuf(int is_popup, const void *paint_info)
@@ -232,10 +277,10 @@ void compositor_draw(void)
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* CEF's pixels are premultiplied */
 	if (page.valid)
-		draw_tex(page.t.tex, 0, 0, page.t.w, page.t.h);
+		draw_tex(page.t.tex, 0, 0, page.t.w, page.t.h, 1);
 	if (popup_show && popup.valid) {
 		double s = as_scale;
-		draw_tex(popup.t.tex, (int)(popup_x * s), (int)(popup_y * s), popup.t.w, popup.t.h);
+		draw_tex(popup.t.tex, (int)(popup_x * s), (int)(popup_y * s), popup.t.w, popup.t.h, 1);
 	}
 	glDisable(GL_BLEND);
 }
@@ -250,4 +295,6 @@ void compositor_destroy(void)
 		glDeleteFramebuffers(1, &import_fbo);
 	if (prog)
 		glDeleteProgram(prog);
+	if (prog_pq)
+		glDeleteProgram(prog_pq);
 }

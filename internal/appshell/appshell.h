@@ -71,6 +71,13 @@ extern int as_visible;         /* mapped, not fully obscured, display on */
 extern int as_fullscreen;
 extern int as_depth;    /* bits per channel of the window: 8, or 10 at X depth 30 */
 extern double as_scale; /* device scale factor: opts->scale, else Xft.dpi / 96 */
+/* HDR: `colormode watch` puts the screen under the window into HDR (PQ) mode
+ * while the window shows HDR video fullscreen, and says so on the window. */
+extern int as_hdr;          /* the screen is in HDR mode: draw PQ */
+extern double as_hdr_white; /* its SDR white in nits (the page is drawn at it) */
+extern double as_hdr_peak;  /* the panel's peak in nits */
+extern int as_hdr_p3;       /* Display P3 primaries rather than BT.2020 */
+extern unsigned as_hdr_gen; /* bumped whenever the above change */
 
 int window_init(void);
 void window_handle_events(void);
@@ -78,6 +85,7 @@ void window_set_title(const char *utf8);
 void window_set_fullscreen(int on);
 void window_set_cursor(int cef_cursor_type);
 void window_minimize(void);
+void window_set_hdr_video(int on); /* the page shows HDR video */
 void window_inhibit_screensaver(int on);
 int window_display_on(void);
 int window_swap(void); /* returns 0 if skipped (not visible) */
