@@ -159,22 +159,27 @@ static char *utf8(const cef_string_t *s)
 	return r;
 }
 
-void as_page_send_raw(const char *json)
+void as_page_run_js(const char *code)
 {
 	if (!as_browser)
 		return;
 	cef_frame_t *f = as_browser->get_main_frame(as_browser);
 	if (!f)
 		return;
-	size_t n = strlen(json) + 64;
-	char *code = malloc(n);
-	snprintf(code, n, "window.__appshellRecv&&window.__appshellRecv(%s)", json);
 	cef_string_t c = str(code), u = str("appshell://bridge");
 	f->execute_java_script(f, &c, &u, 0);
 	cef_string_clear(&c);
 	cef_string_clear(&u);
-	free(code);
 	RELEASE(f);
+}
+
+void as_page_send_raw(const char *json)
+{
+	size_t n = strlen(json) + 64;
+	char *code = malloc(n);
+	snprintf(code, n, "window.__appshellRecv&&window.__appshellRecv(%s)", json);
+	as_page_run_js(code);
+	free(code);
 }
 
 /* ---- render handler -------------------------------------------------- */

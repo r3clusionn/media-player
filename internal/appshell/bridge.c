@@ -408,6 +408,32 @@ static int clipboard_write(const char *text)
 	return w == (ssize_t)strlen(text) && WIFEXITED(status) && WEXITSTATUS(status) == 0;
 }
 
+/* Pasting goes through the page, not Chromium's clipboard: Chromium's own X
+ * connection is never read in this shell, so its clipboard read would wait
+ * for SelectionNotify forever and freeze the renderer. window.c fetches the
+ * text on our connection; here it becomes a cancelable paste event (the
+ * magnet-link and upload handlers listen for it) and, if nobody cancels it,
+ * an insertText edit, which React sees as ordinary input. */
+void bridge_paste_text(const char *text, size_t len)
+{
+	yyjson_mut_doc *d = yyjson_mut_doc_new(NULL);
+	char *s = yyjson_mut_val_write(yyjson_mut_strncpy(d, text, len), 0, NULL);
+	yyjson_mut_doc_free(d);
+	if (!s)
+		return;
+	static const char fmt[] =
+		"(t=>{let d;try{d=new DataTransfer();d.setData('text/plain',t)}catch(_){}"
+		"const e=document.activeElement||document.body;"
+		"if(e.dispatchEvent(new ClipboardEvent('paste',{clipboardData:d,bubbles:true,cancelable:true})))"
+		"document.execCommand('insertText',false,t)})(%s)";
+	size_t n = strlen(s) + sizeof fmt;
+	char *code = malloc(n);
+	snprintf(code, n, fmt, s);
+	as_page_run_js(code);
+	free(code);
+	free(s);
+}
+
 /* ---- dispatch ------------------------------------------------------- */
 
 static void handle(const char *ch, yyjson_val *args, reply_t *r)

@@ -58,6 +58,7 @@ double as_now_ms(void);
 /* Copied at startup (see shell.c: Chromium reuses the environment's memory). */
 extern char as_home[4096], as_runtime_dir[4096];
 void as_page_send_raw(const char *json); /* window.__appshellRecv(json) */
+void as_page_run_js(const char *code);   /* in the main frame */
 extern int as_debug; /* APPSHELL_DEBUG */
 #define AS_LOG(...) do { if (as_debug) fprintf(stderr, "appshell: " __VA_ARGS__); } while (0)
 
@@ -133,6 +134,7 @@ void *stats_take(void *doc /* yyjson_mut_doc* */); /* yyjson_mut_val*, resets */
 
 void bridge_handle_message(const char *json); /* from __appshellPost */
 void bridge_send_event(const char *channel, const char *args_json /* JSON array or NULL */);
+void bridge_paste_text(const char *text, size_t len); /* as a paste event + insertText */
 int bridge_logging_enabled(void);
 void bridge_log_path(char *out, size_t n);
 
