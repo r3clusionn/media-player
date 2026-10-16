@@ -465,7 +465,7 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                             fieldClass="hover:bg-transparent hover:border-transparent px-0 ml-0 w-full"
                             size="sm"
                             value={mpvSettings.exactSrgbGamma}
-                            help="A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)"
+                            help="SDR only (ignored while the screen is in HDR). A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)"
                             onValueChange={checked => setMpvSettings(current => ({ ...current, exactSrgbGamma: checked }))}
                         />
                     </div>
