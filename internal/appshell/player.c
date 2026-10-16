@@ -982,6 +982,17 @@ static void command_strings(player *p, reply_t *r, const char **argv)
 
 static void set_string(player *p, reply_t *r, const char *name, const char *value)
 {
+	/* While the screen is HDR these options belong to hdr_follow; the page's
+	 * value (e.g. the exact sRGB gamma switch) is for SDR, so it waits in
+	 * opt_saved until the screen goes back. Setting target-trc here would
+	 * replace PQ and darken the picture. */
+	if (p->pq)
+		for (int i = 0; i < NHDR_OPTS; i++)
+			if (!strcmp(name, hdr_opts[i])) {
+				free(p->opt_saved[i]);
+				p->opt_saved[i] = strdup(value);
+				return;
+			}
 	char *v = (char *)value;
 	int err = mpv_set_property_async(p->mpv, defer(r, name), name, MPV_FORMAT_STRING, &v);
 	if (err < 0) {
