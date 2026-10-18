@@ -55,6 +55,18 @@ typedef struct player {
 	Damage damage;
 	int vx, vy, vw, vh;   /* its rectangle in the main window, pixels */
 	int vmapped;
+	int dx, dy, dw, dh;   /* where it is drawn: the presenter's latest rectangle, pixels */
+	int tw, th;           /* the size it is heading to, and since when (resizes wait for it) */
+	double moved_at;
+	int on_top;           /* the page cut no holes for it: drawn over the page */
+	int stale;            /* resized: the texture still holds the old size's frame, */
+	int stale_damages;    /* until mpv has drawn the whole new size twice */
+	double stale_since;   /* (or a paused video's single redraw, after a while) */
+	int tex_w, tex_h;     /* the size of the frame in the texture (the window's when bound) */
+	double radius;        /* the corners it sits in (the mini player's), DIP */
+	double under_at;      /* back under the page only once the page has painted its holes: */
+	unsigned long under_frames; /* this many page frames, or under_at at the latest */
+	int vo_configured;    /* mpv's vo-configured: it sizes its window to ours */
 	int have_frame;       /* mpv drew since the last map or resize */
 	Pixmap pixmap;        /* its contents, named for the current size */
 	EGLImage image;
@@ -373,6 +385,7 @@ void player_process_events(void)
 					}
 					if (!strcmp(pr->name, "pause")) p->paused = flag;
 					else if (!strcmp(pr->name, "core-idle")) p->idle = flag;
+					else if (!strcmp(pr->name, "vo-configured")) p->vo_configured = flag;
 					else if (!strcmp(pr->name, "paused-for-cache")) {
 						p->paused_for_cache = flag;
 						queue_property(p, "cache-buffering-state",
@@ -510,6 +523,7 @@ static void video_release(player *p)
 		XFreePixmap(as_dpy, p->pixmap);
 	p->pixmap = 0;
 	p->have_frame = 0;
+	p->stale = 0;
 }
 
 static void video_window_destroy(player *p)
@@ -548,6 +562,8 @@ static int video_bind(player *p)
 		glGenTextures(1, &p->tex);
 	glBindTexture(GL_TEXTURE_2D, p->tex);
 	image_target_texture(GL_TEXTURE_2D, p->image);
+	p->tex_w = p->vw;
+	p->tex_h = p->vh;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -566,6 +582,15 @@ int player_handle_xevent(void *xevent)
 		if (p->damage != de->damage)
 			continue;
 		XDamageSubtract(as_dpy, p->damage, None, None);
+		if (p->stale) {
+			/* mpv can present one more frame of the old size, which X puts in the
+			 * top-left corner of the bigger window: wait for two that cover it. */
+			if (de->area.x + de->area.width >= p->vw - 2 && de->area.y + de->area.height >= p->vh - 2)
+				p->stale_damages++;
+			if (p->stale_damages < 2)
+				continue;
+			video_release(p);  /* the new size's frame: take the window's new pixmap */
+		}
 		if (p->vmapped) {
 			p->have_frame = 1;
 			stats_video(1, 0);
@@ -635,14 +660,57 @@ void player_tick(void)
 		if (as_visible && on_screen(p)) {
 			int x = (int)lround(p->rx * s), y = (int)lround(p->ry * s);
 			int w = (int)lround(p->rw * s), h = (int)lround(p->rh * s);
-			if (w != p->vw || h != p->vh)
-				video_release(p);
-			if (x != p->vx || y != p->vy || w != p->vw || h != p->vh) {
-				XMoveResizeWindow(as_dpy, p->vwin, x, y, w, h);
-				p->vx = x;
-				p->vy = y;
-				p->vw = w;
-				p->vh = h;
+			double now = as_now_ms();
+			/* Drawn at the latest rectangle, the last frame scaled to it. */
+			p->dx = x;
+			p->dy = y;
+			p->dw = w;
+			p->dh = h;
+			if (w != p->tw || h != p->th) {
+				p->tw = w;
+				p->th = h;
+				p->moved_at = now;
+			}
+			/* Until the video is configured, mpv's own window stays at its
+			 * 320x200 default while it renders for ours: any other size makes
+			 * libplacebo recreate the swapchain on every wakeup (hundreds while
+			 * the decoder starts; X keeps something from each, so after one such
+			 * storm per X session the next one fails and the video stays black).
+			 * Exactly that size until then, and mpv follows the real size after. */
+			if (!p->vo_configured) {
+				w = 320;
+				h = 200;
+			}
+			/* The window (mpv's swapchain) takes a new size only once it has
+			 * settled: resized every frame of the mini player's animation, mpv
+			 * rendered each size too late and the video trailed the page. */
+			if (w != p->vw || h != p->vh) {
+				if (!p->have_frame || !p->vw || now - p->moved_at >= 120) {
+					/* Keep showing the old frame, scaled, until mpv draws at the new
+					 * size (player_handle_xevent): released here, the video went
+					 * black for a few frames after every maximize. */
+					if (p->have_frame) {
+						p->stale = 1;
+						p->stale_damages = 0;
+						p->stale_since = now;
+					} else {
+						video_release(p);
+					}
+					XMoveResizeWindow(as_dpy, p->vwin, x, y, w, h);
+					p->vx = x;
+					p->vy = y;
+					p->vw = w;
+					p->vh = h;
+				} else {
+					as_request_redraw();  /* back here once it has settled */
+				}
+			}
+			if (now < p->under_at)
+				as_request_redraw();
+			if (p->stale && now - p->stale_since > 250) {
+				video_release(p);  /* a paused video draws once: take that */
+				p->have_frame = 1;
+				as_request_redraw();
 			}
 			if (!p->vmapped) {
 				video_release(p);
@@ -658,7 +726,12 @@ void player_tick(void)
 	}
 }
 
-/* Each visible video, under the page. */
+static int over_page(player *p)
+{
+	return p->on_top || (as_page_frames < p->under_frames && as_now_ms() < p->under_at);
+}
+
+/* Each visible video under the page, seen through the holes the page cuts for it. */
 void player_draw_all(void)
 {
 	for (player *p = players; p; p = p->next) {
@@ -666,7 +739,24 @@ void player_draw_all(void)
 			continue;
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glViewport(0, 0, as_win_w, as_win_h);
-		compositor_blit_texture(p->tex, p->vx, p->vy, p->vw, p->vh);
+		/* Not also where it was last under the page: the page is see-through around a
+		 * presented video, so a frame left there showed through it after minimizing. */
+		if (!over_page(p))
+			compositor_blit_video(p->tex, p->dx, p->dy, p->dw, p->dh, p->tex_w, p->tex_h, 0);
+	}
+}
+
+/* Videos the page cut no holes for (moving, or a mini player not under the pointer),
+ * over the page: holes cut by the page's main thread trail Chromium's compositor (a
+ * scroll, a transform animation) by a frame or more. Their controls are hidden meanwhile. */
+void player_draw_over(void)
+{
+	for (player *p = players; p; p = p->next) {
+		if (!p->vmapped || !p->have_frame || !over_page(p) || video_bind(p))
+			continue;
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		glViewport(0, 0, as_win_w, as_win_h);
+		compositor_blit_video(p->tex, p->dx, p->dy, p->dw, p->dh, p->tex_w, p->tex_h, (float)(p->radius * as_scale));
 	}
 }
 
@@ -904,6 +994,7 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_observe_property(m, OBSERVE_INTERNAL, "core-idle", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "paused-for-cache", MPV_FORMAT_NODE);
 	mpv_observe_property(m, OBSERVE_INTERNAL, "current-ao", MPV_FORMAT_NODE);
+	mpv_observe_property(m, OBSERVE_INTERNAL, "vo-configured", MPV_FORMAT_NODE);
 	/* @mpv-prism/core counts these as observed without asking for them: its
 	 * native addon watches them on creation (MpvPrismPlayer.js, 0.1.9). */
 	static const char *const prism_defaults[] = {
@@ -1174,9 +1265,19 @@ int player_handle_request(const char *ch, void *args_v, void *reply_v)
 			p->rw = yyjson_get_num(yyjson_obj_get(rect, "width"));
 			p->rh = yyjson_get_num(yyjson_obj_get(rect, "height"));
 			p->rect_visible = yyjson_get_bool(yyjson_obj_get(rect, "visible"));
+			p->radius = yyjson_get_num(yyjson_obj_get(rect, "radius"));
+			int top = yyjson_get_bool(yyjson_obj_get(rect, "onTop"));
+			if (p->on_top && !top) {
+				/* The holes are in the page's next frames (cutting them can repaint
+				 * the whole page): stay over it until two have arrived. */
+				p->under_frames = as_page_frames + 2;
+				p->under_at = as_now_ms() + 200;
+			}
+			p->on_top = top;
 		}
-		AS_LOG("presenter rect %s: has=%d visible=%d %.0f,%.0f %.0fx%.0f presenter=%d suspended=%d\n", p->id,
-		       p->has_rect, p->rect_visible, p->rx, p->ry, p->rw, p->rh, p->presenter, p->suspended);
+		AS_LOG("%.0f presenter rect %s: has=%d visible=%d %.0f,%.0f %.0fx%.0f onTop=%d radius=%.1f pageframes=%lu presenter=%d suspended=%d\n",
+		       as_now_ms(), p->id, p->has_rect, p->rect_visible, p->rx, p->ry, p->rw, p->rh, p->on_top, p->radius,
+		       as_page_frames, p->presenter, p->suspended);
 		as_request_redraw();
 	} else {
 		reply_error(r, "unknown mpv-prism call");

@@ -26,12 +26,14 @@ static PFNGLEGLIMAGETARGETTEXTURE2DOESPROC image_target_texture;
 
 static GLuint prog, vao, u_rect, u_tex, import_tex, import_fbo;
 static GLuint prog_pq, u_rect_pq, u_tex_pq, u_white_pq, u_to_pq;
+static GLuint prog_round, u_rect_round, u_tex_round, u_size_round, u_radius_round, u_fit_round;
 
 typedef struct layer {
 	as_target t;
 	int valid;
 } layer;
 static layer page, popup;
+unsigned long as_page_frames;
 static int popup_show, popup_x, popup_y, popup_w, popup_h; /* DIP */
 
 static const char *vs_src =
@@ -52,6 +54,28 @@ static const char *fs_src =
 	"void main() { color = texture(tex, uv); }\n";
 
 /* Premultiplied sRGB in, premultiplied PQ out. */
+/* A video frame in a rectangle: kept to its aspect with black bars when the texture
+ * is another size (an old frame scaled while mpv catches up), rounded corners (the mini
+ * player's) antialiased; premultiplied. */
+static const char *fs_round_src =
+	"#version 300 es\n"
+	"precision mediump float;\n"
+	"in vec2 uv; out vec4 color;\n"
+	"uniform sampler2D tex;\n"
+	"uniform vec2 size;\n"    /* the rectangle, pixels */
+	"uniform float radius;\n" /* its corners, pixels */
+	"uniform vec4 fit;\n"     /* where the frame goes in it: offset, scale (uv units) */
+	"void main() {\n"
+	/* signed distance to the rounded rectangle (negative inside; the min() term keeps
+	 * it negative when radius is 0, which otherwise left every pixel at half coverage) */
+	"  vec2 q = abs(uv * size - 0.5 * size) - (0.5 * size - radius);\n"
+	"  float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - radius;\n"
+	"  float a = clamp(0.5 - d, 0.0, 1.0);\n"
+	"  vec2 f = (uv - fit.xy) / fit.zw;\n"
+	"  vec3 c = all(greaterThanEqual(f, vec2(0.0))) && all(lessThanEqual(f, vec2(1.0))) ? texture(tex, f).rgb : vec3(0.0);\n"
+	"  color = vec4(c * a, a);\n"
+	"}\n";
+
 static const char *fs_pq_src =
 	"#version 300 es\n"
 	"precision highp float;\n"
@@ -111,6 +135,15 @@ int compositor_init(void)
 	u_tex_pq = (GLuint)glGetUniformLocation(prog_pq, "tex");
 	u_white_pq = (GLuint)glGetUniformLocation(prog_pq, "white");
 	u_to_pq = (GLuint)glGetUniformLocation(prog_pq, "to_target");
+	prog_round = glCreateProgram();
+	glAttachShader(prog_round, compile(GL_VERTEX_SHADER, vs_src));
+	glAttachShader(prog_round, compile(GL_FRAGMENT_SHADER, fs_round_src));
+	glLinkProgram(prog_round);
+	u_rect_round = (GLuint)glGetUniformLocation(prog_round, "rect");
+	u_tex_round = (GLuint)glGetUniformLocation(prog_round, "tex");
+	u_size_round = (GLuint)glGetUniformLocation(prog_round, "size");
+	u_radius_round = (GLuint)glGetUniformLocation(prog_round, "radius");
+	u_fit_round = (GLuint)glGetUniformLocation(prog_round, "fit");
 	glGenVertexArrays(1, &vao);
 	glGenTextures(1, &import_tex);
 	glGenFramebuffers(1, &import_fbo);
@@ -180,8 +213,44 @@ void compositor_blit_texture(GLuint tex, int x, int y, int w, int h)
 	draw_tex(tex, x, y, w, h, 0);
 }
 
+void compositor_blit_video(GLuint tex, int x, int y, int w, int h, int tw, int th, float radius)
+{
+	if (w < 2 || h < 2)
+		return;
+	float W = (float)as_win_w, H = (float)as_win_h;
+	float r = radius < 0.5f * w ? radius : 0.5f * w;
+	if (r > 0.5f * h)
+		r = 0.5f * h;
+	if (r < 0.0f)
+		r = 0.0f;
+	/* The frame keeps its aspect, centred (mpv's own letterboxing at that size). */
+	float sx = 1.0f, sy = 1.0f;
+	if (tw > 0 && th > 0) {
+		float ta = (float)tw / th, ra = (float)w / h;
+		if (ta > ra * 1.002f)
+			sy = ra / ta;
+		else if (ta < ra / 1.002f)
+			sx = ta / ra;
+	}
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+	glUseProgram(prog_round);
+	glBindVertexArray(vao);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glUniform1i((GLint)u_tex_round, 0);
+	glUniform4f((GLint)u_rect_round, 2.0f * x / W - 1.0f, 1.0f - 2.0f * (y + h) / H, 2.0f * w / W, 2.0f * h / H);
+	glUniform2f((GLint)u_size_round, (float)w, (float)h);
+	glUniform1f((GLint)u_radius_round, r);
+	glUniform4f((GLint)u_fit_round, 0.5f * (1.0f - sx), 0.5f * (1.0f - sy), sx, sy);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glDisable(GL_BLEND);
+}
+
 void compositor_page_from_dmabuf(int is_popup, const void *paint_info)
 {
+	if (!is_popup)
+		as_page_frames++;
 	const cef_accelerated_paint_info_t *info = paint_info;
 	int w = info->extra.coded_size.width, h = info->extra.coded_size.height;
 	if (info->plane_count < 1 || w < 1 || h < 1)
@@ -239,6 +308,8 @@ void compositor_page_from_dmabuf(int is_popup, const void *paint_info)
 
 void compositor_page_from_pixels(int is_popup, const void *bgra, int w, int h)
 {
+	if (!is_popup)
+		as_page_frames++;
 	layer *l = is_popup ? &popup : &page;
 	compositor_target_size(&l->t, w, h);
 	glBindTexture(GL_TEXTURE_2D, l->t.tex);
@@ -278,6 +349,9 @@ void compositor_draw(void)
 	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* CEF's pixels are premultiplied */
 	if (page.valid)
 		draw_tex(page.t.tex, 0, 0, page.t.w, page.t.h, 1);
+	player_draw_over();
+	glEnable(GL_BLEND);  /* the blit turned it off */
+	glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	if (popup_show && popup.valid) {
 		double s = as_scale;
 		draw_tex(popup.t.tex, (int)(popup_x * s), (int)(popup_y * s), popup.t.w, popup.t.h, 1);
@@ -297,4 +371,6 @@ void compositor_destroy(void)
 		glDeleteProgram(prog);
 	if (prog_pq)
 		glDeleteProgram(prog_pq);
+	if (prog_round)
+		glDeleteProgram(prog_round);
 }

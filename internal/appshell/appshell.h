@@ -70,6 +70,7 @@ extern EGLDisplay as_egl_dpy;
 extern int as_win_w, as_win_h; /* pixels */
 extern int as_visible;         /* mapped, not fully obscured, display on */
 extern int as_fullscreen;
+extern unsigned long as_page_frames; /* page frames received from CEF (not popups) */
 extern int as_depth;    /* bits per channel of the window: 8, or 10 at X depth 30 */
 extern double as_scale; /* device scale factor: opts->scale, else Xft.dpi / 96 */
 /* HDR: `colormode watch` puts the screen under the window into HDR (PQ) mode
@@ -100,7 +101,8 @@ int compositor_init(void);
 void compositor_page_from_dmabuf(int popup, const void *paint_info);
 void compositor_page_from_pixels(int popup, const void *bgra, int w, int h);
 void compositor_set_popup(int show, int x, int y, int w, int h); /* DIP */
-/* Draws video rects (via player_draw_all), then the page, then the popup. */
+/* Draws the videos under the page (player_draw_all), the page, the videos over it
+ * (player_draw_over), then the popup. */
 void compositor_draw(void);
 /* An offscreen RGBA8 copy of a page layer, reused between frames. */
 typedef struct as_target {
@@ -109,6 +111,8 @@ typedef struct as_target {
 } as_target;
 void compositor_target_size(as_target *t, int w, int h);
 void compositor_blit_texture(GLuint tex, int x, int y, int w, int h); /* pixels, top-left origin */
+/* A video frame of tw x th into x,y,w,h: aspect kept (black bars), corners rounded. */
+void compositor_blit_video(GLuint tex, int x, int y, int w, int h, int tw, int th, float radius);
 void compositor_destroy(void);
 
 /* ---- player.c --------------------------------------------------------- */
@@ -117,7 +121,8 @@ int player_handle_request(const char *ch, void *args /* yyjson_val* */, void *re
 void player_process_events(void); /* mpv events -> page */
 void player_tick(void);           /* video windows follow their presenters */
 int player_handle_xevent(void *xevent /* XEvent* */); /* 1: a video frame (Damage) */
-void player_draw_all(void);       /* the videos, into the current framebuffer */
+void player_draw_all(void);       /* the videos under the page, into the current framebuffer */
+void player_draw_over(void);      /* the videos drawn over the page */
 int player_any_playing(void);
 void player_destroy_all(void);
 

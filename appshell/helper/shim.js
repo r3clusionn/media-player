@@ -200,14 +200,19 @@
     const savedMask = new WeakMap()
     const lastMask = new WeakMap()
 
-    function setHole(el, x, y, w, h) {
+    function setHole(el, x, y, w, h, radius) {
         if (!savedMask.has(el)) {
             savedMask.set(el, [el.style.getPropertyValue("-webkit-mask"), el.style.getPropertyValue("-webkit-mask-composite"),
                 el.style.getPropertyValue("mask-composite")])
         }
         // Unchanged: leave the style alone (a write restyles and repaints the
         // whole element, which is most of the page).
-        const mask = `linear-gradient(#000 0 0), linear-gradient(#000 0 0) ${Math.round(x)}px ${Math.round(y)}px / ${Math.round(w)}px ${Math.round(h)}px no-repeat`
+        const W = Math.round(w), H = Math.round(h)
+        // Rounded like the mini player's frame: an SVG rectangle of the hole's own size.
+        const shape = radius > 0
+            ? `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}'><rect width='${W}' height='${H}' rx='${radius.toFixed(1)}'/></svg>`)}")`
+            : "linear-gradient(#000 0 0)"
+        const mask = `linear-gradient(#000 0 0), ${shape} ${Math.round(x)}px ${Math.round(y)}px / ${W}px ${H}px no-repeat`
         if (lastMask.get(el) === mask) return
         lastMask.set(el, mask)
         el.style.setProperty("-webkit-mask", mask, "important")
@@ -230,6 +235,11 @@
     }
 
     function updateHoles(p) {
+        if (!p.holesOn) {
+            for (const s of p.holed) clearHole(s)
+            p.holed = new Set()
+            return
+        }
         const hr = p.box.getBoundingClientRect()
         const holed = new Set()
         const host = p.el.closest("[data-mpv-prism-video-host]") || p.el.parentElement
@@ -246,7 +256,7 @@
                 if (!isNaN(sz) && !isNaN(nz) && sz > nz) continue
                 const sr = s.getBoundingClientRect()
                 if (!overlaps(sr, hr)) continue
-                setHole(s, hr.left - sr.left, hr.top - sr.top, hr.width, hr.height)
+                setHole(s, hr.left - sr.left, hr.top - sr.top, hr.width, hr.height, p.radius)
                 holed.add(s)
             }
         }
@@ -254,17 +264,68 @@
         p.holed = holed
     }
 
+    // Holes trail the screen: Chromium scrolls and runs transform animations on its
+    // compositor, and a hole cut by this (main) thread lands a frame or more later, so a
+    // video under the page showed a black, see-through ghost wherever it or the page had
+    // just been. So holes are cut only while the video stands still and either fills
+    // the window or has the pointer over it (a mini player's controls must then show
+    // over it). Otherwise the native side draws the video over the page
+    // (player_draw_over, "onTop"), its controls hidden.
+    const SETTLE_MS = 180
+
+    // The rounded frame the video sits in (the mini player's 0.5rem), on screen, CSS px:
+    // the nearest rounded ancestor that has the video's size (scaled by its transform).
+    function cornerRadius(p, r) {
+        for (let n = p.box, i = 0; n && i < 6; n = n.parentElement, i++) {
+            const rad = parseFloat(getComputedStyle(n).borderTopLeftRadius) || 0
+            if (!rad) continue
+            const nr = n.getBoundingClientRect()
+            if (Math.abs(nr.width - r.width) > 4 || Math.abs(nr.height - r.height) > 4) return 0
+            return rad * (n.offsetWidth ? nr.width / n.offsetWidth : 1)
+        }
+        return 0
+    }
+
+    // Returns true if the video's rectangle changed.
     function reportRect(p) {
+        const now = performance.now()
         const r = p.box.getBoundingClientRect()
         const visible = r.width > 1 && r.height > 1 && document.visibilityState === "visible"
-        const key = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)},${visible}`
-        if (key === p.lastKey) return
+        const geo = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)},${visible}`
+        const moved = geo !== p.lastGeo
+        if (moved) {
+            p.lastGeo = geo
+            p.movedAt = now
+        }
+        const mini = r.width * r.height < 0.5 * window.innerWidth * window.innerHeight
+        const holes = visible && now - p.movedAt > SETTLE_MS && (!mini || p.hovered)
+        p.radius = visible ? cornerRadius(p, r) : 0
+        const key = `${geo},${holes},${p.radius.toFixed(1)}`
+        if (key === p.lastKey) return moved
         p.lastKey = key
+        p.holesOn = holes
         updateHoles(p)
         send("mpv-prism:presenter-rect", p.playerId, p.presenterId, {
             left: r.left, top: r.top, width: r.width, height: r.height,
-            scaleFactor: window.devicePixelRatio || 1, visible,
+            scaleFactor: window.devicePixelRatio || 1, visible, onTop: visible && !holes, radius: p.radius,
         })
+        return moved
+    }
+
+    // While anything moves (scrolling, the mini player and fullscreen animations, a
+    // drag), report the box every frame (getBoundingClientRect includes transforms, so
+    // the video follows the animation), and once more after it settles, for the holes.
+    function track(p, ms) {
+        p.trackUntil = Math.max(p.trackUntil || 0, performance.now() + ms)
+        if (p.raf) return
+        const step = () => {
+            p.raf = 0
+            if (presenters.get(p.presenterId) !== p) return
+            reportRect(p)
+            const now = performance.now()
+            if (now < p.trackUntil || now - p.movedAt <= SETTLE_MS + 20) p.raf = requestAnimationFrame(step)
+        }
+        p.raf = requestAnimationFrame(step)
     }
 
     function startPresenter(playerId, presenterId) {
@@ -275,8 +336,12 @@
         seeThrough(el, true)
         // The video element itself is display:none; its host has the same box.
         const box = el.closest("[data-mpv-prism-video-host]") || el.parentElement || el
-        const p = { playerId, presenterId, el, box, lastKey: "", ticks: 0, holed: new Set() }
-        p.observer = new ResizeObserver(() => reportRect(p))
+        const p = { playerId, presenterId, el, box, lastKey: "", lastGeo: "", movedAt: 0, hovered: false, holesOn: false, radius: 0,
+            ticks: 0, raf: 0, holed: new Set() }
+        p.observer = new ResizeObserver(() => {
+            reportRect(p)
+            track(p, 600)
+        })
         p.observer.observe(box)
         // Position changes (scrolling, transforms, the mini player moving)
         // don't fire ResizeObserver; a cheap check every 100 ms catches them.
@@ -285,7 +350,7 @@
                 stopPresenter(presenterId)
                 return
             }
-            reportRect(p)
+            if (reportRect(p)) track(p, 400)
             // New page content can appear under the video without it moving.
             if (++p.ticks % 5 === 0) {
                 if (!p.el.hasAttribute("data-appshell-presented")) seeThrough(p.el, true)
@@ -294,6 +359,7 @@
         }, 100)
         presenters.set(presenterId, p)
         reportRect(p)
+        track(p, 0)  // until it settles: then its holes, if any
     }
 
     function stopPresenter(presenterId) {
@@ -302,12 +368,78 @@
         presenters.delete(presenterId)
         p.observer.disconnect()
         clearInterval(p.timer)
+        if (p.raf) cancelAnimationFrame(p.raf)
         seeThrough(p.el, false)
         for (const s of p.holed || []) clearHole(s)
         send("mpv-prism:presenter-rect", p.playerId, p.presenterId, null)
     }
 
     document.addEventListener("visibilitychange", () => presenters.forEach(p => { p.lastKey = ""; reportRect(p) }))
+
+    // mpv-core switches between the mini player and fullscreen inside
+    // document.startViewTransition: Chromium then animates snapshots of the page while the
+    // real layout jumps to the end at once, and the video, drawn natively at the real
+    // layout, jumped there too with the page animating around it. While a video is
+    // presented, run that update without a view transition: the drawer's own FLIP
+    // animation (element.animate, a transform) runs instead, and the video follows it
+    // frame by frame. Other view transitions (page navigation) are left alone.
+    const viewTransition = document.startViewTransition
+    if (typeof viewTransition === "function") {
+        document.startViewTransition = function (update) {
+            const root = document.documentElement
+            if (!presenters.size || !root || !root.hasAttribute("data-vc-miniplayer-view-transition"))
+                return viewTransition.call(document, update)
+            // The drawer skips its own animation while this attribute is set.
+            root.removeAttribute("data-vc-miniplayer-view-transition")
+            const done = Promise.resolve().then(() => typeof update === "function" ? update() : undefined)
+            return { finished: done, ready: done, updateCallbackDone: done, skipTransition() {} }
+        }
+    }
+
+    // Whether the pointer is over a presented video: a mini player cuts its holes (its
+    // controls then show over the video) only then.
+    document.addEventListener("pointermove", e => presenters.forEach(p => {
+        const r = p.box.getBoundingClientRect()
+        const inside = e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom
+        if (inside !== p.hovered) {
+            p.hovered = inside
+            reportRect(p)
+        }
+    }), { capture: true, passive: true })
+    window.addEventListener("mouseout", e => {
+        if (e.relatedTarget) return  // left the window
+        presenters.forEach(p => {
+            if (!p.hovered) return
+            p.hovered = false
+            reportRect(p)
+        })
+    })
+
+    // What starts the per-frame tracking (see track()):
+    // the page scrolling under a video (scroll events don't bubble, but capture
+    // listeners get them; scrolls inside menus over the player don't count),
+    document.addEventListener("scroll", e => {
+        if (e.target !== document && e.target !== document.scrollingElement) return
+        presenters.forEach(p => {
+            p.movedAt = performance.now()
+            reportRect(p)
+            track(p, 0)
+        })
+    }, { capture: true, passive: true })
+    // a CSS transition or animation on the player, inside it or around it,
+    const animating = e => presenters.forEach(p => {
+        if (e.target instanceof Node && (e.target.contains(p.box) || p.box.contains(e.target))) track(p, 1200)
+    })
+    document.addEventListener("transitionrun", animating, true)
+    document.addEventListener("animationstart", animating, true)
+    // and script-driven animations (a transform written every frame), which fire no
+    // events: a style or class change that moved the video.
+    // The shim runs before the page exists (no documentElement yet): start watching once it does.
+    const watchStyles = () => new MutationObserver(() => presenters.forEach(p => {
+        if (!p.raf && reportRect(p)) track(p, 600)
+    })).observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class"], subtree: true })
+    if (document.documentElement) watchStyles()
+    else document.addEventListener("DOMContentLoaded", watchStyles, { once: true })
 
     window.mpvPrism = {
         create: (playerId, options, ownerId) => call("mpv-prism:create", playerId, options || null, ownerId || null),
