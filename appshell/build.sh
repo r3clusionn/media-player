@@ -69,7 +69,11 @@ if [ $INSTALL = 1 ]; then
 	mkdir -p "$OPT" "$HOME/.local/bin"
 	cp -a --remove-destination "$DIST"/. "$OPT"/
 	# CEF ships with debug info (1.4 GB); the installed copy doesn't need it.
-	strip --strip-unneeded "$OPT/libcef.so"
+	# Only strip when it's still there: strip rewrites the file, which breaks the
+	# reflink cp -a made and leaves a full 260 MB copy.
+	if readelf -S "$OPT/libcef.so" | grep -q '\.debug_'; then
+		strip --strip-unneeded "$OPT/libcef.so"
+	fi
 	ln -sfn "$OPT/media-player" "$HOME/.local/bin/media-player"
 	echo "installed: $OPT, linked from ~/.local/bin/media-player"
 fi
