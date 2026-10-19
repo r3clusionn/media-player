@@ -1,3 +1,8 @@
+// The runtime re-reads the cgroup CPU limits in the background to update GOMAXPROCS
+// (Go 1.25+); nothing here runs under a CPU limit, and in a 2-minute profile of
+// media-player that was half of all the time spent in Go code.
+//go:debug updatemaxprocs=0
+
 package main
 
 import (
