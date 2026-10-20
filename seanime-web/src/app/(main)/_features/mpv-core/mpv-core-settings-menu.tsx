@@ -14,9 +14,7 @@ import {
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { Tooltip } from "@/components/ui/tooltip"
 import React from "react"
-import { AiFillInfoCircle } from "react-icons/ai"
 import { HiFastForward } from "react-icons/hi"
 import { ImFileText } from "react-icons/im"
 import { IoCaretForwardCircleOutline } from "react-icons/io5"
@@ -470,26 +468,6 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                             disabled={hasCustomDeband}
                             help={hasCustomDeband ? "Written in MPV config" : undefined}
                             onValueChange={checked => setMpvSettings(current => ({ ...current, deband: checked, debandChosen: true }))}
-                        />
-                        <Switch
-                            label={
-                                <span className="flex items-center gap-2">
-                                    Exact sRGB gamma
-                                    {/* the same hover info as the preset lists; a click on it doesn't toggle */}
-                                    <Tooltip
-                                        trigger={<span className="flex" onClick={e => e.preventDefault()}><AiFillInfoCircle className="text-sm" /></span>}
-                                        portalContainer={isFullscreen ? containerElement || undefined : undefined}
-                                        className="z-[150]"
-                                    >
-                                        SDR only (ignored while the screen is in HDR). A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)
-                                    </Tooltip>
-                                </span>
-                            }
-                            side="right"
-                            fieldClass="hover:bg-transparent hover:border-transparent px-0 ml-0 w-full"
-                            size="sm"
-                            value={mpvSettings.exactSrgbGamma}
-                            onValueChange={checked => setMpvSettings(current => ({ ...current, exactSrgbGamma: checked }))}
                         />
                     </div>
                     <p className="text-[--muted] text-sm mb-2">
