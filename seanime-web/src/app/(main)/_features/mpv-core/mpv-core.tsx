@@ -388,6 +388,75 @@ export function mc_artcnnLabel(preset: string) {
     return (mc_artcnnPresets.find(p => p.value === preset) ?? mc_artcnnPresets[0]).label
 }
 
+/*
+ * media-player: presets measured on the owner's laptop (Radeon 890M, video at
+ * 2880x1620, panel at 119.88 Hz; docs/shaders.md). Each starts with
+ * chroma-from-luma, which sharpens colour edges for 0.6 ms. A 24 fps frame
+ * has 41.7 ms, so Auto picks by the source's decoded size: HDR and anything
+ * bigger than 1080p get no shaders (already sharper than the screen, and
+ * Anime4K is trained on SDR), 1080p gets A+A Fast (20 ms; HQ takes 50 ms),
+ * 720p A+A HQ (25 ms) and SD C+A HQ, because A+A smears fine detail at SD.
+ */
+export type MpvCoreSourceInfo = { width: number, height: number, hdr: boolean }
+
+export const mc_recommendedPresets: { value: string, label: string, description: string }[] = [
+    {
+        value: "auto",
+        label: "Auto",
+        description: "Picks by the video: Crisp for 1080p, HQ chains for 720p and SD, none for 4K and HDR",
+    },
+    {
+        value: "crisp",
+        label: "Crisp",
+        description: "Sharp, dark lines for 1080p Blu-ray and web (Anime4K A+A Fast + CfL)",
+    },
+    {
+        value: "crisp-light",
+        label: "Crisp Light",
+        description: "The same look a little softer for a third less GPU: on battery (Anime4K A Fast + CfL)",
+    },
+    {
+        value: "clean",
+        label: "Clean & Crisp",
+        description: "Removes noise and blocking before sharpening: DVDs and rough rips (Anime4K C+A Fast + CfL)",
+    },
+]
+
+const recommendedChains: Record<string, [string, MpvCoreAnime4KQuality]> = {
+    "crisp": ["mode-aa", "fast"],
+    "crisp-light": ["mode-a", "fast"],
+    "clean": ["mode-ca", "fast"],
+}
+
+// Auto's chain for a source, or null for none (also while the size is unknown).
+function mc_autoChain(source: MpvCoreSourceInfo | null): [string, MpvCoreAnime4KQuality] | null {
+    if (!source || source.hdr) return null
+    const pixels = source.width * source.height
+    if (pixels > 2_200_000) return null // 1440p, 4K
+    if (pixels > 1_000_000) return ["mode-aa", "fast"] // 1080p, 1920x800, 1440x1080
+    if (pixels > 600_000) return ["mode-aa", "hq"] // 720p
+    return ["mode-ca", "hq"] // SD
+}
+
+export function mc_resolveRecommendedProfile(
+    directory: MpvCoreAnime4KDirectory | null,
+    preset: string,
+    source: MpvCoreSourceInfo | null,
+) {
+    const chain = preset === "auto" ? mc_autoChain(source) : (recommendedChains[preset] ?? recommendedChains.crisp)
+    if (!chain) return { paths: [] as string[], missing: [] as string[], chain: "none" }
+    const [mode, quality] = chain
+    return {
+        ...mc_resolveShaderFiles(directory, ["CfL_Prediction.glsl", ...anime4KProfiles[quality][mode]]),
+        // "mode-aa" -> "A+A"
+        chain: `${mode.replace("mode-", "").toUpperCase().split("").join("+")} ${quality === "hq" ? "HQ" : "Fast"} + CfL`,
+    }
+}
+
+export function mc_recommendedLabel(preset: string) {
+    return (mc_recommendedPresets.find(p => p.value === preset) ?? mc_recommendedPresets[0]).label
+}
+
 export function mc_resolveSource(value: string | undefined) {
     return (value ?? "").replace("{{SERVER_URL}}", getServerBaseUrl())
 }

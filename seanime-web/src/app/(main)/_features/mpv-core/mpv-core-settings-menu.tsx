@@ -14,7 +14,9 @@ import {
 import { useServerStatus } from "@/app/(main)/_hooks/use-server-status"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
+import { Tooltip } from "@/components/ui/tooltip"
 import React from "react"
+import { AiFillInfoCircle } from "react-icons/ai"
 import { HiFastForward } from "react-icons/hi"
 import { ImFileText } from "react-icons/im"
 import { IoCaretForwardCircleOutline } from "react-icons/io5"
@@ -22,7 +24,15 @@ import { LuChevronUp, LuHeading, LuPaintbrush, LuPalette, LuSettings2, LuSparkle
 import { MdOutlineAccessTime, MdOutlineSubtitles, MdSpeed } from "react-icons/md"
 import { RiShadowLine } from "react-icons/ri"
 import { TbArrowForwardUp } from "react-icons/tb"
-import { mc_artcnnLabel, mc_artcnnPresets, mc_parseCustomMpvConfig, mc_resolveAnime4KProfile, mc_resolveArtCNNProfile } from "./mpv-core"
+import {
+    mc_artcnnLabel,
+    mc_artcnnPresets,
+    mc_parseCustomMpvConfig,
+    mc_recommendedLabel,
+    mc_recommendedPresets,
+    mc_resolveAnime4KProfile,
+    mc_resolveArtCNNProfile,
+} from "./mpv-core"
 import { mpvCore_stateAtom } from "./mpv-core.atoms"
 import { useAtomValue } from "jotai"
 import type { MpvCoreAnime4KQuality, MpvCoreSettings, MpvCoreShaderMode, MpvCoreShaderSettings } from "./mpv-core.atoms"
@@ -229,9 +239,11 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                         shaderSettings.mode !== "off" && (
                             shaderSettings.mode === "custom"
                                 ? "Custom"
-                                : shaderSettings.mode === "artcnn"
-                                    ? mc_artcnnLabel(shaderSettings.artcnnPreset)
-                                    : `${shaderSettings.anime4kMode.replace("mode-", "").toUpperCase()} (${shaderSettings.anime4kQuality.toUpperCase()})`
+                                : shaderSettings.mode === "recommended"
+                                    ? mc_recommendedLabel(shaderSettings.recommendedPreset)
+                                    : shaderSettings.mode === "artcnn"
+                                        ? mc_artcnnLabel(shaderSettings.artcnnPreset)
+                                        : `${shaderSettings.anime4kMode.replace("mode-", "").toUpperCase()} (${shaderSettings.anime4kQuality.toUpperCase()})`
                         ),
                     ].filter(Boolean).join(", ") || "Off"}
                     openSection={openSection}
@@ -460,12 +472,23 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                             onValueChange={checked => setMpvSettings(current => ({ ...current, deband: checked, debandChosen: true }))}
                         />
                         <Switch
-                            label="Exact sRGB gamma"
+                            label={
+                                <span className="flex items-center gap-2">
+                                    Exact sRGB gamma
+                                    {/* the same hover info as the preset lists; a click on it doesn't toggle */}
+                                    <Tooltip
+                                        trigger={<span className="flex" onClick={e => e.preventDefault()}><AiFillInfoCircle className="text-sm" /></span>}
+                                        portalContainer={isFullscreen ? containerElement || undefined : undefined}
+                                        className="z-[150]"
+                                    >
+                                        SDR only (ignored while the screen is in HDR). A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)
+                                    </Tooltip>
+                                </span>
+                            }
                             side="right"
                             fieldClass="hover:bg-transparent hover:border-transparent px-0 ml-0 w-full"
                             size="sm"
                             value={mpvSettings.exactSrgbGamma}
-                            help="SDR only (ignored while the screen is in HDR). A/B test for dark scenes: encode for the panel's sRGB curve (deeper near-black)"
                             onValueChange={checked => setMpvSettings(current => ({ ...current, exactSrgbGamma: checked }))}
                         />
                     </div>
@@ -475,6 +498,11 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                     <MediaCoreSettingSelect
                         options={[
                             { label: "Off", value: "off" },
+                            {
+                                label: "Recommended",
+                                value: "recommended",
+                                description: "Presets measured on this laptop; Auto picks one by the video",
+                            },
                             { label: "Anime4K Preset", value: "anime4k", description: "Use Anime4K upscaling presets" },
                             { label: "ArtCNN Preset", value: "artcnn", description: "Faithful upscaling and sharper colour (ArtCNN, chroma-from-luma)" },
                             { label: "Custom Shaders", value: "custom", description: "Enable individual custom shaders" },
@@ -522,6 +550,22 @@ export function MpvCoreSettingsMenu(props: MpvCoreSettingsMenuProps) {
                                 onValueChange={value => setShaderSettings(current => ({
                                     ...current,
                                     anime4kQuality: value as MpvCoreAnime4KQuality,
+                                }))}
+                                isFullscreen={isFullscreen}
+                                containerElement={containerElement}
+                            />
+                        </>
+                    )}
+
+                    {shaderSettings.mode === "recommended" && (
+                        <>
+                            <p className="text-[--muted] text-sm my-2">Preset</p>
+                            <MediaCoreSettingSelect
+                                options={mc_recommendedPresets}
+                                value={shaderSettings.recommendedPreset}
+                                onValueChange={value => setShaderSettings(current => ({
+                                    ...current,
+                                    recommendedPreset: String(value),
                                 }))}
                                 isFullscreen={isFullscreen}
                                 containerElement={containerElement}

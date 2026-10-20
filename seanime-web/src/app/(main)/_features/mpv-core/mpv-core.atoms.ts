@@ -139,7 +139,7 @@ export const mc_settings = atom(
     },
 )
 
-export type MpvCoreShaderMode = "off" | "anime4k" | "artcnn" | "custom"
+export type MpvCoreShaderMode = "off" | "recommended" | "anime4k" | "artcnn" | "custom"
 export type MpvCoreAnime4KQuality = "fast" | "hq"
 
 export interface MpvCoreShaderSettings {
@@ -149,6 +149,8 @@ export interface MpvCoreShaderSettings {
     anime4kQuality: MpvCoreAnime4KQuality;
     // media-player: ArtCNN and chroma-from-luma presets (gpu-next shaders).
     artcnnPreset: string;
+    // media-player: presets measured on the owner's laptop (mc_recommendedPresets).
+    recommendedPreset: string;
     customShaders: string[];
 }
 
@@ -168,6 +170,7 @@ export const mc_shaderSettings = atom(
             anime4kMode: "mode-a",
             anime4kQuality: "fast",
             artcnnPreset: "c4f16",
+            recommendedPreset: "auto",
             customShaders: [],
             ...stored,
         } as MpvCoreShaderSettings
@@ -180,6 +183,7 @@ export const mc_shaderSettings = atom(
             anime4kMode: "mode-a",
             anime4kQuality: "fast",
             artcnnPreset: "c4f16",
+            recommendedPreset: "auto",
             customShaders: [],
             ...current,
         } as MpvCoreShaderSettings

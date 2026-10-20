@@ -12,9 +12,14 @@
 //     video frames shown and skipped.
 //
 //   node bench-playback.mjs [preset] [seconds] [seek]
-//   preset: none, a, aa, c, a-hq, c-hq, aa-hq (Seanime's Anime4K Fast/HQ
-//   chains), artcnn, artcnn-ds, artcnn-dn, cfl (the ArtCNN presets)
-import { readFileSync } from "node:fs"
+//   preset: none, a, aa, b, bb, c, ca, a-hq, c-hq, aa-hq (Seanime's Anime4K
+//   Fast/HQ chains), upm (the 2x M upscaler alone), any of those with "-cfl"
+//   (chroma-from-luma first), artcnn, artcnn-ds, artcnn-dn, cfl (the ArtCNN
+//   presets)
+//   SYNC=audio|display-resample sets mpv's video-sync for the run. STATS=file
+//   (mpv's dump-stats, set in the player's mpv.conf) adds the cadence: how many
+//   panel refreshes each new video frame stayed on screen.
+import { readFileSync, readdirSync, statSync, openSync, readSync, closeSync, existsSync } from "node:fs"
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { connect, sleep } from "./cdp.mjs"
@@ -28,7 +33,11 @@ const chains = {
     none: [],
     a: ["Clamp_Highlights", "Restore_CNN_M", "Upscale_CNN_x2_M", ...D, "Upscale_CNN_x2_S"],
     aa: ["Clamp_Highlights", "Restore_CNN_M", "Upscale_CNN_x2_M", "Restore_CNN_S", ...D, "Upscale_CNN_x2_S"],
+    b: ["Clamp_Highlights", "Restore_CNN_Soft_M", "Upscale_CNN_x2_M", ...D, "Upscale_CNN_x2_S"],
+    bb: ["Clamp_Highlights", "Restore_CNN_Soft_M", "Upscale_CNN_x2_M", "Restore_CNN_Soft_S", ...D, "Upscale_CNN_x2_S"],
     c: ["Clamp_Highlights", "Upscale_Denoise_CNN_x2_M", ...D, "Upscale_CNN_x2_S"],
+    ca: ["Clamp_Highlights", "Upscale_Denoise_CNN_x2_M", "Restore_CNN_M", ...D, "Upscale_CNN_x2_S"],
+    upm: ["Upscale_CNN_x2_M"],
     "a-hq": ["Clamp_Highlights", "Restore_CNN_VL", "Upscale_CNN_x2_VL", ...D, "Upscale_CNN_x2_M"],
     "c-hq": ["Clamp_Highlights", "Upscale_Denoise_CNN_x2_VL", ...D, "Upscale_CNN_x2_M"],
     "aa-hq": ["Clamp_Highlights", "Restore_CNN_VL", "Upscale_CNN_x2_VL", "Restore_CNN_M", ...D, "Upscale_CNN_x2_M"],
@@ -40,8 +49,12 @@ const files = {
     "artcnn-dn": ["CfL_Prediction", "ArtCNN_C4F16_DN"],
     cfl: ["CfL_Prediction"],
 }
-if (!chains[preset] && !files[preset]) throw new Error(`unknown preset ${preset}`)
-const shaders = chains[preset] ? chains[preset].map(n => join(dir, `Anime4K_${n}.glsl`)) : files[preset].map(n => join(dir, `${n}.glsl`))
+const base = preset.replace(/-cfl$/, "")
+if (!chains[base] && !files[base]) throw new Error(`unknown preset ${preset}`)
+const shaders = [
+    ...(base !== preset ? [join(dir, "CfL_Prediction.glsl")] : []),
+    ...(chains[base] ? chains[base].map(n => join(dir, `Anime4K_${n}.glsl`)) : files[base].map(n => join(dir, `${n}.glsl`))),
+]
 
 const page = await connect(Number(process.env.CDP_PORT || 9333))
 const pid = await page.eval(`(async () => {
@@ -60,6 +73,8 @@ const counters = async () => {
 }
 
 await page.eval(`window.mpvPrism.setShaders(${JSON.stringify(pid)}, ${JSON.stringify(shaders)})`)
+if (process.env.SYNC)
+    await page.eval(`window.mpvPrism.setProperty(${JSON.stringify(pid)}, "video-sync", ${JSON.stringify(process.env.SYNC)})`)
 await page.eval(`window.mpvPrism.seek(${JSON.stringify(pid)}, ${seekTo}, "absolute")`)
 await page.eval(`window.mpvPrism.play(${JSON.stringify(pid)})`)
 await sleep(6000) // shader compilation, cache refill
@@ -74,20 +89,32 @@ await page.eval(`(() => {
 const stats = () => page.eval(`window.__appshell.call("appshell:stats").catch(() => null)`)
 await stats()
 const c0 = await counters()
+const statsFile = process.env.STATS
+const statsFrom = statsFile && existsSync(statsFile) ? statSync(statsFile).size : 0
 const t0 = Date.now()
 const rtt = []
 const busy = []
 let i = 0
-const busyFile = "/sys/class/drm/card1/device/gpu_busy_percent"
+const card = ["card0", "card1"].find(c => existsSync(`/sys/class/drm/${c}/device/gpu_busy_percent`))
+const busyFile = `/sys/class/drm/${card}/device/gpu_busy_percent`
+// Package power (amdgpu's PPT sensor on an APU: the whole chip, in microwatts).
+const hwmon = `/sys/class/drm/${card}/device/hwmon`
+const powerFile = existsSync(hwmon) ? readdirSync(hwmon).map(h => `${hwmon}/${h}/power1_average`).find(existsSync) : null
+const power = []
 while (Date.now() - t0 < seconds * 1000) {
     const x = 1200 + (i % 2) * 200, y = 700 + (i % 3) * 60
     const s = performance.now()
     await page.send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y })
     rtt.push(performance.now() - s)
-    if (i % 4 === 0) try { busy.push(Number(readFileSync(busyFile, "utf8"))) } catch {}
+    if (i % 4 === 0) {
+        try { busy.push(Number(readFileSync(busyFile, "utf8"))) } catch {}
+        try { if (powerFile) power.push(Number(readFileSync(powerFile, "utf8")) / 1e6) } catch {}
+    }
     i++
     await sleep(50)
 }
+const statsTo = statsFile && existsSync(statsFile) ? statSync(statsFile).size : 0
+const sync = await prop("video-sync")
 const screen = await stats()
 const c1 = await counters()
 const frames = await page.eval(`(() => { window.__bench.on = false; return window.__bench.d })()`)
@@ -100,7 +127,7 @@ const mean = (a) => a.reduce((x, y) => x + y, 0) / (a.length || 1)
 const gpuMs = passes?.fresh ? passes.fresh.reduce((s, p) => s + p.avg, 0) / 1e6 : null
 const delta = Object.fromEntries(Object.keys(c0).map(k => [k, c1[k] - c0[k]]))
 const out = {
-    preset, seconds,
+    preset, seconds, sync,
     video: { fps: Number(fps)?.toFixed?.(3), gpuMsPerFrame: gpuMs && +gpuMs.toFixed(2), ...delta },
     page: {
         frames: frames.length, fps: +(1000 / mean(frames)).toFixed(1),
@@ -114,5 +141,35 @@ const out = {
         videoShown: screen.videoShown, videoSkipped: screen.videoSkipped,
     },
     gpuBusy: busy.length ? +mean(busy).toFixed(0) : null,
+    packageW: power.length ? +mean(power).toFixed(1) : null,
+    cadence: statsTo > statsFrom ? cadence(statsFile, statsFrom, statsTo) : null,
 }
 console.log(JSON.stringify(out))
+
+// Refreshes each new video frame stayed on screen, from mpv's dump-stats:
+// with display sync, a draw that logged a frame-duration drew a new frame;
+// with audio sync mpv only flips for new frames. A flip ends when mpv hands
+// the frame to the swapchain. 23.976 fps at 120 Hz is 5 throughout.
+function cadence(file, from, to) {
+    const everyFlip = sync === "audio"
+    const buf = Buffer.alloc(to - from)
+    const fd = openSync(file, "r")
+    readSync(fd, buf, 0, buf.length, from)
+    closeSync(fd)
+    const fresh = []
+    let pending = false
+    for (const line of buf.toString().split("\n")) {
+        const sp = line.indexOf(" ")
+        const t = Number(line.slice(0, sp)), what = line.slice(sp + 1).trim()
+        if (what === "start video-draw") pending = false
+        else if (what.endsWith(" frame-duration")) pending = true
+        else if (what === "end video-flip" && (pending || everyFlip)) { fresh.push(t); pending = false }
+    }
+    const refresh = 1e9 / 120
+    const hist = {}
+    for (let k = 1; k < fresh.length; k++) {
+        const n = Math.round((fresh[k] - fresh[k - 1]) / refresh)
+        hist[n] = (hist[n] || 0) + 1
+    }
+    return hist
+}

@@ -2,7 +2,6 @@ import type { Player_PlaybackInfo } from "@/api/generated/types"
 import type { MpvPrismTrack } from "@mpv-prism/core"
 import React from "react"
 import { mc_trackKind } from "./mpv-core"
-import type { MpvCoreAnime4KQuality, MpvCoreShaderMode } from "./mpv-core.atoms"
 
 export interface MpvCoreStatsProps {
     info: Player_PlaybackInfo | null
@@ -16,10 +15,8 @@ export interface MpvCoreStatsProps {
     speed: number
     buffering: boolean
     containerElement: HTMLElement | null
-    shaderMode: MpvCoreShaderMode
-    anime4kMode: string
-    anime4kQuality: MpvCoreAnime4KQuality
-    customShadersCount: number
+    // media-player: the active shader preset, or null when none runs
+    shaderLabel: string | null
 }
 
 export function MpvCoreStats(props: MpvCoreStatsProps) {
@@ -75,10 +72,21 @@ export function MpvCoreStats(props: MpvCoreStatsProps) {
     const freshPasses = (voPasses.fresh ?? []) as Array<Record<string, unknown>>
     let totalRenderTimeNs = 0
     let hasRenderPasses = false
+    // media-player: one line per shader rather than per pass (Anime4K A+A has
+    // about 40): consecutive passes of the same shader are added up.
+    const passGroups: { name: string, ns: number }[] = []
     if (Array.isArray(freshPasses) && freshPasses.length > 0) {
         hasRenderPasses = true
         for (const pass of freshPasses) {
-            totalRenderTimeNs += Number(pass.avg ?? pass.last ?? 0)
+            const ns = Number(pass.avg ?? pass.last ?? 0)
+            totalRenderTimeNs += ns
+            const name = String(pass.desc ?? "pass")
+                .replace(/ \(.*$/, "")
+                .replace(/-(Conv|Depth-to-Space|Compute-Statistics|Clamp)\b.*$/, "")
+                .replace(/^Anime4K-v[\d.]+-/, "Anime4K ")
+            const last = passGroups[passGroups.length - 1]
+            if (last?.name === name) last.ns += ns
+            else passGroups.push({ name, ns })
         }
     }
     const renderTimeMs = hasRenderPasses ? (totalRenderTimeNs / 1_000_000).toFixed(2) : null
@@ -141,9 +149,8 @@ export function MpvCoreStats(props: MpvCoreStatsProps) {
                     <>
                         <StatLine label="Avg Render Time" value={`${renderTimeMs} ms`} />
                         <div className="pl-4 border-l border-gray-800 space-y-0.5 my-1">
-                            {freshPasses.map((pass, idx) => {
-                                const name = String(pass.desc ?? `pass-${idx}`)
-                                const avgTime = (Number(pass.avg ?? pass.last ?? 0) / 1_000_000).toFixed(3)
+                            {passGroups.map(({ name, ns }, idx) => {
+                                const avgTime = (ns / 1_000_000).toFixed(3)
                                 return (
                                     <div key={idx} className="text-[10px] text-gray-400 flex justify-between gap-4">
                                         <span className="truncate" title={name}>{name}</span>
@@ -174,12 +181,7 @@ export function MpvCoreStats(props: MpvCoreStatsProps) {
                 />
                 <StatLine label="Hardware Decode" value={String(props.diagnostics["hwdec-current"] || "no")} />
                 <StatLine label="Container" value={String(props.diagnostics["file-format"] || props.info?.mimeType || "unknown")} />
-                {props.shaderMode === "anime4k" && (
-                    <StatLine label="Shaders" value={`Anime4K (${props.anime4kMode}) - ${props.anime4kQuality.toUpperCase()}`} />
-                )}
-                {props.shaderMode === "custom" && (
-                    <StatLine label="Shaders" value={`Custom (${props.customShadersCount} active)`} />
-                )}
+                {props.shaderLabel && <StatLine label="Shaders" value={props.shaderLabel} />}
             </div>
         </div>
     )

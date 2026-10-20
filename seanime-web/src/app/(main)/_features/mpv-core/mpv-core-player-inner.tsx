@@ -55,12 +55,15 @@ import {
     createMpvChapterCues,
     createSkipChapterCues,
     isEditableKeyboardTarget,
+    mc_artcnnLabel,
     mc_cacheBufferedSeconds,
     mc_formatAudioTrack,
     mc_formatSubtitleTrack,
     mc_parseCustomMpvConfig,
+    mc_recommendedLabel,
     mc_resolveAnime4KProfile,
     mc_resolveArtCNNProfile,
+    mc_resolveRecommendedProfile,
     mc_resolveSource,
     mc_selectPreferredTrack,
     mc_trackKind,
@@ -213,6 +216,7 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
                 "hwdec-current",
                 "chapter-list",
                 "vo-passes",
+                "video-out-params",
             ],
         }
         if (customMpvConfigPath) {
@@ -636,6 +640,33 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
         refreshAnime4KDirectory(shaderSettings.directory || undefined)
     }, [shaderSettings.directory, refreshAnime4KDirectory])
 
+    // media-player: the size and HDR of the frames the shaders get (after
+    // mpv's video filters, if any), which the Auto preset picks its chain by.
+    // Kept as a string so the shaders are only re-applied when one of them
+    // changes, and only while Auto is the preset.
+    const videoParams = (diagnostics["video-out-params"] ?? diagnostics["video-params"]) as Record<string, unknown> | undefined
+    const sourceKey = videoParams?.w ? `${videoParams.w}x${videoParams.h} ${videoParams.gamma}` : ""
+    const autoSourceKey = shaderSettings.mode === "recommended" && shaderSettings.recommendedPreset === "auto" ? sourceKey : ""
+    const shaderSource = React.useMemo(() => {
+        if (!sourceKey) return null
+        const [size, gamma] = sourceKey.split(" ")
+        const [width, height] = size.split("x").map(Number)
+        return { width, height, hdr: gamma === "pq" || gamma === "hlg" }
+    }, [sourceKey])
+    const autoSource = autoSourceKey ? shaderSource : null
+
+    // media-player: the Stats overlay's Shaders line, for every mode.
+    const shaderLabel = React.useMemo(() => {
+        if (shaderSettings.mode === "off" || (state.playbackInfo?.media?.id ?? 0) < 0) return null
+        if (shaderSettings.mode === "custom") return `Custom (${shaderSettings.customShaders?.length || 0} active)`
+        if (shaderSettings.mode === "artcnn") return `ArtCNN preset (${mc_artcnnLabel(shaderSettings.artcnnPreset)})`
+        if (shaderSettings.mode === "recommended") {
+            const chain = mc_resolveRecommendedProfile(null, shaderSettings.recommendedPreset, shaderSource).chain
+            return `${mc_recommendedLabel(shaderSettings.recommendedPreset)} (${chain})`
+        }
+        return `Anime4K (${shaderSettings.anime4kMode}) - ${shaderSettings.anime4kQuality.toUpperCase()}`
+    }, [shaderSettings, shaderSource, state.playbackInfo?.media?.id])
+
     const applyShaderSettings = React.useCallback(async (p: typeof player) => {
         if (!p) return
         try {
@@ -665,12 +696,20 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
                 return
             }
 
-            const profile = shaderSettings.mode === "artcnn"
-                ? mc_resolveArtCNNProfile(directory, shaderSettings.artcnnPreset)
-                : mc_resolveAnime4KProfile(directory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality)
+            const profile = shaderSettings.mode === "recommended"
+                ? mc_resolveRecommendedProfile(directory, shaderSettings.recommendedPreset, autoSource)
+                : shaderSettings.mode === "artcnn"
+                    ? mc_resolveArtCNNProfile(directory, shaderSettings.artcnnPreset)
+                    : mc_resolveAnime4KProfile(directory, shaderSettings.anime4kMode, shaderSettings.anime4kQuality)
             if (profile.missing.length) {
                 await p.clearShaders()
                 setAnime4kError(`Missing ${profile.missing.join(", ")}`)
+                return
+            }
+            // Auto with a 4K or HDR source (or before the source is known)
+            if (profile.paths.length === 0) {
+                await p.clearShaders()
+                setAnime4kError(null)
                 return
             }
             await p.setShaders(profile.paths)
@@ -686,7 +725,9 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
         shaderSettings.anime4kMode,
         shaderSettings.anime4kQuality,
         shaderSettings.artcnnPreset,
+        shaderSettings.recommendedPreset,
         shaderSettings.customShaders,
+        autoSource,
         refreshAnime4KDirectory,
     ])
 
@@ -698,6 +739,18 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
     React.useEffect(() => {
         applyShaderSettings(player)
     }, [player, applyShaderSettings])
+
+    // media-player: mpv never announces changes to vo-passes, so the Stats
+    // overlay's render times are read once a second while it is open.
+    React.useEffect(() => {
+        if (!showStats || !player) return
+        const timer = window.setInterval(() => {
+            player.getProperty("vo-passes")
+                .then(value => setDiagnostics(current => ({ ...current, "vo-passes": value })))
+                .catch(() => {})
+        }, 1000)
+        return () => window.clearInterval(timer)
+    }, [showStats, player])
 
     const sendEvent = React.useCallback((type: string, payload: unknown = {}) => {
         sendMessage({
@@ -1652,6 +1705,7 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
 
     const diagnosticsProperties = React.useMemo(() => new Set([
         "video-params",
+        "video-out-params",
         "audio-params",
         "estimated-vf-fps",
         "display-fps",
@@ -1801,10 +1855,7 @@ function MpvCorePlayerContent(props: MpvCorePlayerContentProps) {
                                         speed={speed}
                                         buffering={buffering}
                                         containerElement={containerElement}
-                                        shaderMode={shaderSettings.mode}
-                                        anime4kMode={shaderSettings.anime4kMode}
-                                        anime4kQuality={shaderSettings.anime4kQuality}
-                                        customShadersCount={shaderSettings.customShaders?.length || 0}
+                                        shaderLabel={shaderLabel}
                                     />
                                 )}
 

@@ -917,9 +917,13 @@ static void create(const char *id, yyjson_val *opts, reply_t *r)
 	mpv_set_option_string(m, "clipboard-backends", "");
 	/* Picture defaults; Seanime's custom mpv config can change them. */
 	mpv_set_option_string(m, "scale", "ewa_lanczossharp");
-	/* Frames timed to the panel's 120 Hz: 23.976 fps is 5.005 refreshes per
-	 * frame, so plain audio sync holds one frame an extra refresh every ~8 s. */
-	mpv_set_option_string(m, "video-sync", "display-resample");
+	/* Frames timed by the audio clock. The panel really runs at 119.88 Hz,
+	 * exactly 5 refreshes per 23.976 fps frame (4 per 29.97), so every frame
+	 * stays on screen for the same 5. display-resample drew the frame again
+	 * on every refresh (8 W more, 33 against 24 W) and, once a shader frame
+	 * took longer than one refresh (Anime4K A+A: 20 ms), skipped refreshes
+	 * and held frames for 4 or 6 (docs/shaders.md). */
+	mpv_set_option_string(m, "video-sync", "audio");
 	/* The Vulkan swapchain has the window's depth (10 bits at X depth 30),
 	 * but mpv's "auto" assumes 8 bits for Vulkan. */
 	mpv_set_option_string(m, "dither-depth", as_depth >= 10 ? "10" : "8");
