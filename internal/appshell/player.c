@@ -68,6 +68,7 @@ typedef struct player {
 	unsigned long under_frames; /* this many page frames, or under_at at the latest */
 	int vo_configured;    /* mpv's vo-configured: it sizes its window to ours */
 	int have_frame;       /* mpv drew since the last map or resize */
+	int kept;             /* unmapped with the window hidden: the last frame, shown until mpv draws again */
 	Pixmap pixmap;        /* its contents, named for the current size */
 	EGLImage image;
 	GLuint tex;
@@ -524,6 +525,7 @@ static void video_release(player *p)
 	p->pixmap = 0;
 	p->have_frame = 0;
 	p->stale = 0;
+	p->kept = 0;
 }
 
 static void video_window_destroy(player *p)
@@ -591,6 +593,8 @@ int player_handle_xevent(void *xevent)
 				continue;
 			video_release(p);  /* the new size's frame: take the window's new pixmap */
 		}
+		if (p->kept && p->vmapped)
+			video_release(p);  /* mpv's first frame since the remap: the new pixmap */
 		if (p->vmapped) {
 			p->have_frame = 1;
 			stats_video(1, 0);
@@ -648,7 +652,7 @@ void player_tick(void)
 	double s = as_scale;
 	int hdr_video = 0;
 	for (player *p = players; p; p = p->next) {
-		if (p->hdr_video && p->loaded && on_screen(p))
+		if (p->hdr_video && p->loaded && as_visible && on_screen(p))
 			hdr_video = 1;
 		if (p->mpv && p->hdr_gen != as_hdr_gen)
 			hdr_follow(p);
@@ -707,21 +711,34 @@ void player_tick(void)
 			}
 			if (now < p->under_at)
 				as_request_redraw();
-			if (p->stale && now - p->stale_since > 250) {
+			/* Not before mpv has drawn the new size once: until then the window holds
+			 * only its last old-size frame, top left, which flashed after maximizing
+			 * the mini player when mpv took this long. */
+			if (p->stale && now - p->stale_since > (p->stale_damages ? 250 : 1000)) {
+				AS_LOG("video: stale for %.0f ms, %d full frame(s)\n", now - p->stale_since, p->stale_damages);
 				video_release(p);  /* a paused video draws once: take that */
 				p->have_frame = 1;
 				as_request_redraw();
 			}
 			if (!p->vmapped) {
-				video_release(p);
+				if (!p->kept)
+					video_release(p);
 				XMapWindow(as_dpy, p->vwin);
 				p->vmapped = 1;
 			}
 		} else if (p->vmapped) {
 			XUnmapWindow(as_dpy, p->vwin);
 			p->vmapped = 0;
-			video_release(p);
+			/* Only the window hidden (another dwm tag): the old pixmap keeps mpv's last
+			 * frame, drawn when the window is back until mpv draws a new one; released,
+			 * the first frames back had nothing under the page's holes. */
+			if (!as_visible && on_screen(p) && p->have_frame && !p->stale)
+				p->kept = 1;
+			else
+				video_release(p);
 			as_request_redraw();
+		} else if (p->kept && as_visible) {
+			video_release(p);  /* back, but the video no longer is */
 		}
 	}
 }
@@ -1297,9 +1314,17 @@ static void reload_audio_outputs(void)
 	}
 }
 
+/* At exit, with the window already unmapped. An mpv that doesn't quit in time
+ * (its video thread was once stuck in a Vulkan present for good) is left to
+ * the process exit instead of holding it. */
 void player_destroy_all(void)
 {
 	while (players)
-		destroy(players, 1);
-	reap_players(1);
+		destroy(players, 0);
+	double until = as_now_ms() + 1500;
+	while (dying_players && as_now_ms() < until) {
+		reap_players(0);
+		if (dying_players)
+			usleep(10000);
+	}
 }

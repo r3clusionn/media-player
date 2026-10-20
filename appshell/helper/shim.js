@@ -290,7 +290,10 @@
     function reportRect(p) {
         const now = performance.now()
         const r = p.box.getBoundingClientRect()
-        const visible = r.width > 1 && r.height > 1 && document.visibilityState === "visible"
+        // Not document.visibilityState: hidden only because the window is (another dwm
+        // tag, minimized), which the native side handles. Counted as a move, it took the
+        // holes away, and the first frame back showed the page under the video.
+        const visible = r.width > 1 && r.height > 1
         const geo = `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)},${visible}`
         const moved = geo !== p.lastGeo
         if (moved) {

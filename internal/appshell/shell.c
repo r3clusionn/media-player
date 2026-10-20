@@ -89,8 +89,11 @@ void as_wake(void)
 
 void as_request_redraw(void) { redraw = 1; }
 
+static void arm_quit_watchdog(void);
+
 void appshell_request_quit(void)
 {
+	arm_quit_watchdog();  /* even if the main loop is stuck */
 	atomic_store(&quit_requested, 1);
 	as_wake();
 }
@@ -104,11 +107,25 @@ static void *quit_watchdog(void *arg)
 	return NULL;
 }
 
+/* Every way out arms it, from any thread: closing the window used to wait
+ * forever for an mpv stuck in a Vulkan present, the window black. */
+static void arm_quit_watchdog(void)
+{
+	static atomic_int armed;
+	pthread_t t;
+	if (!atomic_exchange(&armed, 1) && pthread_create(&t, NULL, quit_watchdog, NULL) == 0)
+		pthread_detach(t);
+}
+
 void as_quit(void)
 {
 	if (quitting)
 		return;
 	quitting = 1;
+	arm_quit_watchdog();
+	/* Gone from the screen at once, however long the players and CEF take. */
+	XUnmapWindow(as_dpy, as_win);
+	XFlush(as_dpy);
 	if (as_browser) {
 		cef_browser_host_t *h = as_browser->get_host(as_browser);
 		h->close_browser(h, 1);
@@ -631,12 +648,8 @@ int appshell_run(const appshell_opts *o)
 	int xfd = ConnectionNumber(as_dpy);
 	while (!closed) {
 		stats_loop_tick();
-		if (atomic_exchange(&quit_requested, 0) && !quitting) {
-			pthread_t t;
-			if (pthread_create(&t, NULL, quit_watchdog, NULL) == 0)
-				pthread_detach(t);
+		if (atomic_exchange(&quit_requested, 0))
 			as_quit();
-		}
 		window_handle_events();
 		/* CEF announces most work through on_schedule_message_pump_work, but
 		 * not all of it: like cefclient's external pump, run it at least
