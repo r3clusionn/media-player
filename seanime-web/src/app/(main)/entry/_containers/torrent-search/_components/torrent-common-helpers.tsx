@@ -7,6 +7,7 @@ import { useAtom } from "jotai/react"
 import { atomWithStorage } from "jotai/utils"
 import React, { useState } from "react"
 import { LiaMicrophoneSolid } from "react-icons/lia"
+import { MdHdrOn } from "react-icons/md"
 import { PiChatCircleDotsDuotone } from "react-icons/pi"
 import { TbArrowsSort, TbFilter, TbSortAscending, TbSortDescending } from "react-icons/tb"
 
@@ -21,6 +22,7 @@ export type TorrentFilters = {
     videoAvc: boolean,   // H.264/AVC
     videoHevc: boolean,  // H.265/HEVC
     videoAv1: boolean,   // AV1
+    videoHdr: boolean,   // HDR10/HDR10+/HLG/Dolby Vision
     audioAac: boolean,
     audioAc3: boolean,
     audioDts: boolean,
@@ -91,6 +93,8 @@ export const hasVideoTerm = (term: string, metadata: Torrent_TorrentMetadata | u
             return terms?.some(n => /265|hevc|h265/mi.test(n)) || false
         case "av1":
             return terms?.some(n => /av1|vp8/mi.test(n)) || false
+        case "hdr":
+            return terms?.some(n => /hdr|dolby|^dv$/mi.test(n)) || false
         default:
             return false
     }
@@ -117,8 +121,15 @@ export const hasAudioTerm = (term: string, metadata: Torrent_TorrentMetadata | u
     }
 }
 
+// media-player: habari only tags "HDR", "DV" and "Dolby Vision", so HDR10, HDR10+,
+// HLG and DoVi are also looked for in the name
+export const hasTorrentHdr = (name: string | undefined, metadata: Torrent_TorrentMetadata | undefined): boolean => {
+    return hasVideoTerm("hdr", metadata) || /\b(hdr(10)?\+?|hlg|dv|dovi|dolby[ ._-]?vision)\b/i.test(name ?? "")
+}
+
 // Generic interface for torrent-like objects
 interface TorrentLike {
+    name?: string
     seeders?: number
     size?: number
     date: string
@@ -129,6 +140,7 @@ interface TorrentLike {
 // Generic interface for preview-like objects
 interface PreviewLike {
     torrent?: {
+        name?: string
         seeders?: number
         size?: number
         date: string
@@ -208,6 +220,7 @@ export function filterItems<T extends TorrentLike | PreviewLike>(
         if (filters.videoHevc && !hasVideoTerm("hevc", metadata)) return false
         if (filters.videoAvc && !hasVideoTerm("avc", metadata)) return false
         if (filters.videoAv1 && !hasVideoTerm("av1", metadata)) return false
+        if (filters.videoHdr && !hasTorrentHdr(torrent.name, metadata)) return false
         if (filters.audioAc3 && !hasAudioTerm("ac3", metadata)) return false
         if (filters.audioEac3 && !hasAudioTerm("eac3", metadata)) return false
         if (filters.audioAac && !hasAudioTerm("aac", metadata)) return false
@@ -247,6 +260,7 @@ export function useTorrentFiltering() {
         videoAvc: false,
         videoHevc: false,
         videoAv1: false,
+        videoHdr: false,
         audioOpus: false,
         audioFlac: false,
         audioDts: false,
@@ -331,6 +345,13 @@ export const TorrentFilterSortControls: React.FC<{
                             </div>}
                             value={filters.dubbed}
                             onValueChange={(value) => onFilterChange("dubbed", value)}
+                        />
+                        <Checkbox
+                            label={<div className="flex items-center gap-1">
+                                <MdHdrOn className="text-lg text-[--orange]" /> HDR / Dolby Vision
+                            </div>}
+                            value={filters.videoHdr}
+                            onValueChange={(value) => onFilterChange("videoHdr", value)}
                         />
                         <Separator className="!my-2" />
                         <div className="grid grid-cols-2 gap-2">
