@@ -28,6 +28,7 @@
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/shape.h>
+#include <malloc.h>
 #include <math.h>
 #include <pthread.h>
 #include <stdatomic.h>
@@ -846,6 +847,10 @@ static void *terminate_main(void *arg)
 {
 	dying *d = arg;
 	mpv_terminate_destroy(d->p->mpv);
+	/* glibc keeps the freed demuxer cache (up to 384 MiB) in its arenas and
+	 * the next stream mostly doesn't reuse it: each episode added ~400 MiB
+	 * of RSS. Hand the free pages back. */
+	malloc_trim(0);
 	atomic_store(&d->done, 1);
 	as_wake();
 	return NULL;

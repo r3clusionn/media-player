@@ -47,7 +47,7 @@ rm -rf "$DIST/anime4k"; mkdir -p "$DIST/anime4k"; ln -f "$TP"/anime4k/*.glsl "$D
 echo "== appshell-helper"
 gcc -std=gnu11 -O2 -march=native -Wall -Wextra -Wno-unused-parameter \
 	-DSHIM_JS_PATH="\"$ROOT/appshell/helper/shim.js\"" -I "$TP/cef" \
-	appshell/helper/helper.c -o "$DIST/appshell-helper" \
+	appshell/helper/helper.c internal/appshell/mallinfo.c -o "$DIST/appshell-helper" \
 	-L "$DIST" -lcef -Wl,--disable-new-dtags,-rpath,'$ORIGIN'
 
 if [ $SKIP_WEB = 0 ]; then
